@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 
@@ -42,15 +44,54 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+interface FacilityEditData {
+  id: string;
+  name: string;
+  address: string | null;
+  notes: string | null;
+  customer: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    contactName: string | null;
+  };
+  contracts: Array<{
+    id: string;
+    contractNumber: string;
+    reviewFrequency: string;
+    customMonths: number[] | null;
+    startDate: string;
+    assignedTechnicianId: string | null;
+    valueWithoutVat: number | string | null;
+    valueWithoutVatPerYear: number | string | null;
+    smbPath: string | null;
+    customerEmail: string | null;
+    isActive: boolean;
+  }>;
+}
+
+function toNumber(v: number | string | null | undefined): number | undefined {
+  if (v == null || v === '') return undefined;
+  const n = parseFloat(String(v));
+  return isNaN(n) ? undefined : n;
+}
+
 export default function FacilityFormPage() {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const isEdit = id && id !== 'new';
+  const isEdit = !!id;
 
   const { data: technicians } = useQuery({
     queryKey: ['users-technicians'],
     queryFn: () => api.get<Array<{ id: string; name: string; role: string }>>('/users'),
+  });
+
+  const { data: facilityData, isLoading: loadingEdit } = useQuery({
+    queryKey: ['facility-edit', id],
+    queryFn: () => api.get<FacilityEditData>(`/facilities/${id}`),
+    enabled: isEdit,
   });
 
   const form = useForm<FormData>({
@@ -61,6 +102,29 @@ export default function FacilityFormPage() {
       startDate: new Date().toISOString().slice(0, 10),
     },
   });
+
+  // Populate form when edit data loads
+  useEffect(() => {
+    if (!facilityData) return;
+    const contract = facilityData.contracts.find((c) => c.isActive) ?? facilityData.contracts[0];
+    form.reset({
+      customerName: facilityData.customer.name,
+      customerEmail: facilityData.customer.email ?? '',
+      contactName: facilityData.customer.contactName ?? '',
+      phone: facilityData.customer.phone ?? '',
+      facilityName: facilityData.name,
+      facilityAddress: facilityData.address ?? '',
+      facilityNotes: facilityData.notes ?? '',
+      contractNumber: contract?.contractNumber ?? '',
+      reviewFrequency: (contract?.reviewFrequency as FormData['reviewFrequency']) ?? 'monthly',
+      customMonths: contract?.customMonths ?? [],
+      startDate: contract?.startDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      assignedTechnicianId: contract?.assignedTechnicianId ?? '',
+      valueWithoutVat: toNumber(contract?.valueWithoutVat),
+      valueWithoutVatPerYear: toNumber(contract?.valueWithoutVatPerYear),
+      smbPath: contract?.smbPath ?? '',
+    });
+  }, [facilityData]);
 
   const reviewFrequency = form.watch('reviewFrequency');
   const customMonths = form.watch('customMonths') ?? [];
@@ -110,9 +174,63 @@ export default function FacilityFormPage() {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       navigate(`/facilities/${facility.id}`);
     },
+    onError: () => toast.error(t('errors.validation')),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const contract = facilityData!.contracts.find((c) => c.isActive) ?? facilityData!.contracts[0];
+
+      await Promise.all([
+        api.patch(`/customers/${facilityData!.customer.id}`, {
+          name: data.customerName,
+          email: data.customerEmail || undefined,
+          contactName: data.contactName || undefined,
+          phone: data.phone || undefined,
+        }),
+        api.patch(`/facilities/${id}`, {
+          name: data.facilityName,
+          address: data.facilityAddress || undefined,
+          notes: data.facilityNotes || undefined,
+        }),
+      ]);
+
+      if (contract) {
+        await api.patch(`/contracts/${contract.id}`, {
+          contractNumber: data.contractNumber,
+          reviewFrequency: data.reviewFrequency,
+          customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
+          startDate: data.startDate,
+          assignedTechnicianId: data.assignedTechnicianId || undefined,
+          valueWithoutVat: data.valueWithoutVat ?? undefined,
+          valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
+          smbPath: data.smbPath || undefined,
+          customerEmail: data.customerEmail || undefined,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success(t('common.save'));
+      queryClient.invalidateQueries({ queryKey: ['facility', id] });
+      queryClient.invalidateQueries({ queryKey: ['facility-edit', id] });
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      navigate(`/facilities/${id}`);
+    },
+    onError: () => toast.error(t('errors.validation')),
   });
 
   const technicianOptions = (technicians ?? []).filter((u) => u.role === 'technician' || u.role === 'admin');
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  if (isEdit && loadingEdit) {
+    return (
+      <div className="space-y-4 max-w-3xl">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -120,11 +238,16 @@ export default function FacilityFormPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">{isEdit ? t('facility.editFacility') : t('facility.addFacility')}</h1>
+        <h1 className="text-2xl font-bold">
+          {isEdit ? t('facility.editFacility') : t('facility.addFacility')}
+        </h1>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-6">
+        <form
+          onSubmit={form.handleSubmit((d) => isEdit ? updateMutation.mutate(d) : createMutation.mutate(d))}
+          className="space-y-6"
+        >
           <Card>
             <CardHeader><CardTitle className="text-base">{t('facility.basicInfo')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -189,10 +312,14 @@ export default function FacilityFormPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="valueWithoutVat" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.valueExclVat')}</FormLabel><FormControl><Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>{t('contracts.valueExclVat')}</FormLabel><FormControl>
+                    <Input type="number" step="0.01" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                  </FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="valueWithoutVatPerYear" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.valueExclVatYear')}</FormLabel><FormControl><Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>{t('contracts.valueExclVatYear')}</FormLabel><FormControl>
+                    <Input type="number" step="0.01" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                  </FormControl><FormMessage /></FormItem>
                 )} />
               </div>
 
@@ -234,7 +361,7 @@ export default function FacilityFormPage() {
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>{t('common.cancel')}</Button>
-            <Button type="submit" disabled={createMutation.isPending}>{t('common.save')}</Button>
+            <Button type="submit" disabled={isPending}>{t('common.save')}</Button>
           </div>
         </form>
       </Form>

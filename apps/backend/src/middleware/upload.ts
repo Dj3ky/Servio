@@ -1,17 +1,14 @@
 import multer from 'multer';
-import { Request } from 'express';
 import { config } from '../config';
 
 export const pdfUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: config.uploadMaxSize },
-  fileFilter(_req: Request, file, cb) {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('errors.invalid_file_type'));
-    }
-  },
+});
+
+export const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: config.uploadMaxSize },
 });
 
 export const imageUpload = multer({

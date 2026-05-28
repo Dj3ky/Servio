@@ -5,6 +5,7 @@
     "delete": "Izbriši",
     "edit": "Uredi",
     "create": "Ustvari",
+    "execute": "Izvedite",
     "search": "Iskanje",
     "loading": "Nalaganje...",
     "noData": "Ni podatkov",
@@ -93,7 +94,14 @@
     "completedAt": "Dokončano ob",
     "completedBy": "Dokončal/a",
     "createReview": "Ustvari pregled",
-    "noReviewThisMonth": "Za ta mesec še ni ustvarjenega pregleda."
+    "noReviewThisMonth": "Za ta mesec še ni ustvarjenega pregleda.",
+    "uploadSuccess": "Pregled shranjen in poslan.",
+    "dropOrClick": "Povleci in spusti ali klikni za izbiro dokumenta",
+    "emailTemplate": "E-poštna predloga",
+    "emailSubject": "Zadeva e-pošte",
+    "emailBody": "Vsebina e-pošte",
+    "noTemplate": "— brez predloge —",
+    "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen."
   },
   "invoices": {
     "title": "Fakture",

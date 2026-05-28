@@ -4,12 +4,12 @@ import { db } from '../db';
 import { reviews, invoices, notifications } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { pdfUpload } from '../middleware/upload';
 import { createAuditLog } from '../utils/audit';
 import { saveToSmb, buildSmbPath } from '../services/smb';
 import { sendMail, renderTemplate } from '../services/email';
 import { broadcast } from '../ws';
 import { format } from 'date-fns';
+import { documentUpload } from '../middleware/upload';
 
 const router = Router();
 router.use(requireAuth);
@@ -108,12 +108,15 @@ router.post(
 router.post(
   '/:id/upload',
   requireRole('admin', 'manager', 'technician'),
-  pdfUpload.single('pdf'),
+  documentUpload.single('file'),
   async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {
       res.status(400).json({ error: 'errors.file_required' });
       return;
     }
+
+    const overrideSubject = (req.body as any).emailSubject as string | undefined;
+    const overrideBody = (req.body as any).emailBody as string | undefined;
 
     const review = await db.query.reviews.findFirst({
       where: (r, { eq }) => eq(r.id, req.params.id),
@@ -170,14 +173,15 @@ router.post(
         const template = contract.emailTemplate;
         const appName = settings?.appName ?? 'Servio';
         const monthLabel = format(scheduledDate, 'MMMM yyyy');
+        const vars = { customer_name: customer?.name ?? '', facility_name: facility?.name ?? '', month: format(scheduledDate, 'MMMM'), year: String(year), contract_number: contract.contractNumber, app_name: appName };
 
         const subject = renderTemplate(
-          template?.subject ?? `Maintenance Report – ${facility?.name} – ${monthLabel}`,
-          { customer_name: customer?.name ?? '', facility_name: facility?.name ?? '', month: format(scheduledDate, 'MMMM'), year: String(year), contract_number: contract.contractNumber, app_name: appName },
+          overrideSubject ?? template?.subject ?? `Maintenance Report – ${facility?.name} – ${monthLabel}`,
+          vars,
         );
         const body = renderTemplate(
-          template?.body ?? `Dear ${customer?.name},\n\nPlease find attached the maintenance report.\n\nBest regards,\n${appName}`,
-          { customer_name: customer?.name ?? '', facility_name: facility?.name ?? '', month: format(scheduledDate, 'MMMM'), year: String(year), contract_number: contract.contractNumber, app_name: appName },
+          overrideBody ?? template?.body ?? `Dear ${customer?.name},\n\nPlease find attached the maintenance report.\n\nBest regards,\n${appName}`,
+          vars,
         );
 
         await sendMail({

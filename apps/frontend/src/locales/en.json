@@ -5,6 +5,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
+    "execute": "Execute",
     "search": "Search",
     "loading": "Loading...",
     "noData": "No data",
@@ -93,7 +94,14 @@
     "completedAt": "Completed At",
     "completedBy": "Completed By",
     "createReview": "Create Review",
-    "noReviewThisMonth": "No review created for this month yet."
+    "noReviewThisMonth": "No review created for this month yet.",
+    "uploadSuccess": "Review saved and sent.",
+    "dropOrClick": "Drag & drop or click to select document",
+    "emailTemplate": "Email Template",
+    "emailSubject": "Email Subject",
+    "emailBody": "Email Body",
+    "noTemplate": "— no template —",
+    "noEmailConfigured": "No email address configured — document will only be saved."
   },
   "invoices": {
     "title": "Invoices",
