@@ -1,4 +1,5 @@
 import net from 'net';
+import domain from 'domain';
 import SMB2 from '@marsaud/smb2';
 import { db } from '../db';
 import { decrypt } from '../utils/crypto';
@@ -34,6 +35,16 @@ function createClient(cfg: SmbConfig): SMB2 {
   });
 }
 
+// Runs fn inside a Node.js domain so unhandled error events from @marsaud/smb2's
+// internal socket are caught and routed to reject instead of crashing the process.
+function runInDomain<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const d = domain.create();
+    d.on('error', reject);
+    d.run(() => fn().then(resolve, reject));
+  });
+}
+
 function checkTcpPort(host: string, port = 445, timeoutMs = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
@@ -50,13 +61,13 @@ export async function readFromSmb(remotePath: string): Promise<Buffer> {
   const cfg = await getSmbConfig();
   if (!cfg) throw new Error('SMB not configured');
 
-  const client = createClient(cfg);
-
-  return new Promise<Buffer>((resolve, reject) => {
-    (client as any).on('error', reject);
-    client.readFile(remotePath, (err: Error | null, data: Buffer) => {
-      if (err) reject(err);
-      else resolve(data);
+  return runInDomain(() => {
+    const client = createClient(cfg);
+    return new Promise<Buffer>((resolve, reject) => {
+      client.readFile(remotePath, (err: Error | null, data: Buffer) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
     });
   });
 }
@@ -65,21 +76,22 @@ export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<voi
   const cfg = await getSmbConfig();
   if (!cfg) throw new Error('SMB not configured');
 
-  const client = createClient(cfg);
+  return runInDomain(async () => {
+    const client = createClient(cfg);
 
-  const parts = remotePath.split('/');
-  parts.pop();
-  const dir = parts.join('/');
+    const parts = remotePath.split('/');
+    parts.pop();
+    const dir = parts.join('/');
 
-  if (dir) {
-    await ensureDir(client, dir);
-  }
+    if (dir) {
+      await ensureDir(client, dir);
+    }
 
-  await new Promise<void>((resolve, reject) => {
-    (client as any).on('error', reject);
-    client.writeFile(remotePath, buffer, (err) => {
-      if (err) reject(err);
-      else resolve();
+    await new Promise<void>((resolve, reject) => {
+      client.writeFile(remotePath, buffer, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
   });
 }
@@ -114,21 +126,19 @@ export async function testSmbConnection(): Promise<{ success: boolean; error?: s
       username: s.smbUsername,
       password: decrypt(s.smbPassEncrypted),
     };
-    const client = createClient(cfg);
 
-    await new Promise<void>((resolve, reject) => {
-      // @marsaud/smb2 can emit unhandled 'error' events that crash Node.js
-      (client as any).on('error', reject);
-
-      const timer = setTimeout(
-        () => reject(new Error('SMB authentication timed out — check credentials and share name.')),
-        10000,
-      );
-
-      client.readdir('', (err: Error | null) => {
-        clearTimeout(timer);
-        if (err) reject(err);
-        else resolve();
+    await runInDomain(() => {
+      const client = createClient(cfg);
+      return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error('SMB authentication timed out — check credentials and share name.')),
+          10000,
+        );
+        client.readdir('', (err: Error | null) => {
+          clearTimeout(timer);
+          if (err) reject(err);
+          else resolve();
+        });
       });
     });
 
