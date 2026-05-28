@@ -35,6 +35,7 @@ export const auditLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   action: auditActionSchema.optional(),
   entityType: z.string().optional(),
+  entityId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),

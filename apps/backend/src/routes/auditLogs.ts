@@ -14,7 +14,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const parsed = auditLogQuerySchema.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  const { page, limit, action, entityType, userId, from, to } = parsed.data;
+  const { page, limit, action, entityType, entityId, userId, from, to } = parsed.data;
   const offset = (page - 1) * limit;
 
   const data = await db.query.auditLogs.findMany({
@@ -22,6 +22,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       const conditions = [];
       if (action) conditions.push(eq(log.action, action));
       if (entityType) conditions.push(eq(log.entityType, entityType));
+      if (entityId) conditions.push(eq(log.entityId, entityId));
       if (userId) conditions.push(eq(log.userId, userId));
       if (from) conditions.push(gte(log.createdAt, new Date(from)));
       if (to) conditions.push(lte(log.createdAt, new Date(to)));

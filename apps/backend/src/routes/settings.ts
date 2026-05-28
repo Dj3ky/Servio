@@ -11,6 +11,7 @@ import {
   createEmailTemplateSchema,
   updateEmailTemplateSchema,
 } from '@servio/shared';
+import { createBackup } from '../services/backup';
 import { db } from '../db';
 import { settings, emailTemplates } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -174,6 +175,38 @@ router.patch('/templates/:id', requireRole('admin', 'manager'), async (req: Requ
 router.delete('/templates/:id', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   await db.delete(emailTemplates).where(eq(emailTemplates.id, req.params.id));
   res.json({ success: true });
+});
+
+router.post('/backup/create', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filePath = await createBackup();
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create_backup', payload: { filePath }, req });
+    res.json({ success: true, filePath });
+  } catch (err) {
+    res.status(500).json({ error: 'errors.internal', message: err instanceof Error ? err.message : 'Backup failed' });
+  }
+});
+
+router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Response): Promise<void> => {
+  const s = await db.query.settings.findFirst();
+  const backupPath = s?.backupPath ?? './backups';
+
+  try {
+    await fs.mkdir(backupPath, { recursive: true });
+    const files = await fs.readdir(backupPath);
+    const backups = await Promise.all(
+      files
+        .filter((f) => f.endsWith('.sql'))
+        .map(async (filename) => {
+          const stat = await fs.stat(path.join(backupPath, filename));
+          return { filename, size: stat.size, createdAt: stat.mtime.toISOString() };
+        }),
+    );
+    backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json(backups);
+  } catch {
+    res.json([]);
+  }
 });
 
 export default router;

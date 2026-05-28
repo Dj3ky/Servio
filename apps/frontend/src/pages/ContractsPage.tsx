@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -10,15 +10,28 @@ import {
   getSortedRowModel,
   type SortingState,
 } from '@tanstack/react-table';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useDebounce } from '@/hooks/useDebounce';
+
+interface ImportResult {
+  created: string[];
+  skipped: string[];
+  errors: string[];
+}
+
+function getToken() {
+  try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
+}
 
 interface ContractRow {
   id: string;
@@ -54,6 +67,31 @@ export default function ContractsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
+
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
+  async function handleCsvImport(file: File) {
+    setImporting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/contracts/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      const data: ImportResult = await res.json();
+      if (!res.ok) { toast.error(t('errors.internal')); return; }
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['contracts', debouncedSearch, page, sorting],
@@ -126,10 +164,23 @@ export default function ContractsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('contracts.title')}</h1>
         {canManage && (
-          <Button onClick={() => navigate('/facilities/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('contracts.addContract')}
-          </Button>
+          <div className="flex gap-2">
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvImport(f); e.target.value = ''; }}
+            />
+            <Button variant="outline" disabled={importing} onClick={() => csvInputRef.current?.click()}>
+              <FileUp className="mr-2 h-4 w-4" />
+              {importing ? t('common.loading') : t('contracts.importCsv')}
+            </Button>
+            <Button onClick={() => navigate('/facilities/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('contracts.addContract')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -194,6 +245,32 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!importResult} onOpenChange={(open) => { if (!open) setImportResult(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('contracts.importResult')}</DialogTitle>
+          </DialogHeader>
+          {importResult && (
+            <div className="space-y-3 text-sm">
+              <div className="flex gap-4">
+                <span className="text-green-600 font-medium">{t('contracts.importCreated')}: {importResult.created.length}</span>
+                <span className="text-yellow-600 font-medium">{t('contracts.importSkipped')}: {importResult.skipped.length}</span>
+                <span className="text-destructive font-medium">{t('contracts.importErrors')}: {importResult.errors.length}</span>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="rounded border border-destructive/30 bg-destructive/5 p-3 space-y-1 max-h-48 overflow-y-auto">
+                  {importResult.errors.map((e, i) => <p key={i} className="text-xs text-destructive">{e}</p>)}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">{t('contracts.importCsvHint')}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setImportResult(null)}>{t('common.close')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,21 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import ContractsPage from '@/pages/ContractsPage';
-import FacilityDetailPage from '@/pages/FacilityDetailPage';
-import FacilityFormPage from '@/pages/FacilityFormPage';
-import InvoiceQueuePage from '@/pages/InvoiceQueuePage';
-import ReportsPage from '@/pages/ReportsPage';
-import SettingsPage from '@/pages/SettingsPage';
-import UsersPage from '@/pages/UsersPage';
-import AuditLogPage from '@/pages/AuditLogPage';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ContractsPage = lazy(() => import('@/pages/ContractsPage'));
+const FacilityDetailPage = lazy(() => import('@/pages/FacilityDetailPage'));
+const FacilityFormPage = lazy(() => import('@/pages/FacilityFormPage'));
+const InvoiceQueuePage = lazy(() => import('@/pages/InvoiceQueuePage'));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const UsersPage = lazy(() => import('@/pages/UsersPage'));
+const AuditLogPage = lazy(() => import('@/pages/AuditLogPage'));
+
+function PageLoader() {
+  return (
+    <div className="p-6 space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
+}
+
+function withSuspense(element: React.ReactNode) {
+  return <Suspense fallback={<PageLoader />}>{element}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <LoginPage />,
+    element: withSuspense(<LoginPage />),
   },
   {
     path: '/',
@@ -25,49 +41,49 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'contracts', element: <ContractsPage /> },
-      { path: 'facilities/new', element: <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute> },
-      { path: 'facilities/:id/edit', element: <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute> },
-      { path: 'facilities/:id', element: <FacilityDetailPage /> },
+      { index: true, element: withSuspense(<DashboardPage />) },
+      { path: 'contracts', element: withSuspense(<ContractsPage />) },
+      {
+        path: 'facilities/new',
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute>,
+        ),
+      },
+      {
+        path: 'facilities/:id/edit',
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute>,
+        ),
+      },
+      { path: 'facilities/:id', element: withSuspense(<FacilityDetailPage />) },
       {
         path: 'invoices',
-        element: (
-          <ProtectedRoute roles={['admin', 'manager', 'accountant']}>
-            <InvoiceQueuePage />
-          </ProtectedRoute>
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager', 'accountant']}><InvoiceQueuePage /></ProtectedRoute>,
         ),
       },
       {
         path: 'reports',
-        element: (
-          <ProtectedRoute roles={['admin', 'manager', 'accountant']}>
-            <ReportsPage />
-          </ProtectedRoute>
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager', 'accountant']}><ReportsPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'users',
-        element: (
-          <ProtectedRoute roles={['admin', 'manager']}>
-            <UsersPage />
-          </ProtectedRoute>
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager']}><UsersPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'audit-log',
-        element: (
-          <ProtectedRoute roles={['admin', 'manager']}>
-            <AuditLogPage />
-          </ProtectedRoute>
+        element: withSuspense(
+          <ProtectedRoute roles={['admin', 'manager']}><AuditLogPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'settings',
-        element: (
-          <ProtectedRoute roles={['admin']}>
-            <SettingsPage />
-          </ProtectedRoute>
+        element: withSuspense(
+          <ProtectedRoute roles={['admin']}><SettingsPage /></ProtectedRoute>,
         ),
       },
     ],

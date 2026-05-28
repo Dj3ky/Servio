@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\" -Force)",
+      "Bash(Select-Object Name, FullName)"
     ]
   }
 }

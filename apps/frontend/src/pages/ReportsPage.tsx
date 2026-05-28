@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuthStore } from '@/stores/authStore';
 import { getMonthName } from '@/lib/utils';
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -25,12 +24,16 @@ async function downloadReport(url: string, filename: string) {
 
 export default function ReportsPage() {
   const { t, i18n } = useTranslation();
+
   const [year, setYear] = useState(CURRENT_YEAR);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState<string | null>(null);
 
-  const handleDownload = async (format: 'pdf' | 'xlsx') => {
-    setLoading(format);
+  const [yearlyYear, setYearlyYear] = useState(CURRENT_YEAR);
+  const [yearlyLoading, setYearlyLoading] = useState<string | null>(null);
+
+  const handleMonthlyDownload = async (format: 'pdf' | 'xlsx') => {
+    setMonthlyLoading(format);
     try {
       const url = `/api/reports/monthly/${format}?year=${year}&month=${month}`;
       const filename = `report_${year}_${String(month).padStart(2, '0')}.${format}`;
@@ -38,7 +41,20 @@ export default function ReportsPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(null);
+      setMonthlyLoading(null);
+    }
+  };
+
+  const handleYearlyDownload = async (format: 'pdf' | 'xlsx') => {
+    setYearlyLoading(format);
+    try {
+      const url = `/api/reports/yearly/${format}?year=${yearlyYear}`;
+      const filename = `report_${yearlyYear}.${format}`;
+      await downloadReport(url, filename);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setYearlyLoading(null);
     }
   };
 
@@ -55,9 +71,7 @@ export default function ReportsPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('reports.year')}</label>
               <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
                 </SelectContent>
@@ -67,23 +81,55 @@ export default function ReportsPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('reports.month')}</label>
               <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {MONTHS.map((m) => <SelectItem key={m} value={String(m)}>{getMonthName(m, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</SelectItem>)}
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {getMonthName(m, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" disabled={loading === 'pdf'} onClick={() => handleDownload('pdf')}>
+              <Button variant="outline" disabled={monthlyLoading === 'pdf'} onClick={() => handleMonthlyDownload('pdf')}>
                 <FileText className="mr-2 h-4 w-4" />
-                {loading === 'pdf' ? t('common.loading') : t('reports.exportPdf')}
+                {monthlyLoading === 'pdf' ? t('common.loading') : t('reports.exportPdf')}
               </Button>
-              <Button variant="outline" disabled={loading === 'xlsx'} onClick={() => handleDownload('xlsx')}>
+              <Button variant="outline" disabled={monthlyLoading === 'xlsx'} onClick={() => handleMonthlyDownload('xlsx')}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                {loading === 'xlsx' ? t('common.loading') : t('reports.exportXlsx')}
+                {monthlyLoading === 'xlsx' ? t('common.loading') : t('reports.exportXlsx')}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t('reports.yearly')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-4 flex-wrap">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('reports.year')}</label>
+              <Select value={String(yearlyYear)} onValueChange={(v) => setYearlyYear(Number(v))}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" disabled={yearlyLoading === 'pdf'} onClick={() => handleYearlyDownload('pdf')}>
+                <FileText className="mr-2 h-4 w-4" />
+                {yearlyLoading === 'pdf' ? t('common.loading') : t('reports.exportPdf')}
+              </Button>
+              <Button variant="outline" disabled={yearlyLoading === 'xlsx'} onClick={() => handleYearlyDownload('xlsx')}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {yearlyLoading === 'xlsx' ? t('common.loading') : t('reports.exportXlsx')}
               </Button>
             </div>
           </div>

@@ -44,6 +44,27 @@ export default function InvoiceQueuePage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, status, invoiceNumber }: { id: string; status: string; invoiceNumber?: string }) =>
       api.patch(`/invoices/${id}`, { status, invoiceNumber }),
+    onMutate: async ({ id, status, invoiceNumber }) => {
+      await queryClient.cancelQueries({ queryKey: ['invoices', 'pending'] });
+      const previous = queryClient.getQueryData<{ data: InvoiceQueueItem[] }>(['invoices', 'pending']);
+      queryClient.setQueryData<{ data: InvoiceQueueItem[] }>(['invoices', 'pending'], (old) => {
+        if (!old) return old;
+        if (status === 'completed') {
+          return { ...old, data: old.data.filter((inv) => inv.id !== id) };
+        }
+        return {
+          ...old,
+          data: old.data.map((inv) =>
+            inv.id === id ? { ...inv, status, invoiceNumber: invoiceNumber ?? inv.invoiceNumber } : inv,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['invoices', 'pending'], context.previous);
+      toast.error(t('errors.internal'));
+    },
     onSuccess: () => {
       toast.success(t('common.save'));
       queryClient.invalidateQueries({ queryKey: ['invoices'] });

@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, X } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, X, Trash2, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +50,11 @@ interface EmailTemplate {
   isDefault: boolean;
 }
 
+interface ContractDocument {
+  filename: string;
+  url: string;
+}
+
 interface FacilityDetail {
   id: string;
   name: string;
@@ -63,7 +68,23 @@ interface FacilityDetail {
     customerEmail: string | null;
     emailTemplateId: string | null;
     invoiceDelivery: 'email' | 'post' | 'e_invoice';
+    contractDocuments: ContractDocument[] | null;
+    startDate: string;
+    endDate: string | null;
+    valueWithoutVat: string | null;
+    valueWithoutVatPerYear: string | null;
   }>;
+}
+
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  userEmail: string | null;
+  ipAddress: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 function currentMonthIso() {
@@ -272,7 +293,10 @@ export default function FacilityDetailPage() {
   const [invoiceDialog, setInvoiceDialog] = useState<{ invoice: Invoice; targetStatus: string } | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
 
-  const { data: facility, isLoading: facilityLoading } = useQuery({
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const [docUploading, setDocUploading] = useState(false);
+
+  const { data: facility, isLoading: facilityLoading, refetch: refetchFacility } = useQuery({
     queryKey: ['facility', id],
     queryFn: () => api.get<FacilityDetail>(`/facilities/${id}`),
     enabled: !!id,
@@ -291,6 +315,31 @@ export default function FacilityDetailPage() {
     queryFn: () => api.get<{ data: Invoice[] }>(`/invoices?contractId=${activeContract!.id}&limit=50`),
     enabled: !!activeContract?.id,
   });
+
+  // Audit log for this facility (filtered by entityId)
+  const auditObserverRef = useRef<IntersectionObserver | null>(null);
+  const { data: auditData, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: auditLoading } = useInfiniteQuery({
+    queryKey: ['audit-logs-facility', id],
+    queryFn: ({ pageParam = 1 }) =>
+      api.get<{ data: AuditLogEntry[]; total: number; totalPages: number }>(
+        `/audit-logs?entityId=${id}&page=${pageParam}&limit=30`,
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      (lastPageParam as number) < lastPage.totalPages ? (lastPageParam as number) + 1 : undefined,
+    enabled: !!id,
+  });
+
+  const auditLoadMoreRef = useCallback((node: HTMLDivElement | null) => {
+    if (auditObserverRef.current) auditObserverRef.current.disconnect();
+    if (!node) return;
+    auditObserverRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage();
+    });
+    auditObserverRef.current.observe(node);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const auditEntries = auditData?.pages.flatMap((p) => p.data) ?? [];
 
   const createReviewMutation = useMutation({
     mutationFn: () =>
@@ -315,6 +364,24 @@ export default function FacilityDetailPage() {
   const updateInvoiceMutation = useMutation({
     mutationFn: ({ invoiceId, status, num }: { invoiceId: string; status: string; num?: string }) =>
       api.patch(`/invoices/${invoiceId}`, { status, invoiceNumber: num || undefined }),
+    onMutate: async ({ invoiceId, status, num }) => {
+      await queryClient.cancelQueries({ queryKey: ['invoices-facility', activeContract?.id] });
+      const previous = queryClient.getQueryData<{ data: Invoice[] }>(['invoices-facility', activeContract?.id]);
+      queryClient.setQueryData<{ data: Invoice[] }>(['invoices-facility', activeContract?.id], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((inv) =>
+            inv.id === invoiceId ? { ...inv, status, invoiceNumber: num || inv.invoiceNumber } : inv,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['invoices-facility', activeContract?.id], context.previous);
+      toast.error(t('errors.internal'));
+    },
     onSuccess: () => {
       toast.success(t('common.save'));
       refetchInvoices();
@@ -322,8 +389,35 @@ export default function FacilityDetailPage() {
       setInvoiceDialog(null);
       setInvoiceNumber('');
     },
+  });
+
+  const deleteDocMutation = useMutation({
+    mutationFn: ({ contractId, filename }: { contractId: string; filename: string }) =>
+      api.delete(`/contracts/${contractId}/documents/${encodeURIComponent(filename)}`),
+    onSuccess: () => { toast.success(t('common.delete')); refetchFacility(); },
     onError: () => toast.error(t('errors.internal')),
   });
+
+  async function handleDocUpload(file: File) {
+    if (!activeContract) return;
+    setDocUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`/api/contracts/${activeContract.id}/documents`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t('common.save'));
+      refetchFacility();
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setDocUploading(false);
+    }
+  }
 
   function openInvoiceDialog(invoice: Invoice, targetStatus: string) {
     setInvoiceDialog({ invoice, targetStatus });
@@ -332,6 +426,7 @@ export default function FacilityDetailPage() {
 
   const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician';
   const canManageInvoices = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'accountant';
+  const canManageContracts = user?.role === 'admin' || user?.role === 'manager';
 
   if (facilityLoading) {
     return (
@@ -381,6 +476,8 @@ export default function FacilityDetailPage() {
         : t('invoices.markSentPost')
     : '';
 
+  const contractDocs = activeContract?.contractDocuments ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -391,7 +488,7 @@ export default function FacilityDetailPage() {
           <h1 className="text-2xl font-bold">{facility.name}</h1>
           <p className="text-sm text-muted-foreground">{facility.customer.name}</p>
         </div>
-        {(user?.role === 'admin' || user?.role === 'manager') && (
+        {canManageContracts && (
           <Button className="ml-auto" onClick={() => navigate(`/facilities/${id}/edit`)}>
             {t('common.edit')}
           </Button>
@@ -403,6 +500,7 @@ export default function FacilityDetailPage() {
           <TabsTrigger value="reviews">{t('reviews.title')}</TabsTrigger>
           <TabsTrigger value="invoices">{t('invoices.title')}</TabsTrigger>
           <TabsTrigger value="contract">{t('nav.contracts')}</TabsTrigger>
+          <TabsTrigger value="auditlog">{t('nav.auditLog')}</TabsTrigger>
         </TabsList>
 
         {/* ── REVIEWS TAB ── */}
@@ -551,11 +649,11 @@ export default function FacilityDetailPage() {
         </TabsContent>
 
         {/* ── CONTRACT TAB ── */}
-        <TabsContent value="contract">
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              {facility.contracts.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-4 border rounded-lg">
+        <TabsContent value="contract" className="space-y-4">
+          {facility.contracts.map((c) => (
+            <Card key={c.id}>
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">#{c.contractNumber}</div>
                     <div className="text-sm text-muted-foreground">{t(`frequency.${c.reviewFrequency}` as any)}</div>
@@ -564,7 +662,97 @@ export default function FacilityDetailPage() {
                     {c.isActive ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </div>
+                {(c.startDate || c.endDate) && (
+                  <div className="text-sm text-muted-foreground">
+                    {c.startDate} {c.endDate ? `→ ${c.endDate}` : ''}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Contract documents */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">{t('facility.contractDocuments')}</CardTitle>
+              {canManageContracts && activeContract && (
+                <>
+                  <input
+                    ref={docInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(f); e.target.value = ''; }}
+                  />
+                  <Button size="sm" variant="outline" disabled={docUploading} onClick={() => docInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-1" />
+                    {docUploading ? t('common.loading') : t('common.upload')}
+                  </Button>
+                </>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {contractDocs.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">{t('common.noData')}</p>
+              ) : contractDocs.map((doc) => (
+                <div key={doc.url} className="flex items-center gap-3 rounded border px-3 py-2">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="flex-1 text-sm truncate">{doc.filename}</span>
+                  <div className="flex gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
+                      <a href={doc.url} download={doc.filename} target="_blank" rel="noreferrer">
+                        <FileDown className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                    {canManageContracts && activeContract && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteDocMutation.mutate({ contractId: activeContract.id, filename: doc.filename })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── AUDIT LOG TAB ── */}
+        <TabsContent value="auditlog">
+          <Card>
+            <CardContent className="pt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('auditLog.timestamp')}</TableHead>
+                    <TableHead>{t('auditLog.user')}</TableHead>
+                    <TableHead>{t('auditLog.action')}</TableHead>
+                    <TableHead>{t('auditLog.entity')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditLoading ? [...Array(5)].map((_, i) => (
+                    <TableRow key={i}>{[...Array(4)].map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}</TableRow>
+                  )) : auditEntries.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-10">{t('common.noData')}</TableCell></TableRow>
+                  ) : auditEntries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="text-xs">{formatDateTime(entry.createdAt)}</TableCell>
+                      <TableCell className="text-sm">{entry.userEmail ?? '-'}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">{entry.action}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{entry.entityType ?? '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {isFetchingNextPage && (
+                <div className="py-3 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
+              )}
+              <div ref={auditLoadMoreRef} className="h-4" />
             </CardContent>
           </Card>
         </TabsContent>
