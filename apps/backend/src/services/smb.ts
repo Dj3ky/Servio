@@ -1,8 +1,10 @@
+import net from 'net';
 import SMB2 from '@marsaud/smb2';
 import { db } from '../db';
 import { decrypt } from '../utils/crypto';
 
 interface SmbConfig {
+  host: string;
   share: string;
   domain: string;
   username: string;
@@ -14,6 +16,7 @@ async function getSmbConfig(): Promise<SmbConfig | null> {
   if (!s?.smbHost || !s.smbShare || !s.smbUsername || !s.smbPassEncrypted) return null;
 
   return {
+    host: s.smbHost,
     share: `\\\\${s.smbHost}\\${s.smbShare}`,
     domain: '',
     username: s.smbUsername,
@@ -28,6 +31,18 @@ function createClient(cfg: SmbConfig): SMB2 {
     username: cfg.username,
     password: cfg.password,
     autoCloseTimeout: 5000,
+  });
+}
+
+function checkTcpPort(host: string, port = 445, timeoutMs = 5000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeoutMs);
+    socket
+      .on('connect', () => { socket.destroy(); resolve(); })
+      .on('timeout', () => { socket.destroy(); reject(new Error(`Cannot reach ${host}:${port} — connection timed out. Check the SMB host address and firewall/port 445.`)); })
+      .on('error', (err) => reject(new Error(`Cannot reach ${host}:${port} — ${err.message}`)))
+      .connect(port, host);
   });
 }
 
@@ -74,29 +89,40 @@ async function ensureDir(client: SMB2, dirPath: string): Promise<void> {
   for (const part of parts) {
     current = current ? `${current}/${part}` : part;
     await new Promise<void>((resolve) => {
-      client.mkdir(current, (err) => {
-        resolve();
-      });
+      client.mkdir(current, () => resolve());
     });
   }
 }
 
 export async function testSmbConnection(): Promise<{ success: boolean; error?: string }> {
   try {
-    const cfg = await getSmbConfig();
-    if (!cfg) return { success: false, error: 'SMB not configured' };
+    const s = await db.query.settings.findFirst();
+    if (!s?.smbHost || !s.smbShare || !s.smbUsername || !s.smbPassEncrypted) {
+      return { success: false, error: 'SMB is not configured — fill in host, share, username and password.' };
+    }
 
+    // Step 1: fast TCP check — port 445 reachable?
+    await checkTcpPort(s.smbHost);
+
+    // Step 2: SMB authentication + share access
+    const cfg: SmbConfig = {
+      host: s.smbHost,
+      share: `\\\\${s.smbHost}\\${s.smbShare}`,
+      domain: '',
+      username: s.smbUsername,
+      password: decrypt(s.smbPassEncrypted),
+    };
     const client = createClient(cfg);
 
     await Promise.race([
       new Promise<void>((resolve, reject) => {
-        client.readdir('.', (err: Error | null) => {
+        client.readdir('', (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Connection timed out after 10 seconds')), 10000),
+        setTimeout(() => reject(new Error('SMB authentication timed out — check credentials and share name.')), 10000),
       ),
     ]);
 
