@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import {
@@ -31,6 +31,8 @@ interface AuditLogEntry {
   payload: Record<string, unknown> | null;
   createdAt: string;
 }
+
+const columnHelper = createColumnHelper<AuditLogEntry>();
 
 const ACTION_COLOR: Record<string, string> = {
   create: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400',
@@ -74,9 +76,7 @@ export default function AuditLogPage() {
   const entries = data?.pages.flatMap((p) => p.data) ?? [];
   const total = data?.pages[0]?.total ?? 0;
 
-  const columnHelper = createColumnHelper<AuditLogEntry>();
-
-  const columns = [
+  const columns = useMemo(() => [
     columnHelper.accessor('createdAt', {
       id: 'timestamp',
       header: t('auditLog.timestamp'),
@@ -115,7 +115,8 @@ export default function AuditLogPage() {
       header: t('auditLog.ipAddress'),
       cell: (info) => <span className="text-xs font-mono text-muted-foreground">{info.getValue() ?? '—'}</span>,
     }),
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [t]);
 
   const table = useReactTable({
     data: entries,

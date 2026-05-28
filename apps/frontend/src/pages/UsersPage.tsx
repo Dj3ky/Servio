@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -42,6 +42,8 @@ interface UserRow {
 }
 
 const resetPasswordSchema = z.object({ password: z.string().min(8) });
+
+const columnHelper = createColumnHelper<UserRow>();
 
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300',
@@ -91,9 +93,7 @@ export default function UsersPage() {
     onSuccess: () => { toast.success(t('common.save')); setResetOpen(null); resetForm.reset(); },
   });
 
-  const columnHelper = createColumnHelper<UserRow>();
-
-  const columns = [
+  const columns = useMemo(() => [
     columnHelper.accessor('name', {
       id: 'name',
       header: t('common.name'),
@@ -166,7 +166,8 @@ export default function UsersPage() {
         </TooltipProvider>
       ),
     }),
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [t]);
 
   const table = useReactTable({
     data: data ?? [],

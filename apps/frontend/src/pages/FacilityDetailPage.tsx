@@ -674,8 +674,7 @@ export default function FacilityDetailPage() {
                                 size="sm"
                                 variant="secondary"
                                 className="mt-1"
-                                disabled={sendAccountingMutation.isPending}
-                                onClick={() => sendAccountingMutation.mutate(inv.id)}
+                                onClick={() => setAccountingInvoice(inv)}
                               >
                                 {t('invoices.sendToAccounting')}
                               </Button>

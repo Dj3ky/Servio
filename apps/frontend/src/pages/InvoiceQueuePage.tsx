@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -8,7 +8,6 @@ import {
   getCoreRowModel,
   useReactTable,
   getSortedRowModel,
-  getFilteredRowModel,
   type SortingState,
   type ColumnVisibilityState,
 } from '@tanstack/react-table';
@@ -50,6 +49,8 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'secondary
 
 type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post';
 
+const columnHelper = createColumnHelper<InvoiceQueueItem>();
+
 export default function InvoiceQueuePage() {
   const { t } = useTranslation();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceQueueItem | null>(null);
@@ -57,7 +58,7 @@ export default function InvoiceQueuePage() {
   const [targetStatus, setTargetStatus] = useState<string>('');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
 
@@ -106,12 +107,26 @@ export default function InvoiceQueuePage() {
     setInvoiceNumber(invoice.invoiceNumber ?? '');
   };
 
-  const allInvoices = data?.data ?? [];
-  const filteredByStatus = allInvoices.filter((inv) => statusFilter === 'all' || inv.status === statusFilter);
+  // Manual filtering — avoids TanStack globalFilter re-render loop
+  const filteredData = useMemo(() => {
+    let rows = data?.data ?? [];
+    if (statusFilter !== 'all') {
+      rows = rows.filter((inv) => inv.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter((inv) =>
+        inv.review.contract.customer.name.toLowerCase().includes(q) ||
+        inv.review.contract.facility.name.toLowerCase().includes(q) ||
+        inv.review.contract.contractNumber.toLowerCase().includes(q) ||
+        inv.review.scheduledMonth.includes(q) ||
+        (inv.invoiceNumber ?? '').toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [data, statusFilter, search]);
 
-  const columnHelper = createColumnHelper<InvoiceQueueItem>();
-
-  const columns = [
+  const columns = useMemo(() => [
     columnHelper.accessor((row) => row.review.contract.customer.name, {
       id: 'customer',
       header: t('contracts.customer'),
@@ -165,30 +180,28 @@ export default function InvoiceQueuePage() {
             <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
               {t('invoices.markCompleted')}
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setAccountingInvoice(inv)}
-            >
+            <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
               {t('invoices.sendToAccounting')}
             </Button>
           </div>
         );
       },
     }),
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [t]);
 
   const table = useReactTable({
-    data: filteredByStatus,
+    data: filteredData,
     columns,
-    state: { sorting, columnVisibility, globalFilter },
+    state: { sorting, columnVisibility },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
   });
+
+  const allInvoices = data?.data ?? [];
+  const pendingCount = allInvoices.filter((i) => i.status === 'pending').length;
 
   const statusFilters: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: t('common.all') },
@@ -196,8 +209,6 @@ export default function InvoiceQueuePage() {
     { value: 'sent_email', label: t('invoices.sentEmail') },
     { value: 'sent_post', label: t('invoices.sentPost') },
   ];
-
-  const pendingCount = allInvoices.filter((i) => i.status === 'pending').length;
 
   return (
     <div className="space-y-4">
@@ -225,12 +236,11 @@ export default function InvoiceQueuePage() {
           <Input
             placeholder={t('common.search')}
             className="pl-9"
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        {/* Status filter pills */}
         <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
           {statusFilters.map((f) => (
             <button
