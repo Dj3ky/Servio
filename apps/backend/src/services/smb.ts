@@ -53,6 +53,7 @@ export async function readFromSmb(remotePath: string): Promise<Buffer> {
   const client = createClient(cfg);
 
   return new Promise<Buffer>((resolve, reject) => {
+    (client as any).on('error', reject);
     client.readFile(remotePath, (err: Error | null, data: Buffer) => {
       if (err) reject(err);
       else resolve(data);
@@ -75,6 +76,7 @@ export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<voi
   }
 
   await new Promise<void>((resolve, reject) => {
+    (client as any).on('error', reject);
     client.writeFile(remotePath, buffer, (err) => {
       if (err) reject(err);
       else resolve();
@@ -114,17 +116,21 @@ export async function testSmbConnection(): Promise<{ success: boolean; error?: s
     };
     const client = createClient(cfg);
 
-    await Promise.race([
-      new Promise<void>((resolve, reject) => {
-        client.readdir('', (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('SMB authentication timed out — check credentials and share name.')), 10000),
-      ),
-    ]);
+    await new Promise<void>((resolve, reject) => {
+      // @marsaud/smb2 can emit unhandled 'error' events that crash Node.js
+      (client as any).on('error', reject);
+
+      const timer = setTimeout(
+        () => reject(new Error('SMB authentication timed out — check credentials and share name.')),
+        10000,
+      );
+
+      client.readdir('', (err: Error | null) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     return { success: true };
   } catch (err) {
