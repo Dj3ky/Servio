@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\" -Force)",
-      "Bash(Select-Object Name, FullName)"
+      "Bash(Select-Object Name, FullName)",
+      "Bash(npx --prefix apps/backend tsx -e \"import\\('@marsaud/smb2'\\).then\\(m => console.log\\(Object.keys\\(m\\)\\)\\)\")"
     ]
   }
 }
