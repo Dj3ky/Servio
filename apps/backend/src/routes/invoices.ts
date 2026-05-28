@@ -1,0 +1,83 @@
+import { Router, Request, Response } from 'express';
+import { eq, sql } from 'drizzle-orm';
+import { updateInvoiceSchema } from '@servio/shared';
+import { db } from '../db';
+import { invoices } from '../db/schema';
+import { requireAuth } from '../middleware/auth';
+import { requireRole } from '../middleware/role';
+import { createAuditLog } from '../utils/audit';
+import { broadcast } from '../ws';
+
+const router = Router();
+router.use(requireAuth);
+router.use(requireRole('admin', 'manager', 'accountant'));
+
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  const status = req.query.status as string | undefined;
+  const contractId = req.query.contractId as string | undefined;
+  const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
+  const offset = (page - 1) * limit;
+
+  const data = await db.query.invoices.findMany({
+    where: (inv, { eq, and }) => {
+      const conditions = [];
+      if (status) conditions.push(eq(inv.status, status as any));
+      if (contractId) conditions.push(eq(inv.contractId, contractId));
+      return conditions.length > 0 ? and(...conditions) : undefined;
+    },
+    with: {
+      review: { with: { contract: { with: { customer: true, facility: true } } } },
+      completedBy: { columns: { id: true, name: true } },
+    },
+    limit,
+    offset,
+    orderBy: (inv, { desc }) => [desc(inv.createdAt)],
+  });
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(invoices).where(
+    status ? eq(invoices.status, status as any) : undefined,
+  );
+
+  res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
+});
+
+router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
+  const data = await db.query.invoices.findMany({
+    where: (inv, { eq }) => eq(inv.status, 'pending'),
+    with: {
+      review: { with: { contract: { with: { customer: true, facility: true } } } },
+    },
+    orderBy: (inv, { asc }) => [asc(inv.createdAt)],
+  });
+  res.json(data);
+});
+
+router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
+  const parsed = updateInvoiceSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const updates: Partial<typeof invoices.$inferInsert> = {
+    status: parsed.data.status,
+    notes: parsed.data.notes ?? null,
+  };
+
+  if (parsed.data.invoiceNumber !== undefined) updates.invoiceNumber = parsed.data.invoiceNumber;
+
+  if (parsed.data.status === 'completed') {
+    updates.completedAt = new Date();
+    updates.completedById = req.auth!.userId;
+  }
+
+  const [updated] = await db.update(invoices).set(updates).where(eq(invoices.id, req.params.id)).returning();
+  if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_invoice', entityType: 'invoice', entityId: req.params.id, payload: { status: parsed.data.status }, req });
+
+  broadcast('invoice_updated', { invoiceId: updated.id, contractId: updated.contractId, status: updated.status });
+  broadcast('dashboard_refresh', {});
+
+  res.json(updated);
+});
+
+export default router;

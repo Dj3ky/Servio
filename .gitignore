@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+coverage/
+.nyc_output/
+*.tsbuildinfo
+apps/frontend/dist/
+apps/backend/dist/
+packages/shared/dist/
+uploads/
+backups/
