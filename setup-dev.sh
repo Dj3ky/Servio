@@ -39,6 +39,11 @@ info "Installing dependencies..."
 npm install
 ok "Dependencies installed"
 
+# ── Shared package ───────────────────────────────────────────────────────────
+info "Building shared package..."
+npm run build --workspace=packages/shared
+ok "Shared package built"
+
 # ── Migrations ────────────────────────────────────────────────────────────────
 info "Generating migrations..."
 npm run db:generate
