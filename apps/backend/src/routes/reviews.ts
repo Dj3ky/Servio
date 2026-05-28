@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql, and } from 'drizzle-orm';
-import { completeReviewSchema } from '@servio/shared';
 import { db } from '../db';
 import { reviews, invoices, notifications } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -17,6 +16,7 @@ router.use(requireAuth);
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const contractId = req.query.contractId as string | undefined;
+  const facilityId = req.query.facilityId as string | undefined;
   const status = req.query.status as string | undefined;
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
@@ -26,6 +26,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     where: (r, { eq, and }) => {
       const conditions = [];
       if (contractId) conditions.push(eq(r.contractId, contractId));
+      if (facilityId) conditions.push(eq(r.facilityId, facilityId));
       if (status) conditions.push(eq(r.status, status as any));
       return conditions.length > 0 ? and(...conditions) : undefined;
     },
@@ -38,9 +39,13 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     orderBy: (r, { desc }) => [desc(r.scheduledMonth)],
   });
 
-  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(reviews).where(
+  const whereClause = and(
     contractId ? eq(reviews.contractId, contractId) : undefined,
+    facilityId ? eq(reviews.facilityId, facilityId) : undefined,
+    status ? eq(reviews.status, status as any) : undefined,
   );
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(reviews).where(whereClause);
 
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
 });
@@ -55,6 +60,50 @@ router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
   });
   res.json(data);
 });
+
+router.post(
+  '/',
+  requireRole('admin', 'manager', 'technician'),
+  async (req: Request, res: Response): Promise<void> => {
+    const { contractId, scheduledMonth } = req.body as { contractId?: string; scheduledMonth?: string };
+
+    if (!contractId || !scheduledMonth || !/^\d{4}-\d{2}-\d{2}$/.test(scheduledMonth)) {
+      res.status(400).json({ error: 'errors.validation' });
+      return;
+    }
+
+    const contract = await db.query.contracts.findFirst({
+      where: (c, { eq }) => eq(c.id, contractId),
+    });
+    if (!contract) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+    const existing = await db.query.reviews.findFirst({
+      where: (r, { eq, and }) => and(eq(r.contractId, contractId), eq(r.scheduledMonth, scheduledMonth)),
+    });
+    if (existing) { res.json(existing); return; }
+
+    const [review] = await db.insert(reviews).values({
+      contractId,
+      facilityId: contract.facilityId,
+      scheduledMonth,
+      status: 'pending',
+      emailSent: false,
+      smbSaved: false,
+    }).returning();
+
+    await createAuditLog({
+      userId: req.auth!.userId,
+      userEmail: req.auth!.email,
+      action: 'create',
+      entityType: 'review',
+      entityId: review.id,
+      payload: { contractId, scheduledMonth },
+      req,
+    });
+
+    res.status(201).json(review);
+  },
+);
 
 router.post(
   '/:id/upload',

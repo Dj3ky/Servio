@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, ArrowLeft, CheckCircle, XCircle, Mail } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDate, formatDateTime } from '@/lib/utils';
+import { formatDateTime } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 
 interface Review {
@@ -46,6 +46,16 @@ interface FacilityDetail {
     reviewFrequency: string;
     isActive: boolean;
   }>;
+}
+
+function currentMonthIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function formatScheduledMonth(s: string, lang: string) {
+  const d = new Date(s + 'T00:00:00');
+  return new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(d);
 }
 
 function ReviewUpload({ reviewId, onSuccess }: { reviewId: string; onSuccess: () => void }) {
@@ -110,7 +120,7 @@ function ReviewUpload({ reviewId, onSuccess }: { reviewId: string; onSuccess: ()
 
 export default function FacilityDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -122,14 +132,32 @@ export default function FacilityDetailPage() {
 
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useQuery({
     queryKey: ['reviews', id],
-    queryFn: () => api.get<{ data: Review[] }>(`/reviews?contractId=${id}&limit=50`),
+    queryFn: () => api.get<{ data: Review[] }>(`/reviews?facilityId=${id}&limit=50`),
     enabled: !!id,
   });
 
+  const activeContract = facility?.contracts.find((c) => c.isActive);
+
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery({
-    queryKey: ['invoices-facility', id],
-    queryFn: () => api.get<{ data: Invoice[] }>(`/invoices?contractId=${id}&limit=50`),
-    enabled: !!id,
+    queryKey: ['invoices-facility', activeContract?.id],
+    queryFn: () => api.get<{ data: Invoice[] }>(`/invoices?contractId=${activeContract!.id}&limit=50`),
+    enabled: !!activeContract?.id,
+  });
+
+  const createReviewMutation = useMutation({
+    mutationFn: () =>
+      api.post<Review>('/reviews', {
+        contractId: activeContract!.id,
+        scheduledMonth: currentMonthIso(),
+      }),
+    onSuccess: () => {
+      refetchReviews();
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success(t('reviews.createReview'));
+    },
+    onError: () => {
+      toast.error(t('errors.internal'));
+    },
   });
 
   const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician';
@@ -147,6 +175,8 @@ export default function FacilityDetailPage() {
 
   const reviews = reviewsData?.data ?? [];
   const invoices = invoicesData?.data ?? [];
+  const pendingReview = reviews.find((r) => r.status === 'pending');
+  const hasCurrentMonthReview = reviews.some((r) => r.scheduledMonth === currentMonthIso());
 
   return (
     <div className="space-y-6">
@@ -173,19 +203,37 @@ export default function FacilityDetailPage() {
         </TabsList>
 
         <TabsContent value="reviews" className="space-y-4">
-          {canUpload && reviews.some((r) => r.status === 'pending') && (
+          {canUpload && activeContract && !hasCurrentMonthReview && (
+            <Card>
+              <CardContent className="pt-6 flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">{t('reviews.noReviewThisMonth')}</p>
+                <Button
+                  onClick={() => createReviewMutation.mutate()}
+                  disabled={createReviewMutation.isPending}
+                >
+                  <FilePlus className="h-4 w-4 mr-2" />
+                  {t('reviews.createReview')} — {formatScheduledMonth(currentMonthIso(), i18n.language)}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {canUpload && pendingReview && (
             <Card>
               <CardHeader><CardTitle className="text-base">{t('reviews.uploadPdf')}</CardTitle></CardHeader>
-              <CardContent>
-                {reviews.filter((r) => r.status === 'pending').slice(0, 1).map((r) => (
-                  <div key={r.id} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="warning">{r.scheduledMonth}</Badge>
-                      <span className="text-sm text-muted-foreground">{t('reviews.pending')}</span>
-                    </div>
-                    <ReviewUpload reviewId={r.id} onSuccess={() => { refetchReviews(); queryClient.invalidateQueries({ queryKey: ['dashboard'] }); }} />
-                  </div>
-                ))}
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="warning">{formatScheduledMonth(pendingReview.scheduledMonth, i18n.language)}</Badge>
+                  <span className="text-sm text-muted-foreground">{t('reviews.pending')}</span>
+                </div>
+                <ReviewUpload
+                  reviewId={pendingReview.id}
+                  onSuccess={() => {
+                    refetchReviews();
+                    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                    queryClient.invalidateQueries({ queryKey: ['invoices-facility', activeContract?.id] });
+                  }}
+                />
               </CardContent>
             </Card>
           )}
@@ -209,7 +257,7 @@ export default function FacilityDetailPage() {
                       <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
-                        <TableCell>{r.scheduledMonth}</TableCell>
+                        <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
                         <TableCell>
                           <Badge variant={r.status === 'completed' ? 'success' : r.status === 'pending' ? 'warning' : 'destructive'}>
                             {t(`reviews.${r.status}` as any)}

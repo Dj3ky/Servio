@@ -91,7 +91,9 @@
     "emailSent": "E-pošta poslana",
     "smbSaved": "SMB shranjeno",
     "completedAt": "Dokončano ob",
-    "completedBy": "Dokončal/a"
+    "completedBy": "Dokončal/a",
+    "createReview": "Ustvari pregled",
+    "noReviewThisMonth": "Za ta mesec še ni ustvarjenega pregleda."
   },
   "invoices": {
     "title": "Fakture",

@@ -91,7 +91,9 @@
     "emailSent": "Email Sent",
     "smbSaved": "SMB Saved",
     "completedAt": "Completed At",
-    "completedBy": "Completed By"
+    "completedBy": "Completed By",
+    "createReview": "Create Review",
+    "noReviewThisMonth": "No review created for this month yet."
   },
   "invoices": {
     "title": "Invoices",
