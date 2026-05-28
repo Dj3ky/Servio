@@ -54,72 +54,24 @@ git --version
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/servio.git
+git clone https://github.com/dj3ky/servio.git
 cd servio
 ```
 
-### 2. Create environment file
+### 2. Run the setup script
 
 ```bash
-cp .env.example .env
+bash setup-dev.sh
 ```
 
-Edit `.env` and fill in your values. The minimum required for local development:
+This does everything in one step:
+- Creates `.env` from `.env.example` with generated `JWT_SECRET` and `ENCRYPTION_KEY`
+- Creates the `servio` PostgreSQL user and database
+- Runs `npm install` for all workspaces
+- Generates and applies database migrations
+- Seeds the database (admin account + default data)
 
-```env
-DATABASE_URL=postgresql://servio:servio_password@localhost:5432/servio
-JWT_SECRET=any_random_string_at_least_64_characters_long_change_this_now
-ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000001
-```
-
-> **Note:** The `ENCRYPTION_KEY` must be exactly 64 hex characters (32 bytes). Generate a real one for anything beyond local testing:
-> ```bash
-> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-> ```
-
-### 3. Create the PostgreSQL database
-
-```bash
-# Connect to PostgreSQL as superuser
-psql -U postgres
-
-# Inside psql:
-CREATE USER servio WITH PASSWORD 'servio_password';
-CREATE DATABASE servio OWNER servio;
-GRANT ALL PRIVILEGES ON DATABASE servio TO servio;
-\q
-```
-
-### 4. Install dependencies
-
-```bash
-npm install
-```
-
-This installs dependencies for all workspaces (`packages/shared`, `apps/backend`, `apps/frontend`) in one command.
-
-### 5. Generate and run database migrations
-
-```bash
-# Generate migration SQL files from the schema
-npm run db:generate
-
-# Apply migrations to the database
-npm run db:migrate
-```
-
-### 6. Seed initial data
-
-```bash
-npm run db:seed
-```
-
-This creates:
-- Default admin account: `admin@servio.local` / `admin123`
-- Application settings row (app name: "Servio")
-- Default email templates in Slovenian and English
-
-### 7. Start the development servers
+### 3. Start the development servers
 
 ```bash
 npm run dev
@@ -130,6 +82,8 @@ This starts both servers concurrently:
 - **Frontend** → http://localhost:3000 (proxied to backend via Vite)
 
 The application is ready at **http://localhost:3000**.
+
+Default admin account: `admin@servio.local` / `admin123` — change the password after first login.
 
 ---
 
