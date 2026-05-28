@@ -23,6 +23,30 @@ Optional (for full functionality):
 - SMTP server or mail relay for email delivery
 - `pg_dump` in PATH for database backups
 
+### Install prerequisites (Ubuntu / Debian)
+
+```bash
+# Node.js 20 LTS
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# PostgreSQL 16
+sudo apt-get install -y postgresql postgresql-client
+sudo systemctl enable --now postgresql
+
+# Git
+sudo apt-get install -y git
+```
+
+Verify installations:
+
+```bash
+node -v        # v20.x.x
+npm -v         # 10.x.x
+psql --version
+git --version
+```
+
 ---
 
 ## Local Development
