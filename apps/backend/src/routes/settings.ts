@@ -53,6 +53,7 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
     backupEnabled: s.backupEnabled,
     backupSchedule: s.backupSchedule,
     backupPath: s.backupPath,
+    accountingEmail: s.accountingEmail,
     updatedAt: s.updatedAt.toISOString(),
   });
 });
@@ -61,7 +62,12 @@ router.patch('/general', requireRole('admin'), async (req: Request, res: Respons
   const parsed = updateGeneralSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({ appName: parsed.data.appName, defaultLanguage: parsed.data.defaultLanguage, updatedAt: new Date() }).where(eq(settings.id, 1));
+  await db.update(settings).set({
+    appName: parsed.data.appName,
+    defaultLanguage: parsed.data.defaultLanguage,
+    accountingEmail: parsed.data.accountingEmail || null,
+    updatedAt: new Date(),
+  }).where(eq(settings.id, 1));
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'general' }, req });
   res.json({ success: true });
 });

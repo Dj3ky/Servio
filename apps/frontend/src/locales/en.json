@@ -70,6 +70,7 @@
     "customer": "Customer",
     "facility": "Facility",
     "frequency": "Frequency",
+    "invoiceDelivery": "Invoice Delivery",
     "technician": "Technician",
     "reviewStatus": "Review Status",
     "invoiceStatus": "Invoice Status",
@@ -114,6 +115,8 @@
     "markCompleted": "Mark Completed",
     "markSentEmail": "Mark Sent by Email",
     "markSentPost": "Mark Sent by Post",
+    "sendToAccounting": "Send to Accounting",
+    "sentToAccounting": "Sent to accounting.",
     "createdAt": "Created",
     "completedAt": "Completed"
   },
@@ -122,6 +125,15 @@
     "biannual": "Biannual",
     "quadannual": "Quadannual",
     "custom": "Custom"
+  },
+  "invoiceDelivery": {
+    "email": "By Email",
+    "post": "By Post",
+    "e_invoice": "E-Invoice",
+    "saveOnly": {
+      "post": "Invoice delivery is by post — document will be saved only, no email sent.",
+      "e_invoice": "Invoice delivery is e-invoice — document will be saved only, no email sent."
+    }
   },
   "settings": {
     "title": "Settings",
@@ -132,6 +144,7 @@
     "backup": "Backups",
     "appName": "Application Name",
     "defaultLanguage": "Default Language",
+    "accountingEmail": "Accounting Email",
     "logoUpload": "Logo Upload",
     "smtpHost": "SMTP Host",
     "smtpPort": "SMTP Port",
@@ -213,6 +226,8 @@
     "forbidden": "Access denied.",
     "not_found": "Record not found.",
     "validation": "Please check the entered data.",
+    "accounting_email_not_configured": "Accounting email is not configured in settings.",
+    "no_document": "No document found for this review.",
     "email_taken": "Email address is already in use.",
     "contract_number_taken": "Contract number is already in use.",
     "invalid_credentials": "Invalid email address or password.",

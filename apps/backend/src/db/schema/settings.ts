@@ -19,6 +19,7 @@ export const settings = pgTable('settings', {
   backupEnabled: boolean('backup_enabled').notNull().default(false),
   backupSchedule: text('backup_schedule').default('0 2 * * *'),
   backupPath: text('backup_path'),
+  accountingEmail: text('accounting_email'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

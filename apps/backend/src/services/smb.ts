@@ -31,6 +31,20 @@ function createClient(cfg: SmbConfig): SMB2 {
   });
 }
 
+export async function readFromSmb(remotePath: string): Promise<Buffer> {
+  const cfg = await getSmbConfig();
+  if (!cfg) throw new Error('SMB not configured');
+
+  const client = createClient(cfg);
+
+  return new Promise<Buffer>((resolve, reject) => {
+    client.readFile(remotePath, (err: Error | null, data: Buffer) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+
 export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<void> {
   const cfg = await getSmbConfig();
   if (!cfg) throw new Error('SMB not configured');

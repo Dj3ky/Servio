@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const reviewFrequencySchema = z.enum(['monthly', 'biannual', 'quadannual', 'custom']);
+export const invoiceDeliverySchema = z.enum(['email', 'post', 'e_invoice']);
 
 export const createContractSchema = z.object({
   facilityId: z.string().uuid(),
@@ -16,6 +17,7 @@ export const createContractSchema = z.object({
   valueWithoutVat: z.number().nonnegative().nullable().optional(),
   valueWithoutVatPerYear: z.number().nonnegative().nullable().optional(),
   customerEmail: z.string().email().nullable().optional(),
+  invoiceDelivery: invoiceDeliverySchema.optional(),
 });
 
 export const updateContractSchema = createContractSchema.partial().extend({
@@ -37,11 +39,13 @@ export const contractSchema = z.object({
   valueWithoutVat: z.number().nullable(),
   valueWithoutVatPerYear: z.number().nullable(),
   customerEmail: z.string().nullable(),
+  invoiceDelivery: invoiceDeliverySchema,
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 
+export type InvoiceDelivery = z.infer<typeof invoiceDeliverySchema>;
 export type Contract = z.infer<typeof contractSchema>;
 export type CreateContractRequest = z.infer<typeof createContractSchema>;
 export type UpdateContractRequest = z.infer<typeof updateContractSchema>;

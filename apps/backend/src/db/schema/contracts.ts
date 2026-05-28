@@ -5,6 +5,7 @@ import { users } from './users';
 import { emailTemplates } from './emailTemplates';
 
 export const reviewFrequencyEnum = pgEnum('review_frequency', ['monthly', 'biannual', 'quadannual', 'custom']);
+export const invoiceDeliveryEnum = pgEnum('invoice_delivery', ['email', 'post', 'e_invoice']);
 
 export const contracts = pgTable('contracts', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -21,6 +22,7 @@ export const contracts = pgTable('contracts', {
   valueWithoutVat: numeric('value_without_vat', { precision: 12, scale: 2 }),
   valueWithoutVatPerYear: numeric('value_without_vat_per_year', { precision: 12, scale: 2 }),
   customerEmail: text('customer_email'),
+  invoiceDelivery: invoiceDeliveryEnum('invoice_delivery').notNull().default('email'),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

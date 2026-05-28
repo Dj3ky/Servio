@@ -32,6 +32,7 @@ const formSchema = z.object({
   facilityNotes: z.string().optional(),
   contractNumber: z.string().min(1),
   reviewFrequency: z.enum(['monthly', 'biannual', 'quadannual', 'custom']),
+  invoiceDelivery: z.enum(['email', 'post', 'e_invoice']),
   customMonths: z.array(z.number().int().min(1).max(12)).optional(),
   startDate: z.string().min(1),
   assignedTechnicianId: z.string().optional(),
@@ -98,6 +99,7 @@ export default function FacilityFormPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       reviewFrequency: 'monthly',
+      invoiceDelivery: 'email' as const,
       customMonths: [],
       startDate: new Date().toISOString().slice(0, 10),
     },
@@ -117,6 +119,7 @@ export default function FacilityFormPage() {
       facilityNotes: facilityData.notes ?? '',
       contractNumber: contract?.contractNumber ?? '',
       reviewFrequency: (contract?.reviewFrequency as FormData['reviewFrequency']) ?? 'monthly',
+      invoiceDelivery: ((contract as any)?.invoiceDelivery as FormData['invoiceDelivery']) ?? 'email',
       customMonths: contract?.customMonths ?? [],
       startDate: contract?.startDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
       assignedTechnicianId: contract?.assignedTechnicianId ?? '',
@@ -158,6 +161,7 @@ export default function FacilityFormPage() {
         customerId: customer.id,
         contractNumber: data.contractNumber,
         reviewFrequency: data.reviewFrequency,
+        invoiceDelivery: data.invoiceDelivery,
         customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
         startDate: data.startDate,
         assignedTechnicianId: data.assignedTechnicianId || undefined,
@@ -199,6 +203,7 @@ export default function FacilityFormPage() {
         await api.patch(`/contracts/${contract.id}`, {
           contractNumber: data.contractNumber,
           reviewFrequency: data.reviewFrequency,
+          invoiceDelivery: data.invoiceDelivery,
           customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
           startDate: data.startDate,
           assignedTechnicianId: data.assignedTechnicianId || undefined,
@@ -295,6 +300,19 @@ export default function FacilityFormPage() {
                       <SelectContent>
                         {(['monthly', 'biannual', 'quadannual', 'custom'] as const).map((f) => (
                           <SelectItem key={f} value={f}>{t(`frequency.${f}`)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="invoiceDelivery" render={({ field }) => (
+                  <FormItem><FormLabel>{t('contracts.invoiceDelivery')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {(['email', 'post', 'e_invoice'] as const).map((d) => (
+                          <SelectItem key={d} value={d}>{t(`invoiceDelivery.${d}`)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -53,6 +53,12 @@ export default function InvoiceQueuePage() {
     },
   });
 
+  const sendAccountingMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/invoices/${id}/send-accounting`, {}),
+    onSuccess: () => toast.success(t('invoices.sentToAccounting')),
+    onError: () => toast.error(t('errors.internal')),
+  });
+
   const handleAction = (invoice: InvoiceQueueItem, status: string) => {
     setSelectedInvoice(invoice);
     setTargetStatus(status);
@@ -100,7 +106,7 @@ export default function InvoiceQueuePage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
                         <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'sent_email')}>
                           {t('invoices.markSentEmail')}
                         </Button>
@@ -109,6 +115,14 @@ export default function InvoiceQueuePage() {
                         </Button>
                         <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
                           {t('invoices.markCompleted')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={sendAccountingMutation.isPending}
+                          onClick={() => sendAccountingMutation.mutate(inv.id)}
+                        >
+                          {t('invoices.sendToAccounting')}
                         </Button>
                       </div>
                     </TableCell>

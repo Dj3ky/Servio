@@ -33,6 +33,7 @@ interface FullSettings {
   backupEnabled: boolean;
   backupSchedule: string | null;
   backupPath: string | null;
+  accountingEmail: string | null;
 }
 
 export default function SettingsPage() {
@@ -45,7 +46,7 @@ export default function SettingsPage() {
 
   const generalForm = useForm<UpdateGeneralSettings>({
     resolver: zodResolver(updateGeneralSettingsSchema),
-    values: { appName: settings?.appName ?? 'Servio', defaultLanguage: settings?.defaultLanguage ?? 'sl' },
+    values: { appName: settings?.appName ?? 'Servio', defaultLanguage: settings?.defaultLanguage ?? 'sl', accountingEmail: settings?.accountingEmail ?? '' },
   });
 
   const smtpForm = useForm<UpdateSmtpSettings>({
@@ -111,6 +112,9 @@ export default function SettingsPage() {
                       </Select>
                       <FormMessage />
                     </FormItem>
+                  )} />
+                  <FormField control={generalForm.control} name="accountingEmail" render={({ field }) => (
+                    <FormItem><FormLabel>{t('settings.accountingEmail')}</FormLabel><FormControl><Input type="email" placeholder="accounting@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" disabled={saveGeneral.isPending}>{t('common.save')}</Button>
                 </form>

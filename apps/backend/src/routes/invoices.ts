@@ -7,6 +7,8 @@ import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
 import { broadcast } from '../ws';
+import { readFromSmb } from '../services/smb';
+import { sendMail } from '../services/email';
 
 const router = Router();
 router.use(requireAuth);
@@ -51,6 +53,56 @@ router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
     orderBy: (inv, { asc }) => [asc(inv.createdAt)],
   });
   res.json(data);
+});
+
+router.post('/:id/send-accounting', async (req: Request, res: Response): Promise<void> => {
+  const invoice = await db.query.invoices.findFirst({
+    where: (inv, { eq }) => eq(inv.id, req.params.id),
+    with: {
+      review: {
+        with: { contract: { with: { facility: true, customer: true } } },
+      },
+    },
+  });
+
+  if (!invoice) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  const s = await db.query.settings.findFirst();
+  const accountingEmail = s?.accountingEmail;
+  if (!accountingEmail) { res.status(400).json({ error: 'errors.accounting_email_not_configured' }); return; }
+
+  const review = (invoice as any).review;
+  if (!review?.pdfPath) { res.status(400).json({ error: 'errors.no_document' }); return; }
+
+  const contract = review.contract;
+  const facility = contract?.facility;
+  const customer = contract?.customer;
+
+  try {
+    const buffer = await readFromSmb(review.pdfPath);
+    const filename = review.pdfFilename ?? 'document.pdf';
+
+    await sendMail({
+      to: accountingEmail,
+      subject: `Invoice – ${facility?.name ?? ''} – ${review.scheduledMonth}`,
+      html: `Invoice for <strong>${customer?.name ?? ''}</strong>, ${facility?.name ?? ''}, ${review.scheduledMonth}.<br>Contract: ${contract?.contractNumber ?? ''}`,
+      attachments: [{ filename, content: buffer, contentType: 'application/pdf' }],
+    });
+
+    await createAuditLog({
+      userId: req.auth!.userId,
+      userEmail: req.auth!.email,
+      action: 'send_accounting',
+      entityType: 'invoice',
+      entityId: invoice.id,
+      payload: { to: accountingEmail },
+      req,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'errors.smb_failed', details: String(err) });
+  }
 });
 
 router.patch('/:id', async (req: Request, res: Response): Promise<void> => {

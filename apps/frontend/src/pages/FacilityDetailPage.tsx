@@ -62,6 +62,7 @@ interface FacilityDetail {
     isActive: boolean;
     customerEmail: string | null;
     emailTemplateId: string | null;
+    invoiceDelivery: 'email' | 'post' | 'e_invoice';
   }>;
 }
 
@@ -92,14 +93,17 @@ function getToken() {
 function ReviewUpload({
   reviewId,
   hasEmail,
+  invoiceDelivery,
   contractEmailTemplateId,
   onSuccess,
 }: {
   reviewId: string;
   hasEmail: boolean;
+  invoiceDelivery: 'email' | 'post' | 'e_invoice';
   contractEmailTemplateId?: string | null;
   onSuccess: () => void;
 }) {
+  const sendEmail = invoiceDelivery === 'email';
   const { t, i18n } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -210,11 +214,11 @@ function ReviewUpload({
         </Button>
       </div>
 
-      {!hasEmail && (
-        <p className="text-sm text-muted-foreground">{t('reviews.noEmailConfigured')}</p>
+      {!sendEmail && (
+        <p className="text-sm text-muted-foreground">{t(`invoiceDelivery.saveOnly.${invoiceDelivery}`)}</p>
       )}
 
-      {hasEmail && (
+      {sendEmail && hasEmail && (
         <>
           <Separator />
           {templates.length > 0 && (
@@ -298,6 +302,12 @@ export default function FacilityDetailPage() {
       toast.success(t('reviews.createReview'));
     },
     onError: () => toast.error(t('errors.internal')),
+  });
+
+  const sendAccountingMutation = useMutation({
+    mutationFn: (invoiceId: string) => api.post(`/invoices/${invoiceId}/send-accounting`, {}),
+    onSuccess: () => toast.success(t('invoices.sentToAccounting')),
+    onError: (err: any) => toast.error(err?.message ?? t('errors.internal')),
   });
 
   const updateInvoiceMutation = useMutation({
@@ -419,6 +429,7 @@ export default function FacilityDetailPage() {
                 <ReviewUpload
                   reviewId={pendingReview.id}
                   hasEmail={hasEmail}
+                  invoiceDelivery={activeContract?.invoiceDelivery ?? 'email'}
                   contractEmailTemplateId={activeContract?.emailTemplateId}
                   onSuccess={handleUploadSuccess}
                 />
@@ -498,7 +509,7 @@ export default function FacilityDetailPage() {
                         <TableCell>{inv.completedAt ? formatDateTime(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
                           <TableCell>
-                            {inv.status !== 'completed' && (
+                            {inv.status !== 'completed' ? (
                               <div className="flex gap-1 flex-wrap">
                                 {inv.status === 'pending' && (
                                   <>
@@ -514,6 +525,17 @@ export default function FacilityDetailPage() {
                                   {t('invoices.markCompleted')}
                                 </Button>
                               </div>
+                            ) : null}
+                            {activeContract?.invoiceDelivery !== 'email' && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="mt-1"
+                                disabled={sendAccountingMutation.isPending}
+                                onClick={() => sendAccountingMutation.mutate(inv.id)}
+                              >
+                                {t('invoices.sendToAccounting')}
+                              </Button>
                             )}
                           </TableCell>
                         )}

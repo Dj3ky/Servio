@@ -70,6 +70,7 @@
     "customer": "Stranka",
     "facility": "Objekt",
     "frequency": "Pogostost",
+    "invoiceDelivery": "Dostava fakture",
     "technician": "Tehnik",
     "reviewStatus": "Status pregleda",
     "invoiceStatus": "Status fakture",
@@ -114,6 +115,8 @@
     "markCompleted": "Označi kot dokončano",
     "markSentEmail": "Označi kot poslano po e-pošti",
     "markSentPost": "Označi kot poslano po pošti",
+    "sendToAccounting": "Pošlji v računovodstvo",
+    "sentToAccounting": "Poslano v računovodstvo.",
     "createdAt": "Ustvarjena",
     "completedAt": "Dokončana"
   },
@@ -122,6 +125,15 @@
     "biannual": "Polletno",
     "quadannual": "Četrtletno",
     "custom": "Po meri"
+  },
+  "invoiceDelivery": {
+    "email": "Po e-pošti",
+    "post": "Po pošti",
+    "e_invoice": "E-račun",
+    "saveOnly": {
+      "post": "Dostava fakture je po pošti — dokument bo samo shranjen, e-pošta ne bo poslana.",
+      "e_invoice": "Dostava fakture je e-račun — dokument bo samo shranjen, e-pošta ne bo poslana."
+    }
   },
   "settings": {
     "title": "Nastavitve",
@@ -132,6 +144,7 @@
     "backup": "Varnostne kopije",
     "appName": "Ime aplikacije",
     "defaultLanguage": "Privzeti jezik",
+    "accountingEmail": "E-pošta računovodstva",
     "logoUpload": "Nalaganje logotipa",
     "smtpHost": "SMTP strežnik",
     "smtpPort": "SMTP vrata",
@@ -213,6 +226,8 @@
     "forbidden": "Dostop zavrnjen.",
     "not_found": "Zapis ni bil najden.",
     "validation": "Preverite vnesene podatke.",
+    "accounting_email_not_configured": "E-pošta računovodstva ni konfigurirana v nastavitvah.",
+    "no_document": "Za ta pregled ni najden noben dokument.",
     "email_taken": "E-poštni naslov je že v uporabi.",
     "contract_number_taken": "Številka pogodbe je že v uporabi.",
     "invalid_credentials": "Napačen e-poštni naslov ali geslo.",

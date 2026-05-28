@@ -9,6 +9,7 @@ export const publicSettingsSchema = z.object({
 export const updateGeneralSettingsSchema = z.object({
   appName: z.string().min(1).max(100),
   defaultLanguage: z.enum(['sl', 'en']),
+  accountingEmail: z.string().email().optional().or(z.literal('')),
 });
 
 export const updateSmtpSettingsSchema = z.object({
@@ -50,6 +51,7 @@ export const settingsSchema = z.object({
   backupEnabled: z.boolean(),
   backupSchedule: z.string().nullable(),
   backupPath: z.string().nullable(),
+  accountingEmail: z.string().nullable(),
   updatedAt: z.string().datetime(),
 });
 
