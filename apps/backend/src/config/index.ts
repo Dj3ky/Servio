@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// .env lives at the monorepo root — 4 levels up from apps/backend/src/config/
+dotenv.config({ path: resolve(__dirname, '../../../../.env') });
 
 function required(key: string): string {
   const value = process.env[key];
