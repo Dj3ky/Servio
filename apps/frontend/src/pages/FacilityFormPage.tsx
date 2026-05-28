@@ -35,7 +35,6 @@ const formSchema = z.object({
   invoiceDelivery: z.enum(['email', 'post', 'e_invoice']),
   customMonths: z.array(z.number().int().min(1).max(12)).optional(),
   startDate: z.string().min(1),
-  assignedTechnicianId: z.string().optional(),
   valueWithoutVat: z.number().optional(),
   valueWithoutVatPerYear: z.number().optional(),
   smbPath: z.string().optional(),
@@ -84,11 +83,6 @@ export default function FacilityFormPage() {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const { data: technicians } = useQuery({
-    queryKey: ['users-technicians'],
-    queryFn: () => api.get<Array<{ id: string; name: string; role: string }>>('/users'),
-  });
-
   const { data: facilityData, isLoading: loadingEdit } = useQuery({
     queryKey: ['facility-edit', id],
     queryFn: () => api.get<FacilityEditData>(`/facilities/${id}`),
@@ -122,7 +116,6 @@ export default function FacilityFormPage() {
       invoiceDelivery: ((contract as any)?.invoiceDelivery as FormData['invoiceDelivery']) ?? 'email',
       customMonths: contract?.customMonths ?? [],
       startDate: contract?.startDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-      assignedTechnicianId: contract?.assignedTechnicianId ?? '',
       valueWithoutVat: toNumber(contract?.valueWithoutVat),
       valueWithoutVatPerYear: toNumber(contract?.valueWithoutVatPerYear),
       smbPath: contract?.smbPath ?? '',
@@ -164,7 +157,6 @@ export default function FacilityFormPage() {
         invoiceDelivery: data.invoiceDelivery,
         customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
         startDate: data.startDate,
-        assignedTechnicianId: data.assignedTechnicianId || undefined,
         valueWithoutVat: data.valueWithoutVat ?? undefined,
         valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
         smbPath: data.smbPath || undefined,
@@ -206,7 +198,6 @@ export default function FacilityFormPage() {
           invoiceDelivery: data.invoiceDelivery,
           customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
           startDate: data.startDate,
-          assignedTechnicianId: data.assignedTechnicianId || undefined,
           valueWithoutVat: data.valueWithoutVat ?? undefined,
           valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
           smbPath: data.smbPath || undefined,
@@ -224,7 +215,6 @@ export default function FacilityFormPage() {
     onError: () => toast.error(t('errors.validation')),
   });
 
-  const technicianOptions = (technicians ?? []).filter((u) => u.role === 'technician' || u.role === 'admin');
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   if (isEdit && loadingEdit) {
@@ -317,16 +307,6 @@ export default function FacilityFormPage() {
                       </SelectContent>
                     </Select>
                     <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="assignedTechnicianId" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.technician')}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {technicianOptions.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="valueWithoutVat" render={({ field }) => (

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   createColumnHelper,
   flexRender,
@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
@@ -68,28 +67,6 @@ export default function ContractsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
-
-  const [invoiceDialog, setInvoiceDialog] = useState<{ invoiceId: string; targetStatus: string; currentNumber: string | null } | null>(null);
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-
-  const updateInvoiceMutation = useMutation({
-    mutationFn: ({ id, status, num }: { id: string; status: string; num?: string }) =>
-      api.patch(`/invoices/${id}`, { status, invoiceNumber: num || undefined }),
-    onSuccess: () => {
-      toast.success(t('common.save'));
-      queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setInvoiceDialog(null);
-      setInvoiceNumber('');
-    },
-    onError: () => toast.error(t('errors.internal')),
-  });
-
-  function openInvoiceDialog(invoiceId: string, targetStatus: string, currentNumber: string | null) {
-    setInvoiceDialog({ invoiceId, targetStatus, currentNumber });
-    setInvoiceNumber(currentNumber ?? '');
-  }
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -156,38 +133,16 @@ export default function ContractsPage() {
     columnHelper.display({
       id: 'actions',
       header: '',
-      cell: ({ row }) => {
-        const inv = row.original.currentInvoice;
-        const canManageInvoices = user?.role === 'admin' || user?.role === 'accountant';
-        const showInvoiceActions = canManageInvoices && inv && inv.status !== 'completed';
-        return (
-          <div className="flex justify-end gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-            {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
-              <Button size="sm" variant="outline" onClick={() => navigate(`/facilities/${row.original.facility.id}`)}>
-                <Upload className="h-3 w-3 mr-1" />
-                {t('reviews.uploadPdf')}
-              </Button>
-            )}
-            {showInvoiceActions && (
-              <>
-                {inv.status === 'pending' && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv.id, 'sent_email', inv.invoiceNumber)}>
-                      {t('invoices.markSentEmail')}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv.id, 'sent_post', inv.invoiceNumber)}>
-                      {t('invoices.markSentPost')}
-                    </Button>
-                  </>
-                )}
-                <Button size="sm" onClick={() => openInvoiceDialog(inv.id, 'completed', inv.invoiceNumber)}>
-                  {t('invoices.markCompleted')}
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
+            <Button size="sm" variant="outline" onClick={() => navigate(`/facilities/${row.original.facility.id}`)}>
+              <Upload className="h-3 w-3 mr-1" />
+              {t('reviews.uploadPdf')}
+            </Button>
+          )}
+        </div>
+      ),
     }),
   ];
 
@@ -290,38 +245,6 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
-
-      <Dialog open={!!invoiceDialog} onOpenChange={(open) => { if (!open) { setInvoiceDialog(null); setInvoiceNumber(''); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {invoiceDialog?.targetStatus === 'completed' ? t('invoices.markCompleted') :
-               invoiceDialog?.targetStatus === 'sent_email' ? t('invoices.markSentEmail') :
-               t('invoices.markSentPost')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="inv-num-contracts">{t('invoices.invoiceNumber')}</Label>
-              <Input
-                id="inv-num-contracts"
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="INV-2025-001"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setInvoiceDialog(null); setInvoiceNumber(''); }}>{t('common.cancel')}</Button>
-            <Button
-              disabled={updateInvoiceMutation.isPending}
-              onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ id: invoiceDialog.invoiceId, status: invoiceDialog.targetStatus, num: invoiceNumber })}
-            >
-              {t('common.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={!!importResult} onOpenChange={(open) => { if (!open) setImportResult(null); }}>
         <DialogContent>
