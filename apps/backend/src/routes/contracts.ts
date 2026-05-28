@@ -44,7 +44,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         db.query.invoices.findFirst({
           where: (inv, { eq }) => eq(inv.contractId, contract.id),
           orderBy: (inv, { desc }) => [desc(inv.createdAt)],
-          columns: { id: true, status: true },
+          columns: { id: true, status: true, invoiceNumber: true },
         }),
       ]);
       return { ...contract, currentReview: currentReview ?? null, currentInvoice: currentInvoice ?? null };
