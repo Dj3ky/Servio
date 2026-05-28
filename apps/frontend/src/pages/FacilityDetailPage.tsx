@@ -166,7 +166,9 @@ function ReviewUpload({
         headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
       });
-      const data = await result.json();
+      const text = await result.text();
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
       if (!result.ok) throw new Error(data.error ?? 'Upload failed');
       toast.success(t('reviews.uploadSuccess'));
       onSuccess();

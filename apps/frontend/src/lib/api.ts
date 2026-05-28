@@ -43,10 +43,18 @@ async function request<T>(
 
   if (res.status === 204) return undefined as T;
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    // non-JSON body (e.g. proxy error, server crash before route handler)
+    if (!res.ok) throw new ApiError(res.status, 'errors.unknown');
+    return undefined as T;
+  }
 
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? 'errors.unknown', data.details);
+    throw new ApiError(res.status, data?.error ?? 'errors.unknown', data?.details);
   }
 
   return data as T;
