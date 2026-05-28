@@ -10,7 +10,11 @@ router.use(requireRole('admin'));
 
 router.post('/test', async (req: Request, res: Response): Promise<void> => {
   const result = await testSmbConnection();
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'test_smb', payload: { success: result.success }, req });
+  try {
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'test_smb', payload: { success: result.success }, req });
+  } catch {
+    // audit log failure must not block the test result
+  }
   res.json(result);
 });
 

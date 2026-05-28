@@ -88,12 +88,17 @@ export async function testSmbConnection(): Promise<{ success: boolean; error?: s
 
     const client = createClient(cfg);
 
-    await new Promise<void>((resolve, reject) => {
-      client.readdir('', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    await Promise.race([
+      new Promise<void>((resolve, reject) => {
+        client.readdir('.', (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timed out after 10 seconds')), 10000),
+      ),
+    ]);
 
     return { success: true };
   } catch (err) {

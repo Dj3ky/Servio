@@ -78,7 +78,11 @@ export default function SettingsPage() {
   const saveSmtp = useMutation({ mutationFn: (d: UpdateSmtpSettings) => api.patch('/settings/smtp', d), onSuccess: () => toast.success(t('common.save')) });
   const testSmtp = useMutation({ mutationFn: (d: TestSmtpRequest) => api.post('/settings/smtp/test', d), onSuccess: (r: any) => r.success ? toast.success('SMTP OK') : toast.error(r.error ?? 'Failed') });
   const saveSmb = useMutation({ mutationFn: (d: UpdateSmbSettings) => api.patch('/settings/smb', d), onSuccess: () => toast.success(t('common.save')) });
-  const testSmb = useMutation({ mutationFn: () => api.post('/smb/test'), onSuccess: (r: any) => r.success ? toast.success('SMB OK') : toast.error(r.error ?? 'Failed') });
+  const testSmb = useMutation({
+    mutationFn: () => api.post<{ success: boolean; error?: string }>('/smb/test'),
+    onSuccess: (r) => r.success ? toast.success('SMB OK') : toast.error(r.error ?? 'SMB connection failed'),
+    onError: (err: any) => toast.error(err?.code ? t(`errors.${err.code}` as any, err.code) : (err?.message ?? 'SMB test failed')),
+  });
 
   return (
     <div className="space-y-4">
