@@ -24,6 +24,12 @@ if ! command -v psql &>/dev/null; then
   sudo systemctl start postgresql
 fi
 
+# smbclient (required for SMB/NAS file storage)
+if ! command -v smbclient &>/dev/null; then
+  echo "==> Installing smbclient..."
+  sudo apt-get install -y samba-client
+fi
+
 # PM2
 if ! command -v pm2 &>/dev/null; then
   echo "==> Installing PM2..."

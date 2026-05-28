@@ -4,7 +4,9 @@
       "Bash(npm run *)",
       "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\" -Force)",
       "Bash(Select-Object Name, FullName)",
-      "Bash(npx --prefix apps/backend tsx -e \"import\\('@marsaud/smb2'\\).then\\(m => console.log\\(Object.keys\\(m\\)\\)\\)\")"
+      "Bash(npx --prefix apps/backend tsx -e \"import\\('@marsaud/smb2'\\).then\\(m => console.log\\(Object.keys\\(m\\)\\)\\)\")",
+      "Bash(Get-ChildItem -Path 'd:\\\\GitHub\\\\Servio' -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

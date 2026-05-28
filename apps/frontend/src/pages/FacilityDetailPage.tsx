@@ -442,6 +442,7 @@ export default function FacilityDetailPage() {
   const reviews = reviewsData?.data ?? [];
   const invoices = invoicesData?.data ?? [];
   const pendingReview = reviews.find((r) => r.status === 'pending');
+  const pendingInvoices = invoices.filter((inv) => inv.status !== 'completed');
   const hasCurrentMonthReview = reviews.some((r) => r.scheduledMonth === currentMonthIso());
   const hasEmail = !!(activeContract?.customerEmail || facility.customer.email);
 
@@ -533,6 +534,53 @@ export default function FacilityDetailPage() {
                   contractEmailTemplateId={activeContract?.emailTemplateId}
                   onSuccess={handleUploadSuccess}
                 />
+              </CardContent>
+            </Card>
+          )}
+
+          {canManageInvoices && pendingInvoices.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  {t('invoices.pendingTitle')}
+                  <Badge variant="warning">{pendingInvoices.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pendingInvoices.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Badge variant={invoiceBadgeVariant(inv.status)}>{invoiceStatusLabel(inv.status)}</Badge>
+                      <span className="text-sm text-muted-foreground">{formatDateTime(inv.createdAt)}</span>
+                      {inv.invoiceNumber && <span className="text-sm font-medium">{inv.invoiceNumber}</span>}
+                    </div>
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {inv.status === 'pending' && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_email')}>
+                            {t('invoices.markSentEmail')}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_post')}>
+                            {t('invoices.markSentPost')}
+                          </Button>
+                        </>
+                      )}
+                      <Button size="sm" onClick={() => openInvoiceDialog(inv, 'completed')}>
+                        {t('invoices.markCompleted')}
+                      </Button>
+                      {activeContract?.invoiceDelivery !== 'email' && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={sendAccountingMutation.isPending}
+                          onClick={() => sendAccountingMutation.mutate(inv.id)}
+                        >
+                          {t('invoices.sendToAccounting')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

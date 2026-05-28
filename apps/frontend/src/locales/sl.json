@@ -124,7 +124,8 @@
     "sendToAccounting": "Pošlji v računovodstvo",
     "sentToAccounting": "Poslano v računovodstvo.",
     "createdAt": "Ustvarjena",
-    "completedAt": "Dokončana"
+    "completedAt": "Dokončana",
+    "pendingTitle": "Odprte fakture"
   },
   "frequency": {
     "monthly": "Mesečno",

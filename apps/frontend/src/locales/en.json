@@ -124,7 +124,8 @@
     "sendToAccounting": "Send to Accounting",
     "sentToAccounting": "Sent to accounting.",
     "createdAt": "Created",
-    "completedAt": "Completed"
+    "completedAt": "Completed",
+    "pendingTitle": "Pending Invoices"
   },
   "frequency": {
     "monthly": "Monthly",
