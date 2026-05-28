@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -17,6 +16,12 @@ import { Separator } from '@/components/ui/separator';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 
+const MONTH_NUMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+function monthAbbr(month: number, lang: string) {
+  return new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(2024, month - 1, 1));
+}
+
 const formSchema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email().optional().or(z.literal('')),
@@ -25,6 +30,7 @@ const formSchema = z.object({
   facilityNotes: z.string().optional(),
   contractNumber: z.string().min(1),
   reviewFrequency: z.enum(['monthly', 'biannual', 'quadannual', 'custom']),
+  customMonths: z.array(z.number().int().min(1).max(12)).optional(),
   startDate: z.string().min(1),
   assignedTechnicianId: z.string().optional(),
   valueWithoutVat: z.number().optional(),
@@ -38,7 +44,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export default function FacilityFormPage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const isEdit = id && id !== 'new';
 
@@ -51,26 +57,36 @@ export default function FacilityFormPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       reviewFrequency: 'monthly',
+      customMonths: [],
       startDate: new Date().toISOString().slice(0, 10),
     },
   });
 
+  const reviewFrequency = form.watch('reviewFrequency');
+  const customMonths = form.watch('customMonths') ?? [];
+
+  function toggleMonth(month: number) {
+    const current = form.getValues('customMonths') ?? [];
+    const next = current.includes(month)
+      ? current.filter((m) => m !== month)
+      : [...current, month].sort((a, b) => a - b);
+    form.setValue('customMonths', next, { shouldValidate: true });
+  }
+
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const [customer] = await Promise.all([
-        api.post<{ id: string }>('/customers', {
-          name: data.customerName,
-          email: data.customerEmail || null,
-          contactName: data.contactName || null,
-          phone: data.phone || null,
-        }),
-      ]);
+      const customer = await api.post<{ id: string }>('/customers', {
+        name: data.customerName,
+        email: data.customerEmail || undefined,
+        contactName: data.contactName || undefined,
+        phone: data.phone || undefined,
+      });
 
       const facility = await api.post<{ id: string }>('/facilities', {
         customerId: customer.id,
         name: data.facilityName,
-        address: data.facilityAddress || null,
-        notes: data.facilityNotes || null,
+        address: data.facilityAddress || undefined,
+        notes: data.facilityNotes || undefined,
       });
 
       await api.post('/contracts', {
@@ -78,12 +94,13 @@ export default function FacilityFormPage() {
         customerId: customer.id,
         contractNumber: data.contractNumber,
         reviewFrequency: data.reviewFrequency,
+        customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
         startDate: data.startDate,
-        assignedTechnicianId: data.assignedTechnicianId || null,
-        valueWithoutVat: data.valueWithoutVat || null,
-        valueWithoutVatPerYear: data.valueWithoutVatPerYear || null,
-        smbPath: data.smbPath || null,
-        customerEmail: data.customerEmail || null,
+        assignedTechnicianId: data.assignedTechnicianId || undefined,
+        valueWithoutVat: data.valueWithoutVat ?? undefined,
+        valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
+        smbPath: data.smbPath || undefined,
+        customerEmail: data.customerEmail || undefined,
       });
 
       return facility;
@@ -178,6 +195,31 @@ export default function FacilityFormPage() {
                   <FormItem><FormLabel>{t('contracts.valueExclVatYear')}</FormLabel><FormControl><Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
+
+              {reviewFrequency === 'custom' && (
+                <div className="space-y-2">
+                  <FormLabel>{t('frequency.custom')}</FormLabel>
+                  <div className="grid grid-cols-6 gap-2">
+                    {MONTH_NUMS.map((m) => {
+                      const selected = customMonths.includes(m);
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => toggleMonth(m)}
+                          className={`rounded border px-2 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                            selected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          {monthAbbr(m, i18n.language)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
