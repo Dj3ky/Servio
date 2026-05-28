@@ -148,9 +148,13 @@ export default function SettingsPage() {
       smbPassword: '',
       smbBasePath: settings?.smbBasePath ?? '',
     },
+    resetOptions: { keepDirtyValues: true },
   });
 
-  const saveSmb = useMutation({ mutationFn: (d: UpdateSmbSettings) => api.patch('/settings/smb', d), onSuccess: () => toast.success(t('common.save')) });
+  const saveSmb = useMutation({
+    mutationFn: (d: UpdateSmbSettings) => api.patch('/settings/smb', d),
+    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+  });
   const testSmb = useMutation({
     mutationFn: () => api.post<{ success: boolean; error?: string }>('/smb/test'),
     onSuccess: (r) => r.success ? toast.success('SMB OK') : toast.error(r.error ?? 'SMB connection failed'),
