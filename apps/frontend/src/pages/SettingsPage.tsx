@@ -3,20 +3,22 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Pencil, Trash2, HardDrive, Upload } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
+  MailOpen, Archive, Lock, Globe, CheckCircle2, XCircle, FileDown,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   updateGeneralSettingsSchema, updateSmtpSettingsSchema, updateSmbSettingsSchema,
   updateBackupSettingsSchema,
@@ -75,6 +77,18 @@ function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
 }
 
+function SectionHeader({ icon: Icon, title, description }: { icon: React.ComponentType<{ className?: string }>; title: string; description: string }) {
+  return (
+    <CardHeader className="pb-4">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-base">{title}</CardTitle>
+      </div>
+      <CardDescription>{description}</CardDescription>
+    </CardHeader>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useTranslation();
 
@@ -83,18 +97,26 @@ export default function SettingsPage() {
     queryFn: () => api.get<FullSettings>('/settings'),
   });
 
-  // ── General form ──────────────────────────────────────────────────────────
+  // ── General ──────────────────────────────────────────────────────────────────
   const generalForm = useForm<UpdateGeneralSettings>({
     resolver: zodResolver(updateGeneralSettingsSchema),
-    values: { appName: settings?.appName ?? 'Servio', defaultLanguage: settings?.defaultLanguage ?? 'sl', accountingEmail: settings?.accountingEmail ?? '' },
+    values: {
+      appName: settings?.appName ?? 'Servio',
+      defaultLanguage: settings?.defaultLanguage ?? 'sl',
+      accountingEmail: settings?.accountingEmail ?? '',
+    },
   });
 
   const saveGeneral = useMutation({
     mutationFn: (d: UpdateGeneralSettings) => api.patch('/settings/general', d),
-    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); queryClient.invalidateQueries({ queryKey: ['public-settings'] }); },
+    onSuccess: () => {
+      toast.success(t('common.save'));
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public-settings'] });
+    },
   });
 
-  // ── Logo upload ────────────────────────────────────────────────────────────
+  // ── Logo ─────────────────────────────────────────────────────────────────────
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoUploading, setLogoUploading] = useState(false);
 
@@ -118,7 +140,7 @@ export default function SettingsPage() {
     }
   }
 
-  // ── SMTP form ──────────────────────────────────────────────────────────────
+  // ── SMTP ─────────────────────────────────────────────────────────────────────
   const smtpForm = useForm<UpdateSmtpSettings>({
     resolver: zodResolver(updateSmtpSettingsSchema),
     values: {
@@ -130,15 +152,23 @@ export default function SettingsPage() {
       smtpSecure: settings?.smtpSecure ?? false,
     },
   });
-  const testSmtpForm = useForm<TestSmtpRequest>({ resolver: zodResolver(testSmtpSchema), defaultValues: { recipient: '' } });
 
-  const saveSmtp = useMutation({ mutationFn: (d: UpdateSmtpSettings) => api.patch('/settings/smtp', d), onSuccess: () => toast.success(t('common.save')) });
-  const testSmtp = useMutation({
-    mutationFn: (d: TestSmtpRequest) => api.post('/settings/smtp/test', d),
-    onSuccess: (r: any) => r.success ? toast.success('SMTP OK') : toast.error(r.error ?? 'Failed'),
+  const testSmtpForm = useForm<TestSmtpRequest>({
+    resolver: zodResolver(testSmtpSchema),
+    defaultValues: { recipient: '' },
   });
 
-  // ── SMB form ───────────────────────────────────────────────────────────────
+  const saveSmtp = useMutation({
+    mutationFn: (d: UpdateSmtpSettings) => api.patch('/settings/smtp', d),
+    onSuccess: () => toast.success(t('common.save')),
+  });
+
+  const testSmtp = useMutation({
+    mutationFn: (d: TestSmtpRequest) => api.post('/settings/smtp/test', d),
+    onSuccess: (r: any) => r.success ? toast.success('SMTP OK — test email sent') : toast.error(r.error ?? 'SMTP test failed'),
+  });
+
+  // ── SMB ──────────────────────────────────────────────────────────────────────
   const smbForm = useForm<UpdateSmbSettings>({
     resolver: zodResolver(updateSmbSettingsSchema),
     values: {
@@ -155,13 +185,14 @@ export default function SettingsPage() {
     mutationFn: (d: UpdateSmbSettings) => api.patch('/settings/smb', d),
     onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
   });
+
   const testSmb = useMutation({
     mutationFn: () => api.post<{ success: boolean; error?: string }>('/smb/test'),
-    onSuccess: (r) => r.success ? toast.success('SMB OK') : toast.error(r.error ?? 'SMB connection failed'),
+    onSuccess: (r) => r.success ? toast.success('SMB OK — connection successful') : toast.error(r.error ?? 'SMB connection failed'),
     onError: (err: any) => toast.error(err?.message ?? 'SMB test failed'),
   });
 
-  // ── Backup ─────────────────────────────────────────────────────────────────
+  // ── Backup ───────────────────────────────────────────────────────────────────
   const backupForm = useForm<UpdateBackupSettings>({
     resolver: zodResolver(updateBackupSettingsSchema),
     values: {
@@ -171,7 +202,10 @@ export default function SettingsPage() {
     },
   });
 
-  const saveBackup = useMutation({ mutationFn: (d: UpdateBackupSettings) => api.patch('/settings/backup', d), onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); } });
+  const saveBackup = useMutation({
+    mutationFn: (d: UpdateBackupSettings) => api.patch('/settings/backup', d),
+    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+  });
 
   const { data: backupFiles = [], refetch: refetchBackups } = useQuery({
     queryKey: ['backup-list'],
@@ -184,7 +218,7 @@ export default function SettingsPage() {
     onError: (err: any) => toast.error(err?.message ?? t('errors.internal')),
   });
 
-  // ── Templates ──────────────────────────────────────────────────────────────
+  // ── Templates ────────────────────────────────────────────────────────────────
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
     queryKey: ['email-templates'],
     queryFn: () => api.get<EmailTemplate[]>('/settings/templates'),
@@ -214,11 +248,7 @@ export default function SettingsPage() {
       }
       return api.post('/settings/templates', d);
     },
-    onSuccess: () => {
-      toast.success(t('common.save'));
-      refetchTemplates();
-      setTemplateDialog(null);
-    },
+    onSuccess: () => { toast.success(t('common.save')); refetchTemplates(); setTemplateDialog(null); },
     onError: () => toast.error(t('errors.internal')),
   });
 
@@ -228,118 +258,229 @@ export default function SettingsPage() {
     onError: () => toast.error(t('errors.internal')),
   });
 
+  const backupEnabled = backupForm.watch('backupEnabled');
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+    <div className="space-y-4 max-w-3xl">
+      <div>
+        <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Configure your application, email, storage and backup settings</p>
+      </div>
 
       <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
-          <TabsTrigger value="smtp">{t('settings.smtp')}</TabsTrigger>
-          <TabsTrigger value="smb">{t('settings.smb')}</TabsTrigger>
-          <TabsTrigger value="templates">{t('settings.templates')}</TabsTrigger>
-          <TabsTrigger value="backup">{t('settings.backup')}</TabsTrigger>
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="general" className="gap-1.5">
+            <Settings2 className="h-3.5 w-3.5" />{t('settings.general')}
+          </TabsTrigger>
+          <TabsTrigger value="smtp" className="gap-1.5">
+            <Mail className="h-3.5 w-3.5" />{t('settings.smtp')}
+          </TabsTrigger>
+          <TabsTrigger value="smb" className="gap-1.5">
+            <Server className="h-3.5 w-3.5" />{t('settings.smb')}
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="gap-1.5">
+            <MailOpen className="h-3.5 w-3.5" />{t('settings.templates')}
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="gap-1.5">
+            <Archive className="h-3.5 w-3.5" />{t('settings.backup')}
+          </TabsTrigger>
         </TabsList>
 
-        {/* ── GENERAL ── */}
-        <TabsContent value="general">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">{t('settings.general')}</CardTitle></CardHeader>
-              <CardContent>
-                <Form {...generalForm}>
-                  <form onSubmit={generalForm.handleSubmit((d) => saveGeneral.mutate(d))} className="space-y-4 max-w-md">
-                    <FormField control={generalForm.control} name="appName" render={({ field }) => (
-                      <FormItem><FormLabel>{t('settings.appName')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={generalForm.control} name="defaultLanguage" render={({ field }) => (
-                      <FormItem><FormLabel>{t('settings.defaultLanguage')}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="sl">Slovenščina</SelectItem>
-                            <SelectItem value="en">English</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={generalForm.control} name="accountingEmail" render={({ field }) => (
-                      <FormItem><FormLabel>{t('settings.accountingEmail')}</FormLabel><FormControl><Input type="email" placeholder="accounting@example.com" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <Button type="submit" disabled={saveGeneral.isPending}>{t('common.save')}</Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+        {/* ── GENERAL ─────────────────────────────────────────────────────── */}
+        <TabsContent value="general" className="space-y-4 mt-4">
+          <Card>
+            <SectionHeader
+              icon={Globe}
+              title={t('settings.general')}
+              description="Application name, default language and accounting contact"
+            />
+            <CardContent>
+              <Form {...generalForm}>
+                <form onSubmit={generalForm.handleSubmit((d) => saveGeneral.mutate(d))} className="space-y-5">
+                  <FormField control={generalForm.control} name="appName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.appName')}</FormLabel>
+                      <FormControl><Input placeholder="Servio" {...field} /></FormControl>
+                      <FormDescription>Shown in the browser tab title and outgoing email templates</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-            <Card>
-              <CardHeader><CardTitle className="text-base">{t('settings.logoUpload')}</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {settings?.logoUrl && (
-                  <img src={settings.logoUrl} alt="Logo" className="h-16 object-contain border rounded p-2" />
-                )}
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }}
-                />
-                <Button
-                  variant="outline"
-                  disabled={logoUploading}
-                  onClick={() => logoInputRef.current?.click()}
-                >
+                  <FormField control={generalForm.control} name="defaultLanguage" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.defaultLanguage')}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="w-48"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="sl">🇸🇮 Slovenščina</SelectItem>
+                          <SelectItem value="en">🇬🇧 English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Default language applied to new user accounts</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={generalForm.control} name="accountingEmail" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.accountingEmail')}</FormLabel>
+                      <FormControl><Input type="email" placeholder="accounting@company.com" {...field} /></FormControl>
+                      <FormDescription>Invoices are forwarded to this address when sent to accounting</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <div className="pt-1">
+                    <Button type="submit" disabled={saveGeneral.isPending}>{t('common.save')}</Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <SectionHeader
+              icon={Upload}
+              title={t('settings.logoUpload')}
+              description="Upload your company logo — shown on the login screen and in PDF reports"
+            />
+            <CardContent className="space-y-4">
+              {settings?.logoUrl ? (
+                <div className="inline-flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                  <img src={settings.logoUrl} alt="Logo" className="h-12 object-contain" />
+                  <div className="text-xs text-muted-foreground">Current logo</div>
+                </div>
+              ) : (
+                <div className="flex h-14 w-36 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                  No logo set
+                </div>
+              )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }}
+              />
+              <div className="flex items-center gap-3">
+                <Button variant="outline" disabled={logoUploading} onClick={() => logoInputRef.current?.click()}>
                   <Upload className="h-4 w-4 mr-2" />
                   {logoUploading ? t('common.loading') : t('common.upload')}
                 </Button>
-                <p className="text-xs text-muted-foreground">PNG, JPG or SVG. Max 5 MB.</p>
-              </CardContent>
-            </Card>
-          </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG or SVG · Max 5 MB</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* ── SMTP ── */}
-        <TabsContent value="smtp">
+        {/* ── SMTP ────────────────────────────────────────────────────────── */}
+        <TabsContent value="smtp" className="space-y-4 mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('settings.smtp')}</CardTitle></CardHeader>
+            <SectionHeader
+              icon={Mail}
+              title={t('settings.smtp')}
+              description="Outbound email used for review reports and invoice notifications"
+            />
             <CardContent>
               <Form {...smtpForm}>
-                <form onSubmit={smtpForm.handleSubmit((d) => saveSmtp.mutate(d))} className="space-y-4 max-w-md">
-                  <FormField control={smtpForm.control} name="smtpHost" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smtpHost')}</FormLabel><FormControl><Input placeholder="smtp.gmail.com" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smtpForm.control} name="smtpPort" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smtpPort')}</FormLabel><FormControl><Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smtpForm.control} name="smtpUser" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smtpUser')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smtpForm.control} name="smtpPass" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smtpPass')}</FormLabel><FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smtpForm.control} name="smtpFrom" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smtpFrom')}</FormLabel><FormControl><Input placeholder='Servio <noreply@example.com>' {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
+                <form onSubmit={smtpForm.handleSubmit((d) => saveSmtp.mutate(d))} className="space-y-5">
+                  {/* Connection */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Connection</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2">
+                      <FormField control={smtpForm.control} name="smtpHost" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('settings.smtpHost')}</FormLabel>
+                          <FormControl><Input placeholder="smtp.gmail.com" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <FormField control={smtpForm.control} name="smtpPort" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smtpPort')}</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <p className="text-xs text-muted-foreground -mt-2">587 = STARTTLS &nbsp;·&nbsp; 465 = SSL/TLS &nbsp;·&nbsp; 25 = plain (not recommended)</p>
+
                   <FormField control={smtpForm.control} name="smtpSecure" render={({ field }) => (
-                    <FormItem className="flex items-center gap-3">
-                      <FormLabel className="mt-0">{t('settings.smtpSecure')}</FormLabel>
+                    <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                      <div>
+                        <FormLabel className="flex items-center gap-1.5 mb-0">
+                          <Lock className="h-3.5 w-3.5" />
+                          {t('settings.smtpSecure')}
+                        </FormLabel>
+                        <FormDescription className="mt-0.5">Enable SSL/TLS encryption (use for port 465)</FormDescription>
+                      </div>
                       <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                   )} />
-                  <Button type="submit" disabled={saveSmtp.isPending}>{t('common.save')}</Button>
-                </form>
-              </Form>
-              <div className="mt-6 border-t pt-4">
-                <Form {...testSmtpForm}>
-                  <form onSubmit={testSmtpForm.handleSubmit((d) => testSmtp.mutate(d))} className="flex gap-2 max-w-md">
-                    <FormField control={testSmtpForm.control} name="recipient" render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl><Input type="email" placeholder={t('settings.testRecipient')} {...field} /></FormControl>
+
+                  <Separator />
+
+                  {/* Credentials */}
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credentials</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={smtpForm.control} name="smtpUser" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smtpUser')}</FormLabel>
+                        <FormControl><Input placeholder="noreply@company.com" {...field} /></FormControl>
+                        <FormDescription>Usually your full email address</FormDescription>
+                        <FormMessage />
                       </FormItem>
                     )} />
-                    <Button type="submit" variant="outline" disabled={testSmtp.isPending}>{t('settings.testSmtp')}</Button>
+                    <FormField control={smtpForm.control} name="smtpPass" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smtpPass')}</FormLabel>
+                        <FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl>
+                        <FormDescription>Stored encrypted on the server</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <FormField control={smtpForm.control} name="smtpFrom" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.smtpFrom')}</FormLabel>
+                      <FormControl><Input placeholder='Servio <noreply@company.com>' {...field} /></FormControl>
+                      <FormDescription>Appears in the "From" field of every outgoing email</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <div className="pt-1">
+                    <Button type="submit" disabled={saveSmtp.isPending}>{t('common.save')}</Button>
+                  </div>
+                </form>
+              </Form>
+
+              <Separator className="my-6" />
+
+              {/* Test section */}
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Connection test</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Send a test email to verify your SMTP settings are working</p>
+                </div>
+                <Form {...testSmtpForm}>
+                  <form onSubmit={testSmtpForm.handleSubmit((d) => testSmtp.mutate(d))} className="flex gap-2">
+                    <FormField control={testSmtpForm.control} name="recipient" render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                          <Input type="email" placeholder={t('settings.testRecipient')} {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                    <Button type="submit" variant="outline" disabled={testSmtp.isPending}>
+                      {testSmtp.isPending ? t('common.loading') : t('settings.testSmtp')}
+                    </Button>
                   </form>
                 </Form>
               </div>
@@ -347,31 +488,76 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* ── SMB ── */}
-        <TabsContent value="smb">
+        {/* ── SMB ─────────────────────────────────────────────────────────── */}
+        <TabsContent value="smb" className="space-y-4 mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('settings.smb')}</CardTitle></CardHeader>
+            <SectionHeader
+              icon={Server}
+              title={t('settings.smb')}
+              description="Network file share (Samba / Windows) where PDF review reports are saved"
+            />
             <CardContent>
               <Form {...smbForm}>
-                <form onSubmit={smbForm.handleSubmit((d) => saveSmb.mutate(d))} className="space-y-4 max-w-md">
-                  <FormField control={smbForm.control} name="smbHost" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smbHost')}</FormLabel><FormControl><Input placeholder="192.168.1.100" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smbForm.control} name="smbShare" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smbShare')}</FormLabel><FormControl><Input placeholder="reports" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smbForm.control} name="smbUsername" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smbUser')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={smbForm.control} name="smbPassword" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smbPass')}</FormLabel><FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
+                <form onSubmit={smbForm.handleSubmit((d) => saveSmb.mutate(d))} className="space-y-5">
+                  {/* Server */}
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Server</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={smbForm.control} name="smbHost" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smbHost')}</FormLabel>
+                        <FormControl><Input placeholder="192.168.1.100" {...field} /></FormControl>
+                        <FormDescription>IP address or hostname of the file server</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={smbForm.control} name="smbShare" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smbShare')}</FormLabel>
+                        <FormControl><Input placeholder="reports" {...field} /></FormControl>
+                        <FormDescription>Share name — the part after //server/</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
                   <FormField control={smbForm.control} name="smbBasePath" render={({ field }) => (
-                    <FormItem><FormLabel>{t('settings.smbBasePath')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>{t('settings.smbBasePath')}</FormLabel>
+                      <FormControl><Input placeholder="Servio/Reports" {...field} /></FormControl>
+                      <FormDescription>Subfolder within the share — files are organized here by customer and facility</FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )} />
-                  <div className="flex gap-2">
+
+                  <Separator />
+
+                  {/* Credentials */}
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credentials</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={smbForm.control} name="smbUsername" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smbUser')}</FormLabel>
+                        <FormControl><Input placeholder="DOMAIN\user" {...field} /></FormControl>
+                        <FormDescription>User with write access to the share</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={smbForm.control} name="smbPassword" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.smbPass')}</FormLabel>
+                        <FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl>
+                        <FormDescription>Stored encrypted on the server</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
                     <Button type="submit" disabled={saveSmb.isPending}>{t('common.save')}</Button>
-                    <Button type="button" variant="outline" disabled={testSmb.isPending} onClick={() => testSmb.mutate()}>{t('settings.testSmb')}</Button>
+                    <Button type="button" variant="outline" disabled={testSmb.isPending} onClick={() => testSmb.mutate()}>
+                      <HardDrive className="h-4 w-4 mr-2" />
+                      {testSmb.isPending ? t('common.loading') : t('settings.testSmb')}
+                    </Button>
                   </div>
                 </form>
               </Form>
@@ -379,29 +565,44 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* ── TEMPLATES ── */}
-        <TabsContent value="templates">
+        {/* ── TEMPLATES ───────────────────────────────────────────────────── */}
+        <TabsContent value="templates" className="space-y-4 mt-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{t('settings.templates')}</CardTitle>
-              <Button size="sm" onClick={openCreateTemplate}>
-                <Plus className="h-4 w-4 mr-1" />
-                {t('common.create')}
-              </Button>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MailOpen className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">{t('settings.templates')}</CardTitle>
+                </div>
+                <Button size="sm" onClick={openCreateTemplate}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {t('common.create')}
+                </Button>
+              </div>
+              <CardDescription>
+                Email templates used when sending review reports to customers. One template can be marked as default.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {templates.length === 0 && (
-                <p className="text-sm text-muted-foreground py-4 text-center">{t('common.noData')}</p>
-              )}
-              {templates.map((tpl) => (
-                <div key={tpl.id} className="flex items-start gap-3 rounded-lg border p-3">
+              {templates.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center">
+                  <MailOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
+                </div>
+              ) : templates.map((tpl) => (
+                <div key={tpl.id} className="flex items-start gap-3 rounded-lg border p-3.5 hover:bg-muted/20 transition-colors">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{tpl.name}</span>
-                      {tpl.isDefault && <Badge variant="secondary" className="text-xs">default</Badge>}
-                      <Badge variant="outline" className="text-xs">{tpl.language}</Badge>
+                      {tpl.isDefault && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          <CheckCircle2 className="h-3 w-3" /> default
+                        </span>
+                      )}
+                      <Badge variant="outline" className="text-xs font-mono">{tpl.language.toUpperCase()}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{tpl.subject}</p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{tpl.subject}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Updated {formatDateTime(tpl.updatedAt)}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)}>
@@ -413,104 +614,183 @@ export default function SettingsPage() {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted-foreground pt-2">
-                {'Available variables: {{customer_name}}, {{facility_name}}, {{month}}, {{year}}, {{contract_number}}, {{app_name}}'}
-              </p>
+
+              {/* Variables reference */}
+              <div className="rounded-lg border bg-muted/30 p-3.5 mt-2">
+                <p className="text-xs font-medium mb-2 text-muted-foreground">Available template variables</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {['{{customer_name}}', '{{facility_name}}', '{{month}}', '{{year}}', '{{contract_number}}', '{{app_name}}'].map((v) => (
+                    <code key={v} className="rounded bg-background border px-1.5 py-0.5 text-xs font-mono">{v}</code>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── BACKUP ── */}
-        <TabsContent value="backup">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">{t('settings.backup')}</CardTitle></CardHeader>
-              <CardContent>
-                <Form {...backupForm}>
-                  <form onSubmit={backupForm.handleSubmit((d) => saveBackup.mutate(d))} className="space-y-4 max-w-md">
-                    <FormField control={backupForm.control} name="backupEnabled" render={({ field }) => (
-                      <FormItem className="flex items-center gap-3">
-                        <FormLabel className="mt-0">{t('settings.backupEnabled')}</FormLabel>
-                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+        {/* ── BACKUP ──────────────────────────────────────────────────────── */}
+        <TabsContent value="backup" className="space-y-4 mt-4">
+          <Card>
+            <SectionHeader
+              icon={Archive}
+              title={t('settings.backup')}
+              description="Automated database backups to protect your data"
+            />
+            <CardContent>
+              <Form {...backupForm}>
+                <form onSubmit={backupForm.handleSubmit((d) => saveBackup.mutate(d))} className="space-y-5">
+                  <FormField control={backupForm.control} name="backupEnabled" render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                      <div>
+                        <FormLabel className="mb-0">{t('settings.backupEnabled')}</FormLabel>
+                        <FormDescription className="mt-0.5">Run automatic backups on the configured schedule</FormDescription>
+                      </div>
+                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <div className={`space-y-5 transition-opacity ${backupEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                    <FormField control={backupForm.control} name="backupSchedule" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.backupSchedule')}</FormLabel>
+                        <FormControl><Input placeholder="0 2 * * *" {...field} value={field.value ?? ''} className="font-mono" /></FormControl>
+                        <FormDescription>
+                          Cron expression — <code className="text-xs bg-muted px-1 rounded">0 2 * * *</code> = every day at 02:00 &nbsp;·&nbsp; <code className="text-xs bg-muted px-1 rounded">0 2 * * 0</code> = every Sunday
+                        </FormDescription>
+                        <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField control={backupForm.control} name="backupSchedule" render={({ field }) => (
-                      <FormItem><FormLabel>{t('settings.backupSchedule')}</FormLabel><FormControl><Input placeholder="0 2 * * *" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={backupForm.control} name="backupPath" render={({ field }) => (
-                      <FormItem><FormLabel>{t('settings.backupPath')}</FormLabel><FormControl><Input placeholder="./backups" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={saveBackup.isPending}>{t('common.save')}</Button>
-                      <Button type="button" variant="outline" disabled={createBackupMutation.isPending} onClick={() => createBackupMutation.mutate()}>
-                        <HardDrive className="h-4 w-4 mr-2" />
-                        {createBackupMutation.isPending ? t('common.loading') : t('settings.createBackup')}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader><CardTitle className="text-base">Backup Files</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {backupFiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">{t('common.noData')}</p>
-                ) : backupFiles.map((f) => (
-                  <div key={f.filename} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0">
-                    <span className="font-mono text-xs truncate">{f.filename}</span>
-                    <div className="flex items-center gap-3 shrink-0 ml-3 text-muted-foreground text-xs">
-                      <span>{formatBytes(f.size)}</span>
-                      <span>{formatDateTime(f.createdAt)}</span>
-                    </div>
+                    <FormField control={backupForm.control} name="backupPath" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('settings.backupPath')}</FormLabel>
+                        <FormControl><Input placeholder="./backups" {...field} value={field.value ?? ''} /></FormControl>
+                        <FormDescription>Relative to the application root, or an absolute path on the server</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <Button type="submit" disabled={saveBackup.isPending}>{t('common.save')}</Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={createBackupMutation.isPending}
+                      onClick={() => createBackupMutation.mutate()}
+                    >
+                      <HardDrive className="h-4 w-4 mr-2" />
+                      {createBackupMutation.isPending ? t('common.loading') : t('settings.createBackup')}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          {/* Backup file list */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <FileDown className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Backup Files</CardTitle>
+              </div>
+              <CardDescription>Existing backups stored at the configured path</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {backupFiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center">
+                  <Archive className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No backup files found</p>
+                </div>
+              ) : (
+                <div className="space-y-0 divide-y rounded-md border overflow-hidden">
+                  {backupFiles.map((f) => (
+                    <div key={f.filename} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/20 transition-colors">
+                      <HardDrive className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <span className="flex-1 text-xs font-mono truncate">{f.filename}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
+                      <span className="text-xs text-muted-foreground/60 shrink-0 hidden sm:block">{formatDateTime(f.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* ── Template create/edit dialog ── */}
+      {/* Template dialog */}
       <Dialog open={!!templateDialog} onOpenChange={(open) => { if (!open) setTemplateDialog(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {templateDialog?.mode === 'edit' ? t('common.edit') : t('common.create')} {t('settings.templates').toLowerCase()}
             </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {templateDialog?.mode === 'edit'
+                ? `Editing "${templateDialog.template?.name}"`
+                : 'Create a new email template for sending review reports'}
+            </p>
           </DialogHeader>
           <Form {...templateForm}>
             <form onSubmit={templateForm.handleSubmit((d) => saveTemplate.mutate(d))} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={templateForm.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>{t('common.name')}</FormLabel><FormControl><Input placeholder="Monthly report" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Template name</FormLabel>
+                    <FormControl><Input placeholder="Monthly report — SL" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={templateForm.control} name="language" render={({ field }) => (
-                  <FormItem><FormLabel>{t('users.language')}</FormLabel>
+                  <FormItem>
+                    <FormLabel>{t('users.language')}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="sl">Slovenščina</SelectItem>
-                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="sl">🇸🇮 Slovenščina</SelectItem>
+                        <SelectItem value="en">🇬🇧 English</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )} />
               </div>
+
               <FormField control={templateForm.control} name="subject" render={({ field }) => (
-                <FormItem><FormLabel>{t('reviews.emailSubject')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('reviews.emailSubject')}</FormLabel>
+                  <FormControl><Input placeholder="Poročilo o vzdrževanju — {{month}} {{year}}" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={templateForm.control} name="body" render={({ field }) => (
-                <FormItem><FormLabel>{t('reviews.emailBody')}</FormLabel><FormControl><Textarea rows={8} className="font-mono text-sm resize-y" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('reviews.emailBody')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={8} className="font-mono text-sm resize-y" {...field} />
+                  </FormControl>
+                  <FormDescription className="flex flex-wrap gap-1 mt-1">
+                    {['{{customer_name}}', '{{facility_name}}', '{{month}}', '{{year}}', '{{contract_number}}', '{{app_name}}'].map((v) => (
+                      <code key={v} className="rounded bg-muted border px-1 py-0 text-xs">{v}</code>
+                    ))}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={templateForm.control} name="isDefault" render={({ field }) => (
-                <FormItem className="flex items-center gap-3">
-                  <FormLabel className="mt-0">Set as default</FormLabel>
+                <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                  <div>
+                    <FormLabel className="mb-0">Set as default template</FormLabel>
+                    <FormDescription className="mt-0.5">Automatically pre-select this template when uploading a review</FormDescription>
+                  </div>
                   <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                 </FormItem>
               )} />
+
               <Separator />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setTemplateDialog(null)}>{t('common.cancel')}</Button>
