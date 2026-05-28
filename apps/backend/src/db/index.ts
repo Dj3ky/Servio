@@ -11,8 +11,8 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle database client', err);
-  process.exit(-1);
+  console.error('Unexpected error on idle database client:', err.message);
+  // pool creates new connections automatically — no reason to crash the server
 });
 
 export const db = drizzle(pool, { schema });
