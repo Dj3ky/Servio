@@ -8,7 +8,6 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
-      node_args: '--openssl-legacy-provider',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,

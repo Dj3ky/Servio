@@ -1,13 +1,14 @@
 import net from 'net';
-import domain from 'domain';
-import SMB2 from '@marsaud/smb2';
+import { spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
 import { db } from '../db';
 import { decrypt } from '../utils/crypto';
 
 interface SmbConfig {
   host: string;
   share: string;
-  domain: string;
   username: string;
   password: string;
 }
@@ -15,33 +16,46 @@ interface SmbConfig {
 async function getSmbConfig(): Promise<SmbConfig | null> {
   const s = await db.query.settings.findFirst();
   if (!s?.smbHost || !s.smbShare || !s.smbUsername || !s.smbPassEncrypted) return null;
-
   return {
     host: s.smbHost,
-    share: `\\\\${s.smbHost}\\${s.smbShare}`,
-    domain: '',
+    share: s.smbShare,
     username: s.smbUsername,
     password: decrypt(s.smbPassEncrypted),
   };
 }
 
-function createClient(cfg: SmbConfig): SMB2 {
-  return new SMB2({
-    share: cfg.share,
-    domain: cfg.domain,
-    username: cfg.username,
-    password: cfg.password,
-    autoCloseTimeout: 5000,
-  });
-}
+// Password is passed via PASSWD env var — keeps it out of the process list.
+// smbclient uses NTLMv2 by default on modern samba-client packages.
+function runSmbclient(cfg: SmbConfig, command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      'smbclient',
+      [
+        `//${cfg.host}/${cfg.share}`,
+        '-U', cfg.username,
+        '--option=client min protocol=SMB2',
+        '-c', command,
+      ],
+      {
+        env: { ...process.env, PASSWD: cfg.password },
+        timeout: 15000,
+      },
+    );
 
-// Runs fn inside a Node.js domain so unhandled error events from @marsaud/smb2's
-// internal socket are caught and routed to reject instead of crashing the process.
-function runInDomain<T>(fn: () => Promise<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const d = domain.create();
-    d.on('error', reject);
-    d.run(() => fn().then(resolve, reject));
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+    proc.on('close', (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr.trim() || stdout.trim() || `smbclient exited with code ${code}`));
+    });
+
+    proc.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') reject(new Error('smbclient not found — install it: apt-get install samba-client'));
+      else reject(err);
+    });
   });
 }
 
@@ -57,54 +71,49 @@ function checkTcpPort(host: string, port = 445, timeoutMs = 5000): Promise<void>
   });
 }
 
+async function ensureDir(cfg: SmbConfig, dirPath: string): Promise<void> {
+  const parts = dirPath.split('/').filter(Boolean);
+  let current = '';
+  for (const part of parts) {
+    current = current ? `${current}/${part}` : part;
+    try {
+      await runSmbclient(cfg, `mkdir "${current}"`);
+    } catch {
+      // NT_STATUS_OBJECT_NAME_COLLISION means the directory already exists — that's fine.
+      // Any real error will surface when we try to put the file.
+    }
+  }
+}
+
 export async function readFromSmb(remotePath: string): Promise<Buffer> {
   const cfg = await getSmbConfig();
   if (!cfg) throw new Error('SMB not configured');
 
-  return runInDomain(() => {
-    const client = createClient(cfg);
-    return new Promise<Buffer>((resolve, reject) => {
-      client.readFile(remotePath, (err: Error | null, data: Buffer) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
-    });
-  });
+  const tmpFile = path.join(os.tmpdir(), `servio-smb-dl-${Date.now()}`);
+  try {
+    await runSmbclient(cfg, `get "${remotePath}" "${tmpFile}"`);
+    return await fs.readFile(tmpFile);
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {});
+  }
 }
 
 export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<void> {
   const cfg = await getSmbConfig();
   if (!cfg) throw new Error('SMB not configured');
 
-  return runInDomain(async () => {
-    const client = createClient(cfg);
+  const tmpFile = path.join(os.tmpdir(), `servio-smb-ul-${Date.now()}`);
+  try {
+    await fs.writeFile(tmpFile, buffer);
 
     const parts = remotePath.split('/');
     parts.pop();
     const dir = parts.join('/');
+    if (dir) await ensureDir(cfg, dir);
 
-    if (dir) {
-      await ensureDir(client, dir);
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      client.writeFile(remotePath, buffer, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  });
-}
-
-async function ensureDir(client: SMB2, dirPath: string): Promise<void> {
-  const parts = dirPath.split('/').filter(Boolean);
-  let current = '';
-
-  for (const part of parts) {
-    current = current ? `${current}/${part}` : part;
-    await new Promise<void>((resolve) => {
-      client.mkdir(current, () => resolve());
-    });
+    await runSmbclient(cfg, `put "${tmpFile}" "${remotePath}"`);
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {});
   }
 }
 
@@ -115,33 +124,16 @@ export async function testSmbConnection(): Promise<{ success: boolean; error?: s
       return { success: false, error: 'SMB is not configured — fill in host, share, username and password.' };
     }
 
-    // Step 1: fast TCP check — port 445 reachable?
     await checkTcpPort(s.smbHost);
 
-    // Step 2: SMB authentication + share access
     const cfg: SmbConfig = {
       host: s.smbHost,
-      share: `\\\\${s.smbHost}\\${s.smbShare}`,
-      domain: '',
+      share: s.smbShare,
       username: s.smbUsername,
       password: decrypt(s.smbPassEncrypted),
     };
 
-    await runInDomain(() => {
-      const client = createClient(cfg);
-      return new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error('SMB authentication timed out — check credentials and share name.')),
-          10000,
-        );
-        client.readdir('', (err: Error | null) => {
-          clearTimeout(timer);
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-    });
-
+    await runSmbclient(cfg, 'ls');
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -155,8 +147,7 @@ export function buildSmbPath(
   yearMonth: string,
   filename: string,
 ): string {
-  const parts = [basePath, String(year), contractNumber, `${yearMonth}_${filename}`]
+  return [basePath, String(year), contractNumber, `${yearMonth}_${filename}`]
     .filter(Boolean)
     .join('/');
-  return parts;
 }

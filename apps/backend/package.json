@@ -4,7 +4,7 @@
   "private": true,
   "main": "./dist/server.js",
   "scripts": {
-    "dev": "NODE_OPTIONS=--openssl-legacy-provider tsx watch src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
@@ -13,7 +13,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@marsaud/smb2": "^0.11.0",
     "@servio/shared": "*",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
