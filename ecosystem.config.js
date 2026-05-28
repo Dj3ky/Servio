@@ -11,6 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        NODE_OPTIONS: '--openssl-legacy-provider',
       },
       env_file: '.env',
       error_file: './logs/backend-error.log',
