@@ -213,11 +213,20 @@
     "addFacility": "Add Facility",
     "editFacility": "Edit Facility",
     "basicInfo": "Basic Information",
+    "basicInfoDesc": "Customer contact details and facility location",
     "contractInfo": "Contract Details",
+    "contractInfoDesc": "Contract terms, billing settings and review schedule",
     "schedule": "Maintenance Schedule",
     "emailSettings": "Email Settings",
     "smbPath": "SMB Path",
-    "contractDocuments": "Contract Documents"
+    "smbPathDesc": "Override the default network storage path for this contract's documents",
+    "smbPathHint": "Leave empty to use the default SMB base path configured in Settings",
+    "contractDocuments": "Contract Documents",
+    "customMonthsHint": "Select the specific months when maintenance reviews are scheduled",
+    "valueHint": "Amount charged per individual review visit (excl. VAT)",
+    "valueYearHint": "Total contract value for the full calendar year (excl. VAT)",
+    "customerEmailHint": "Used for sending review reports and invoices",
+    "required": "* Required field"
   },
   "reports": {
     "title": "Reports",

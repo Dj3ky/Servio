@@ -213,11 +213,20 @@
     "addFacility": "Dodaj objekt",
     "editFacility": "Uredi objekt",
     "basicInfo": "Osnove informacije",
+    "basicInfoDesc": "Kontaktni podatki stranke in lokacija objekta",
     "contractInfo": "Podatki o pogodbi",
+    "contractInfoDesc": "Pogoji pogodbe, nastavitve fakturiranja in urnik pregledov",
     "schedule": "Urnik vzdrževanja",
     "emailSettings": "Nastavitve e-pošte",
     "smbPath": "SMB pot",
-    "contractDocuments": "Pogodba"
+    "smbPathDesc": "Nadomestna pot za shranjevanje dokumentov te pogodbe",
+    "smbPathHint": "Pustite prazno za privzeto SMB pot iz Nastavitev",
+    "contractDocuments": "Pogodba",
+    "customMonthsHint": "Izberite mesece, v katerih so načrtovani vzdrževalni pregledi",
+    "valueHint": "Znesek za posamezen obisk pregleda (brez DDV)",
+    "valueYearHint": "Skupna vrednost pogodbe za celo leto (brez DDV)",
+    "customerEmailHint": "Uporablja se za pošiljanje poročil o pregledih in faktur",
+    "required": "* Obvezno polje"
   },
   "reports": {
     "title": "Poročila",

@@ -5,14 +5,14 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Building2, FileText, HardDrive } from 'lucide-react';
 import { z } from 'zod';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
@@ -23,6 +23,8 @@ const MONTH_NUMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 function monthAbbr(month: number, lang: string) {
   return new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(2024, month - 1, 1));
 }
+
+const Req = () => <span className="text-destructive ml-0.5">*</span>;
 
 const formSchema = z.object({
   customerName: z.string().min(1),
@@ -99,7 +101,6 @@ export default function FacilityFormPage() {
     },
   });
 
-  // Populate form when edit data loads
   useEffect(() => {
     if (!facilityData) return;
     const contract = facilityData.contracts.find((c) => c.isActive) ?? facilityData.contracts[0];
@@ -233,9 +234,12 @@ export default function FacilityFormPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">
-          {isEdit ? t('facility.editFacility') : t('facility.addFacility')}
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold">
+            {isEdit ? t('facility.editFacility') : t('facility.addFacility')}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('facility.required')}</p>
+        </div>
       </div>
 
       <Form {...form}>
@@ -243,48 +247,124 @@ export default function FacilityFormPage() {
           onSubmit={form.handleSubmit((d) => isEdit ? updateMutation.mutate(d) : createMutation.mutate(d))}
           className="space-y-6"
         >
+          {/* ── Section 1: Basic Info ── */}
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('facility.basicInfo')}</CardTitle></CardHeader>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('facility.basicInfo')}</CardTitle>
+              </div>
+              <CardDescription>{t('facility.basicInfoDesc')}</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="customerName" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.customer')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('contracts.customer')}<Req /></FormLabel>
+                    <FormControl>
+                      <Input placeholder="Acme d.o.o." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="customerEmail" render={({ field }) => (
-                  <FormItem><FormLabel>{t('common.email')}</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('common.email')}</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="info@example.com" {...field} />
+                    </FormControl>
+                    <FormDescription>{t('facility.customerEmailHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="contactName" render={({ field }) => (
-                  <FormItem><FormLabel>Contact Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Contact Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Janez Novak" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>{t('common.phone')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('common.phone')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+386 41 123 456" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
+
               <Separator />
+
               <FormField control={form.control} name="facilityName" render={({ field }) => (
-                <FormItem><FormLabel>{t('contracts.facility')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('contracts.facility')}<Req /></FormLabel>
+                  <FormControl>
+                    <Input placeholder="Objekt Ljubljana — Dunajska" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="facilityAddress" render={({ field }) => (
-                <FormItem><FormLabel>{t('common.address')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('common.address')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Dunajska cesta 1, 1000 Ljubljana" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="facilityNotes" render={({ field }) => (
-                <FormItem><FormLabel>{t('common.notes')}</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{t('common.notes')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder="Additional notes about the facility, access codes, special instructions…"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
             </CardContent>
           </Card>
 
+          {/* ── Section 2: Contract Details ── */}
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('facility.contractInfo')}</CardTitle></CardHeader>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('facility.contractInfo')}</CardTitle>
+              </div>
+              <CardDescription>{t('facility.contractInfoDesc')}</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="contractNumber" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.contractNumber')}</FormLabel><FormControl><Input placeholder="371-2005" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('contracts.contractNumber')}<Req /></FormLabel>
+                    <FormControl>
+                      <Input placeholder="371-2025" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="startDate" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.startDate')}</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('contracts.startDate')}<Req /></FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="reviewFrequency" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.frequency')}</FormLabel>
+                  <FormItem>
+                    <FormLabel>{t('contracts.frequency')}<Req /></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -297,7 +377,8 @@ export default function FacilityFormPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="invoiceDelivery" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.invoiceDelivery')}</FormLabel>
+                  <FormItem>
+                    <FormLabel>{t('contracts.invoiceDelivery')}<Req /></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -310,20 +391,45 @@ export default function FacilityFormPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="valueWithoutVat" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.valueExclVat')}</FormLabel><FormControl>
-                    <Input type="number" step="0.01" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
-                  </FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('contracts.valueExclVat')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                    <FormDescription>{t('facility.valueHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="valueWithoutVatPerYear" render={({ field }) => (
-                  <FormItem><FormLabel>{t('contracts.valueExclVatYear')}</FormLabel><FormControl>
-                    <Input type="number" step="0.01" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
-                  </FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>{t('contracts.valueExclVatYear')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                    <FormDescription>{t('facility.valueYearHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
 
               {reviewFrequency === 'custom' && (
                 <div className="space-y-2">
                   <FormLabel>{t('frequency.custom')}</FormLabel>
+                  <p className="text-sm text-muted-foreground">{t('facility.customMonthsHint')}</p>
                   <div className="grid grid-cols-6 gap-2">
                     {MONTH_NUMS.map((m) => {
                       const selected = customMonths.includes(m);
@@ -348,11 +454,25 @@ export default function FacilityFormPage() {
             </CardContent>
           </Card>
 
+          {/* ── Section 3: SMB Path ── */}
           <Card>
-            <CardHeader><CardTitle className="text-base">{t('facility.smbPath')}</CardTitle></CardHeader>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('facility.smbPath')}</CardTitle>
+              </div>
+              <CardDescription>{t('facility.smbPathDesc')}</CardDescription>
+            </CardHeader>
             <CardContent>
               <FormField control={form.control} name="smbPath" render={({ field }) => (
-                <FormItem><FormLabel>Custom SMB Path Override</FormLabel><FormControl><Input placeholder="optional/custom/path" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Custom SMB Path Override</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Stranke/Acme/Ljubljana" {...field} />
+                  </FormControl>
+                  <FormDescription>{t('facility.smbPathHint')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
               )} />
             </CardContent>
           </Card>
