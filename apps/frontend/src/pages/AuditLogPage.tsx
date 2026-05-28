@@ -157,11 +157,11 @@ export default function AuditLogPage() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto">
               <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Columns
+              {t('common.columns')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Toggle columns</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('common.toggleColumns')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {table.getAllColumns()
               .filter((col) => col.getCanHide())

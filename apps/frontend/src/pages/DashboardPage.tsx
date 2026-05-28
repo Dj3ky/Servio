@@ -85,7 +85,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Overview of your maintenance operations</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('dashboard.subtitle')}</p>
       </div>
 
       {/* Stat cards */}

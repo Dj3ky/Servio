@@ -30,6 +30,7 @@ import {
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 
 interface FullSettings {
   appName: string;
@@ -91,6 +92,8 @@ function SectionHeader({ icon: Icon, title, description }: { icon: React.Compone
 
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -264,7 +267,7 @@ export default function SettingsPage() {
     <div className="space-y-4 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Configure your application, email, storage and backup settings</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('settings.pageDesc')}</p>
       </div>
 
       <Tabs defaultValue="general">
@@ -292,7 +295,7 @@ export default function SettingsPage() {
             <SectionHeader
               icon={Globe}
               title={t('settings.general')}
-              description="Application name, default language and accounting contact"
+              description={t('settings.generalDesc')}
             />
             <CardContent>
               <Form {...generalForm}>
@@ -301,7 +304,7 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>{t('settings.appName')}</FormLabel>
                       <FormControl><Input placeholder="Servio" {...field} /></FormControl>
-                      <FormDescription>Shown in the browser tab title and outgoing email templates</FormDescription>
+                      <FormDescription>{t('settings.appNameHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -316,7 +319,7 @@ export default function SettingsPage() {
                           <SelectItem value="en">🇬🇧 English</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormDescription>Default language applied to new user accounts</FormDescription>
+                      <FormDescription>{t('settings.defaultLanguageHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -325,7 +328,7 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>{t('settings.accountingEmail')}</FormLabel>
                       <FormControl><Input type="email" placeholder="accounting@company.com" {...field} /></FormControl>
-                      <FormDescription>Invoices are forwarded to this address when sent to accounting</FormDescription>
+                      <FormDescription>{t('settings.accountingEmailHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -342,17 +345,17 @@ export default function SettingsPage() {
             <SectionHeader
               icon={Upload}
               title={t('settings.logoUpload')}
-              description="Upload your company logo — shown on the login screen and in PDF reports"
+              description={t('settings.logoDesc')}
             />
             <CardContent className="space-y-4">
               {settings?.logoUrl ? (
                 <div className="inline-flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
                   <img src={settings.logoUrl} alt="Logo" className="h-12 object-contain" />
-                  <div className="text-xs text-muted-foreground">Current logo</div>
+                  <div className="text-xs text-muted-foreground">{t('common.currentLogo')}</div>
                 </div>
               ) : (
                 <div className="flex h-14 w-36 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
-                  No logo set
+                  {t('common.noLogoSet')}
                 </div>
               )}
               <input
@@ -367,7 +370,7 @@ export default function SettingsPage() {
                   <Upload className="h-4 w-4 mr-2" />
                   {logoUploading ? t('common.loading') : t('common.upload')}
                 </Button>
-                <p className="text-xs text-muted-foreground">PNG, JPG or SVG · Max 5 MB</p>
+                <p className="text-xs text-muted-foreground">{t('settings.logoHint')}</p>
               </div>
             </CardContent>
           </Card>
@@ -379,14 +382,14 @@ export default function SettingsPage() {
             <SectionHeader
               icon={Mail}
               title={t('settings.smtp')}
-              description="Outbound email used for review reports and invoice notifications"
+              description={t('settings.smtpDesc')}
             />
             <CardContent>
               <Form {...smtpForm}>
                 <form onSubmit={smtpForm.handleSubmit((d) => saveSmtp.mutate(d))} className="space-y-5">
                   {/* Connection */}
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Connection</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.smtpConnection')}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-2">
@@ -408,7 +411,7 @@ export default function SettingsPage() {
                       </FormItem>
                     )} />
                   </div>
-                  <p className="text-xs text-muted-foreground -mt-2">587 = STARTTLS &nbsp;·&nbsp; 465 = SSL/TLS &nbsp;·&nbsp; 25 = plain (not recommended)</p>
+                  <p className="text-xs text-muted-foreground -mt-2">{t('settings.smtpPortHint')}</p>
 
                   <FormField control={smtpForm.control} name="smtpSecure" render={({ field }) => (
                     <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
@@ -417,30 +420,39 @@ export default function SettingsPage() {
                           <Lock className="h-3.5 w-3.5" />
                           {t('settings.smtpSecure')}
                         </FormLabel>
-                        <FormDescription className="mt-0.5">Enable SSL/TLS encryption (use for port 465)</FormDescription>
+                        <FormDescription className="mt-0.5">{t('settings.smtpSecureHint')}</FormDescription>
                       </div>
-                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(val) => {
+                            field.onChange(val);
+                            const currentPort = smtpForm.getValues('smtpPort');
+                            if (val && currentPort === 587) smtpForm.setValue('smtpPort', 465);
+                            if (!val && currentPort === 465) smtpForm.setValue('smtpPort', 587);
+                          }}
+                        />
+                      </FormControl>
                     </FormItem>
                   )} />
 
                   <Separator />
 
-                  {/* Credentials */}
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credentials</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.smtpCredentials')}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={smtpForm.control} name="smtpUser" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('settings.smtpUser')}</FormLabel>
                         <FormControl><Input placeholder="noreply@company.com" {...field} /></FormControl>
-                        <FormDescription>Usually your full email address</FormDescription>
+                        <FormDescription>{t('settings.smtpUserHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={smtpForm.control} name="smtpPass" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('settings.smtpPass')}</FormLabel>
-                        <FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl>
-                        <FormDescription>Stored encrypted on the server</FormDescription>
+                        <FormControl><Input type="password" placeholder={t('common.leaveBlank')} {...field} /></FormControl>
+                        <FormDescription>{t('settings.smtpPassHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -450,7 +462,7 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>{t('settings.smtpFrom')}</FormLabel>
                       <FormControl><Input placeholder='Servio <noreply@company.com>' {...field} /></FormControl>
-                      <FormDescription>Appears in the "From" field of every outgoing email</FormDescription>
+                      <FormDescription>{t('settings.smtpFromHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -466,8 +478,8 @@ export default function SettingsPage() {
               {/* Test section */}
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-medium">Connection test</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Send a test email to verify your SMTP settings are working</p>
+                  <p className="text-sm font-medium">{t('settings.smtpTestTitle')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('settings.smtpTestDesc')}</p>
                 </div>
                 <Form {...testSmtpForm}>
                   <form onSubmit={testSmtpForm.handleSubmit((d) => testSmtp.mutate(d))} className="flex gap-2">
@@ -494,19 +506,19 @@ export default function SettingsPage() {
             <SectionHeader
               icon={Server}
               title={t('settings.smb')}
-              description="Network file share (Samba / Windows) where PDF review reports are saved"
+              description={t('settings.smbDesc')}
             />
             <CardContent>
               <Form {...smbForm}>
                 <form onSubmit={smbForm.handleSubmit((d) => saveSmb.mutate(d))} className="space-y-5">
                   {/* Server */}
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Server</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.smbServer')}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={smbForm.control} name="smbHost" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('settings.smbHost')}</FormLabel>
                         <FormControl><Input placeholder="192.168.1.100" {...field} /></FormControl>
-                        <FormDescription>IP address or hostname of the file server</FormDescription>
+                        <FormDescription>{t('settings.smbHostHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -514,7 +526,7 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>{t('settings.smbShare')}</FormLabel>
                         <FormControl><Input placeholder="reports" {...field} /></FormControl>
-                        <FormDescription>Share name — the part after //server/</FormDescription>
+                        <FormDescription>{t('settings.smbShareHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -524,29 +536,28 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>{t('settings.smbBasePath')}</FormLabel>
                       <FormControl><Input placeholder="Servio/Reports" {...field} /></FormControl>
-                      <FormDescription>Subfolder within the share — files are organized here by customer and facility</FormDescription>
+                      <FormDescription>{t('settings.smbBasePathHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
 
                   <Separator />
 
-                  {/* Credentials */}
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credentials</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.smtpCredentials')}</p>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={smbForm.control} name="smbUsername" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('settings.smbUser')}</FormLabel>
                         <FormControl><Input placeholder="DOMAIN\user" {...field} /></FormControl>
-                        <FormDescription>User with write access to the share</FormDescription>
+                        <FormDescription>{t('settings.smbUsernameHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={smbForm.control} name="smbPassword" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('settings.smbPass')}</FormLabel>
-                        <FormControl><Input type="password" placeholder="Leave blank to keep current" {...field} /></FormControl>
-                        <FormDescription>Stored encrypted on the server</FormDescription>
+                        <FormControl><Input type="password" placeholder={t('common.leaveBlank')} {...field} /></FormControl>
+                        <FormDescription>{t('settings.smbPassHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -579,15 +590,13 @@ export default function SettingsPage() {
                   {t('common.create')}
                 </Button>
               </div>
-              <CardDescription>
-                Email templates used when sending review reports to customers. One template can be marked as default.
-              </CardDescription>
+              <CardDescription>{t('settings.templatesDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {templates.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center">
                   <MailOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
+                  <p className="text-sm text-muted-foreground">{t('settings.templatesEmpty')}</p>
                 </div>
               ) : templates.map((tpl) => (
                 <div key={tpl.id} className="flex items-start gap-3 rounded-lg border p-3.5 hover:bg-muted/20 transition-colors">
@@ -602,7 +611,7 @@ export default function SettingsPage() {
                       <Badge variant="outline" className="text-xs font-mono">{tpl.language.toUpperCase()}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 truncate">{tpl.subject}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">Updated {formatDateTime(tpl.updatedAt)}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">{t('common.edit')} {formatDateTime(tpl.updatedAt)}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)}>
@@ -617,7 +626,7 @@ export default function SettingsPage() {
 
               {/* Variables reference */}
               <div className="rounded-lg border bg-muted/30 p-3.5 mt-2">
-                <p className="text-xs font-medium mb-2 text-muted-foreground">Available template variables</p>
+                <p className="text-xs font-medium mb-2 text-muted-foreground">{t('settings.templateVariables')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {['{{customer_name}}', '{{facility_name}}', '{{month}}', '{{year}}', '{{contract_number}}', '{{app_name}}'].map((v) => (
                     <code key={v} className="rounded bg-background border px-1.5 py-0.5 text-xs font-mono">{v}</code>
@@ -634,7 +643,7 @@ export default function SettingsPage() {
             <SectionHeader
               icon={Archive}
               title={t('settings.backup')}
-              description="Automated database backups to protect your data"
+              description={t('settings.backupDesc')}
             />
             <CardContent>
               <Form {...backupForm}>
@@ -643,7 +652,7 @@ export default function SettingsPage() {
                     <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
                       <div>
                         <FormLabel className="mb-0">{t('settings.backupEnabled')}</FormLabel>
-                        <FormDescription className="mt-0.5">Run automatic backups on the configured schedule</FormDescription>
+                        <FormDescription className="mt-0.5">{t('settings.backupEnabledHint')}</FormDescription>
                       </div>
                       <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
@@ -654,9 +663,7 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>{t('settings.backupSchedule')}</FormLabel>
                         <FormControl><Input placeholder="0 2 * * *" {...field} value={field.value ?? ''} className="font-mono" /></FormControl>
-                        <FormDescription>
-                          Cron expression — <code className="text-xs bg-muted px-1 rounded">0 2 * * *</code> = every day at 02:00 &nbsp;·&nbsp; <code className="text-xs bg-muted px-1 rounded">0 2 * * 0</code> = every Sunday
-                        </FormDescription>
+                        <FormDescription>{t('settings.backupScheduleHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -665,7 +672,7 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>{t('settings.backupPath')}</FormLabel>
                         <FormControl><Input placeholder="./backups" {...field} value={field.value ?? ''} /></FormControl>
-                        <FormDescription>Relative to the application root, or an absolute path on the server</FormDescription>
+                        <FormDescription>{t('settings.backupPathHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -693,15 +700,15 @@ export default function SettingsPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <FileDown className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-base">Backup Files</CardTitle>
+                <CardTitle className="text-base">{t('settings.backupFiles')}</CardTitle>
               </div>
-              <CardDescription>Existing backups stored at the configured path</CardDescription>
+              <CardDescription>{t('settings.backupFilesDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               {backupFiles.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center">
                   <Archive className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">No backup files found</p>
+                  <p className="text-sm text-muted-foreground">{t('settings.backupFilesEmpty')}</p>
                 </div>
               ) : (
                 <div className="space-y-0 divide-y rounded-md border overflow-hidden">
@@ -729,8 +736,8 @@ export default function SettingsPage() {
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
               {templateDialog?.mode === 'edit'
-                ? `Editing "${templateDialog.template?.name}"`
-                : 'Create a new email template for sending review reports'}
+                ? `${t('settings.templateDialogEditing')} "${templateDialog.template?.name}"`
+                : t('settings.templateDialogCreate')}
             </p>
           </DialogHeader>
           <Form {...templateForm}>
@@ -738,7 +745,7 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={templateForm.control} name="name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Template name</FormLabel>
+                    <FormLabel>{t('settings.templateName')}</FormLabel>
                     <FormControl><Input placeholder="Monthly report — SL" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -784,8 +791,8 @@ export default function SettingsPage() {
               <FormField control={templateForm.control} name="isDefault" render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
                   <div>
-                    <FormLabel className="mb-0">Set as default template</FormLabel>
-                    <FormDescription className="mt-0.5">Automatically pre-select this template when uploading a review</FormDescription>
+                    <FormLabel className="mb-0">{t('settings.templateDefault')}</FormLabel>
+                    <FormDescription className="mt-0.5">{t('settings.templateDefaultHint')}</FormDescription>
                   </div>
                   <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                 </FormItem>

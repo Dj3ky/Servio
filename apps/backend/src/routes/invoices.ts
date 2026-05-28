@@ -78,14 +78,36 @@ router.post('/:id/send-accounting', async (req: Request, res: Response): Promise
   const facility = contract?.facility;
   const customer = contract?.customer;
 
+  const scheduledMonth = review.scheduledMonth?.slice(0, 7) ?? '';
+  const year = scheduledMonth.slice(0, 4);
+
+  const templateVars: Record<string, string> = {
+    customer_name: customer?.name ?? '',
+    facility_name: facility?.name ?? '',
+    month: scheduledMonth,
+    year,
+    contract_number: contract?.contractNumber ?? '',
+    app_name: s?.appName ?? 'Servio',
+  };
+
+  const rawSubject: string = req.body.emailSubject?.trim()
+    || `Invoice – ${facility?.name ?? ''} – ${scheduledMonth}`;
+
+  const rawBody: string = req.body.emailBody?.trim()
+    || `Invoice for <strong>${customer?.name ?? ''}</strong>, ${facility?.name ?? ''}, ${scheduledMonth}.<br>Contract: ${contract?.contractNumber ?? ''}`;
+
+  const { renderTemplate } = await import('../services/email');
+  const subject = renderTemplate(rawSubject, templateVars);
+  const html = renderTemplate(rawBody, templateVars);
+
   try {
     const buffer = await readFromSmb(review.pdfPath);
     const filename = review.pdfFilename ?? 'document.pdf';
 
     await sendMail({
       to: accountingEmail,
-      subject: `Invoice – ${facility?.name ?? ''} – ${review.scheduledMonth}`,
-      html: `Invoice for <strong>${customer?.name ?? ''}</strong>, ${facility?.name ?? ''}, ${review.scheduledMonth}.<br>Contract: ${contract?.contractNumber ?? ''}`,
+      subject,
+      html,
       attachments: [{ filename, content: buffer, contentType: 'application/pdf' }],
     });
 

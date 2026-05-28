@@ -23,6 +23,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
+import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 
 interface InvoiceQueueItem {
   id: string;
@@ -58,6 +59,7 @@ export default function InvoiceQueuePage() {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', 'pending'],
@@ -96,12 +98,6 @@ export default function InvoiceQueuePage() {
       setSelectedInvoice(null);
       setInvoiceNumber('');
     },
-  });
-
-  const sendAccountingMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/invoices/${id}/send-accounting`, {}),
-    onSuccess: () => toast.success(t('invoices.sentToAccounting')),
-    onError: () => toast.error(t('errors.internal')),
   });
 
   const handleAction = (invoice: InvoiceQueueItem, status: string) => {
@@ -172,8 +168,7 @@ export default function InvoiceQueuePage() {
             <Button
               size="sm"
               variant="secondary"
-              disabled={sendAccountingMutation.isPending}
-              onClick={() => sendAccountingMutation.mutate(inv.id)}
+              onClick={() => setAccountingInvoice(inv)}
             >
               {t('invoices.sendToAccounting')}
             </Button>
@@ -256,11 +251,11 @@ export default function InvoiceQueuePage() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto">
               <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Columns
+              {t('common.columns')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Toggle columns</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('common.toggleColumns')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {table.getAllColumns()
               .filter((col) => col.getCanHide())
@@ -369,6 +364,17 @@ export default function InvoiceQueuePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SendAccountingDialog
+        invoice={accountingInvoice ? {
+          id: accountingInvoice.id,
+          customerName: accountingInvoice.review.contract.customer.name,
+          facilityName: accountingInvoice.review.contract.facility.name,
+          contractNumber: accountingInvoice.review.contract.contractNumber,
+          scheduledMonth: accountingInvoice.review.scheduledMonth,
+        } : null}
+        onClose={() => setAccountingInvoice(null)}
+      />
     </div>
   );
 }

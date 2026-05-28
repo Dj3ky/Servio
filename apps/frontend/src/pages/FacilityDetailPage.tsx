@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
+import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { useAuthStore } from '@/stores/authStore';
 
 interface Review {
@@ -292,6 +293,7 @@ export default function FacilityDetailPage() {
 
   const [invoiceDialog, setInvoiceDialog] = useState<{ invoice: Invoice; targetStatus: string } | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -353,12 +355,6 @@ export default function FacilityDetailPage() {
       toast.success(t('reviews.createReview'));
     },
     onError: () => toast.error(t('errors.internal')),
-  });
-
-  const sendAccountingMutation = useMutation({
-    mutationFn: (invoiceId: string) => api.post(`/invoices/${invoiceId}/send-accounting`, {}),
-    onSuccess: () => toast.success(t('invoices.sentToAccounting')),
-    onError: (err: any) => toast.error(err?.message ?? t('errors.internal')),
   });
 
   const updateInvoiceMutation = useMutation({
@@ -572,8 +568,7 @@ export default function FacilityDetailPage() {
                         <Button
                           size="sm"
                           variant="secondary"
-                          disabled={sendAccountingMutation.isPending}
-                          onClick={() => sendAccountingMutation.mutate(inv.id)}
+                          onClick={() => setAccountingInvoice(inv)}
                         >
                           {t('invoices.sendToAccounting')}
                         </Button>
@@ -840,6 +835,18 @@ export default function FacilityDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SendAccountingDialog
+        invoice={accountingInvoice && facility && activeContract ? {
+          id: accountingInvoice.id,
+          customerName: facility.customer.name,
+          facilityName: facility.name,
+          contractNumber: activeContract.contractNumber,
+          scheduledMonth: accountingInvoice.createdAt.slice(0, 7),
+        } : null}
+        onClose={() => setAccountingInvoice(null)}
+        invalidateKeys={[['invoices-facility', activeContract?.id]]}
+      />
     </div>
   );
 }

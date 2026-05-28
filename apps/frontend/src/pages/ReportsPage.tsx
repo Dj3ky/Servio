@@ -66,7 +66,7 @@ export default function ReportsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">{t('reports.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Export maintenance reports as PDF or Excel</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('reports.subtitle')}</p>
       </div>
 
       {/* Monthly report */}
@@ -76,7 +76,7 @@ export default function ReportsPage() {
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-base">{t('reports.monthly')}</CardTitle>
           </div>
-          <CardDescription>All reviews completed within the selected month</CardDescription>
+          <CardDescription>{t('reports.monthlyDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-end gap-3 flex-wrap">
@@ -142,7 +142,7 @@ export default function ReportsPage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-base">{t('reports.yearly')}</CardTitle>
           </div>
-          <CardDescription>Consolidated annual report for all contracts</CardDescription>
+          <CardDescription>{t('reports.yearlyDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-end gap-3 flex-wrap">
