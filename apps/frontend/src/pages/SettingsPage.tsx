@@ -58,6 +58,7 @@ interface EmailTemplate {
   body: string;
   language: 'sl' | 'en';
   isDefault: boolean;
+  templateType: 'review' | 'accounting';
   createdAt: string;
   updatedAt: string;
 }
@@ -231,16 +232,16 @@ export default function SettingsPage() {
 
   const templateForm = useForm<CreateEmailTemplateRequest>({
     resolver: zodResolver(createEmailTemplateSchema),
-    defaultValues: { name: '', subject: '', body: '', language: 'sl', isDefault: false },
+    defaultValues: { name: '', subject: '', body: '', language: 'sl', isDefault: false, templateType: 'review' },
   });
 
   function openCreateTemplate() {
-    templateForm.reset({ name: '', subject: '', body: '', language: 'sl', isDefault: false });
+    templateForm.reset({ name: '', subject: '', body: '', language: 'sl', isDefault: false, templateType: 'review' });
     setTemplateDialog({ mode: 'create' });
   }
 
   function openEditTemplate(tpl: EmailTemplate) {
-    templateForm.reset({ name: tpl.name, subject: tpl.subject, body: tpl.body, language: tpl.language, isDefault: tpl.isDefault });
+    templateForm.reset({ name: tpl.name, subject: tpl.subject, body: tpl.body, language: tpl.language, isDefault: tpl.isDefault, templateType: tpl.templateType });
     setTemplateDialog({ mode: 'edit', template: tpl });
   }
 
@@ -609,6 +610,9 @@ export default function SettingsPage() {
                         </span>
                       )}
                       <Badge variant="outline" className="text-xs font-mono">{tpl.language.toUpperCase()}</Badge>
+                      <Badge variant={tpl.templateType === 'accounting' ? 'info' : 'secondary'} className="text-xs">
+                        {t(tpl.templateType === 'accounting' ? 'settings.templateTypeAccounting' : 'settings.templateTypeReview')}
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 truncate">{tpl.subject}</p>
                     <p className="text-xs text-muted-foreground/60 mt-0.5">{t('common.edit')} {formatDateTime(tpl.updatedAt)}</p>
@@ -742,9 +746,9 @@ export default function SettingsPage() {
           </DialogHeader>
           <Form {...templateForm}>
             <form onSubmit={templateForm.handleSubmit((d) => saveTemplate.mutate(d))} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <FormField control={templateForm.control} name="name" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="col-span-1">
                     <FormLabel>{t('settings.templateName')}</FormLabel>
                     <FormControl><Input placeholder="Monthly report — SL" {...field} /></FormControl>
                     <FormMessage />
@@ -758,6 +762,19 @@ export default function SettingsPage() {
                       <SelectContent>
                         <SelectItem value="sl">🇸🇮 Slovenščina</SelectItem>
                         <SelectItem value="en">🇬🇧 English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={templateForm.control} name="templateType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('settings.templateType')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="review">{t('settings.templateTypeReview')}</SelectItem>
+                        <SelectItem value="accounting">{t('settings.templateTypeAccounting')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

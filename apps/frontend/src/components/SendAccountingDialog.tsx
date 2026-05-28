@@ -19,6 +19,7 @@ interface EmailTemplate {
   body: string;
   language: string;
   isDefault: boolean;
+  templateType: string;
 }
 
 interface InvoiceInfo {
@@ -42,10 +43,12 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
 
-  const { data: templates = [] } = useQuery({
+  const { data: allTemplates = [] } = useQuery({
     queryKey: ['email-templates'],
     queryFn: () => api.get<EmailTemplate[]>('/settings/templates'),
   });
+
+  const templates = allTemplates.filter((t) => t.templateType === 'accounting');
 
   // Pre-fill defaults when the dialog opens
   useEffect(() => {

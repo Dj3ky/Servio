@@ -7,6 +7,7 @@ export const emailTemplates = pgTable('email_templates', {
   body: text('body').notNull(),
   language: text('language').notNull().default('sl'),
   isDefault: boolean('is_default').notNull().default(false),
+  templateType: text('template_type').notNull().default('review'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

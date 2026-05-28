@@ -47,7 +47,7 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'secondary
   completed: 'success',
 };
 
-type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post';
+type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post' | 'completed';
 
 const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
@@ -63,8 +63,10 @@ export default function InvoiceQueuePage() {
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices', 'pending'],
-    queryFn: () => api.get<{ data: InvoiceQueueItem[] }>('/invoices/pending'),
+    queryKey: ['invoices', statusFilter === 'completed' ? 'completed' : 'pending'],
+    queryFn: () => statusFilter === 'completed'
+      ? api.get<{ data: InvoiceQueueItem[] }>('/invoices?status=completed&limit=200')
+      : api.get<{ data: InvoiceQueueItem[] }>('/invoices/pending'),
     refetchInterval: 30000,
   });
 
@@ -177,9 +179,11 @@ export default function InvoiceQueuePage() {
                 </Button>
               </>
             )}
-            <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
-              {t('invoices.markCompleted')}
-            </Button>
+            {inv.status !== 'completed' && (
+              <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
+                {t('invoices.markCompleted')}
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
               {t('invoices.sendToAccounting')}
             </Button>
@@ -208,6 +212,7 @@ export default function InvoiceQueuePage() {
     { value: 'pending', label: t('invoices.pending') },
     { value: 'sent_email', label: t('invoices.sentEmail') },
     { value: 'sent_post', label: t('invoices.sentPost') },
+    { value: 'completed', label: t('invoices.completed') },
   ];
 
   return (
