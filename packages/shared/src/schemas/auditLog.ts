@@ -40,6 +40,5 @@ export const auditLogQuerySchema = z.object({
   to: z.string().datetime().optional(),
 });
 
-export type AuditAction = z.infer<typeof auditActionSchema>;
 export type AuditLog = z.infer<typeof auditLogSchema>;
 export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;

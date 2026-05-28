@@ -33,8 +33,6 @@ export const userSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-export type UserRole = z.infer<typeof userRoleSchema>;
-export type Language = z.infer<typeof languageSchema>;
 export type User = z.infer<typeof userSchema>;
 export type CreateUserRequest = z.infer<typeof createUserSchema>;
 export type UpdateUserRequest = z.infer<typeof updateUserSchema>;

@@ -20,6 +20,5 @@ export const invoiceSchema = z.object({
   notes: z.string().nullable(),
 });
 
-export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
 export type Invoice = z.infer<typeof invoiceSchema>;
 export type UpdateInvoiceRequest = z.infer<typeof updateInvoiceSchema>;

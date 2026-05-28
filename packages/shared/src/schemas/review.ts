@@ -25,6 +25,5 @@ export const reviewSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type Review = z.infer<typeof reviewSchema>;
 export type CompleteReviewRequest = z.infer<typeof completeReviewSchema>;

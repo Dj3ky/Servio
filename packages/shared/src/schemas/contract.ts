@@ -42,7 +42,6 @@ export const contractSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-export type ReviewFrequency = z.infer<typeof reviewFrequencySchema>;
 export type Contract = z.infer<typeof contractSchema>;
 export type CreateContractRequest = z.infer<typeof createContractSchema>;
 export type UpdateContractRequest = z.infer<typeof updateContractSchema>;
