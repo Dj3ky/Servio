@@ -46,13 +46,13 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
   const data = await db.query.invoices.findMany({
-    where: (inv, { eq }) => eq(inv.status, 'pending'),
+    where: (inv, { ne }) => ne(inv.status, 'completed'),
     with: {
       review: { with: { contract: { with: { customer: true, facility: true } } } },
     },
     orderBy: (inv, { asc }) => [asc(inv.createdAt)],
   });
-  res.json(data);
+  res.json({ data });
 });
 
 router.post('/:id/send-accounting', async (req: Request, res: Response): Promise<void> => {
