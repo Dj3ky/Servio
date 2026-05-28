@@ -54,6 +54,10 @@ async function request<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+    }
     throw new ApiError(res.status, data?.error ?? 'errors.unknown', data?.details);
   }
 
