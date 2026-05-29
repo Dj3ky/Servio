@@ -30,7 +30,6 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     with: {
       customer: true,
       facility: true,
-      assignedTechnician: { columns: { id: true, name: true, email: true } },
     },
     limit,
     offset,
@@ -68,7 +67,6 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     with: {
       customer: true,
       facility: true,
-      assignedTechnician: { columns: { id: true, name: true, email: true } },
     },
     orderBy: (c, { asc }) => [asc(c.contractNumber)],
   });
@@ -78,14 +76,13 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const header = 'contract_number,customer_name,facility_name,review_frequency,status,technician,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes';
+  const header = 'contract_number,customer_name,facility_name,review_frequency,status,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes';
   const rows = data.map((c) => [
     escape(c.contractNumber),
     escape(c.customer.name),
     escape(c.facility.name),
     escape(c.reviewFrequency),
     c.isActive ? 'active' : 'inactive',
-    escape(c.assignedTechnician?.name),
     escape(c.startDate),
     escape(c.endDate),
     escape(c.valueWithoutVat),

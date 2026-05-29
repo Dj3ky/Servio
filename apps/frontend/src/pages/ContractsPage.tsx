@@ -64,7 +64,6 @@ interface ContractRow {
   smbPath?: string | null;
   customer: { name: string; email?: string | null; contactName?: string | null; phone?: string | null };
   facility: { name: string; id: string; address?: string | null; notes?: string | null };
-  assignedTechnician: { name: string } | null;
   currentReview?: { id: string; status: string } | null;
   customerEmail?: string | null;
   invoiceEmail?: string | null;
@@ -109,7 +108,6 @@ export default function ContractsPage() {
     valueWithoutVatPerYear: false,
     workOrderNumber: false,
     startDate: false,
-    assignedTechnician: false,
     customerEmail: false,
     invoiceEmail: false,
     invoiceDelivery: false,
@@ -285,13 +283,6 @@ export default function ContractsPage() {
       id: 'startDate',
       header: t('contracts.startDate'),
       cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
-    }),
-    columnHelper.accessor((row) => row.assignedTechnician?.name ?? null, {
-      id: 'assignedTechnician',
-      header: t('contracts.technician'),
-      cell: (info) => info.getValue()
-        ? <span className="text-sm">{info.getValue()}</span>
-        : <span className="text-muted-foreground">—</span>,
     }),
     columnHelper.accessor('customerEmail', {
       id: 'customerEmail',
