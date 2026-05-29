@@ -387,6 +387,7 @@ export default function InvoiceQueuePage() {
           facilityName: accountingInvoice.review.contract.facility.name,
           contractNumber: accountingInvoice.review.contract.contractNumber,
           scheduledMonth: accountingInvoice.review.scheduledMonth,
+          invoiceNumber: accountingInvoice.invoiceNumber,
         } : null}
         onClose={() => setAccountingInvoice(null)}
       />

@@ -28,6 +28,7 @@ interface InvoiceInfo {
   facilityName: string;
   contractNumber: string;
   scheduledMonth: string;
+  invoiceNumber?: string | null;
 }
 
 interface Props {
@@ -39,6 +40,7 @@ interface Props {
 
 export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: Props) {
   const { t } = useTranslation();
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -53,6 +55,7 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
   // Pre-fill defaults when the dialog opens
   useEffect(() => {
     if (!invoice) return;
+    setInvoiceNumber(invoice.invoiceNumber ?? '');
     const def = templates.find((t) => t.isDefault) ?? templates[0];
     if (def) {
       setSelectedTemplateId(def.id);
@@ -79,6 +82,7 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
   const sendMutation = useMutation({
     mutationFn: () =>
       api.post(`/invoices/${invoice!.id}/send-accounting`, {
+        invoiceNumber: invoiceNumber.trim(),
         emailSubject: subject,
         emailBody: body,
       }),
@@ -105,6 +109,18 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label>
+              {t('invoices.invoiceNumber')}
+              <span className="text-destructive ml-0.5">*</span>
+            </Label>
+            <Input
+              placeholder="INV-2025-001"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+            />
+          </div>
+
           {templates.length > 0 && (
             <div className="space-y-1.5">
               <Label>{t('reviews.emailTemplate')}</Label>
@@ -138,7 +154,7 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
               className="font-mono text-sm resize-y"
             />
             <p className="text-xs text-muted-foreground">
-              {'{{customer_name}}, {{facility_name}}, {{month}}, {{year}}, {{contract_number}}, {{app_name}}'}
+              {'{{customer_name}}, {{facility_name}}, {{month}}, {{year}}, {{contract_number}}, {{invoice_number}}, {{app_name}}'}
             </p>
           </div>
         </div>
@@ -146,7 +162,7 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
         <Separator />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()}>
+          <Button disabled={sendMutation.isPending || !invoiceNumber.trim()} onClick={() => sendMutation.mutate()}>
             {sendMutation.isPending ? t('common.loading') : t('invoices.sendToAccounting')}
           </Button>
         </DialogFooter>

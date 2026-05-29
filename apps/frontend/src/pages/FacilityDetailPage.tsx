@@ -35,6 +35,7 @@ interface Review {
 
 interface Invoice {
   id: string;
+  reviewId: string;
   status: string;
   invoiceNumber: string | null;
   createdAt: string;
@@ -111,7 +112,7 @@ export default function FacilityDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const [invoiceDialog, setInvoiceDialog] = useState<{ invoice: Invoice; targetStatus: string } | null>(null);
+  const [invoiceDialog, setInvoiceDialog] = useState<Invoice | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -251,8 +252,8 @@ export default function FacilityDetailPage() {
     }
   }
 
-  function openInvoiceDialog(invoice: Invoice, targetStatus: string) {
-    setInvoiceDialog({ invoice, targetStatus });
+  function openInvoiceDialog(invoice: Invoice) {
+    setInvoiceDialog(invoice);
     setInvoiceNumber(invoice.invoiceNumber ?? '');
   }
 
@@ -275,6 +276,7 @@ export default function FacilityDetailPage() {
   const invoices = invoicesData?.data ?? [];
   const pendingReview = reviews.find((r) => r.status === 'pending');
   const pendingInvoices = invoices.filter((inv) => inv.status !== 'completed');
+  const invoiceByReviewId = Object.fromEntries(invoices.map((inv) => [inv.reviewId, inv]));
   const hasCurrentMonthReview = reviews.some((r) => r.scheduledMonth === currentMonthIso());
   const hasEmail = !!(activeContract?.customerEmail || facility.customer.email);
 
@@ -301,13 +303,6 @@ export default function FacilityDetailPage() {
     return 'info';
   }
 
-  const dialogTitle = invoiceDialog
-    ? invoiceDialog.targetStatus === 'completed'
-      ? t('invoices.markCompleted')
-      : invoiceDialog.targetStatus === 'sent_email'
-        ? t('invoices.markSentEmail')
-        : t('invoices.markSentPost')
-    : '';
 
   const contractDocs = activeContract?.contractDocuments ?? [];
 
@@ -375,36 +370,25 @@ export default function FacilityDetailPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {pendingInvoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => openInvoiceDialog(inv)}
+                  >
                     <div className="flex items-center gap-3">
                       <Badge variant={invoiceBadgeVariant(inv.status)}>{invoiceStatusLabel(inv.status)}</Badge>
                       <span className="text-sm text-muted-foreground">{formatDateTime(inv.createdAt)}</span>
                       {inv.invoiceNumber && <span className="text-sm font-medium">{inv.invoiceNumber}</span>}
                     </div>
-                    <div className="flex gap-1 flex-wrap justify-end">
-                      {inv.status === 'pending' && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_email')}>
-                            {t('invoices.markSentEmail')}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_post')}>
-                            {t('invoices.markSentPost')}
-                          </Button>
-                        </>
-                      )}
-                      <Button size="sm" onClick={() => openInvoiceDialog(inv, 'completed')}>
-                        {t('invoices.markCompleted')}
+                    {activeContract?.invoiceDelivery !== 'email' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => { e.stopPropagation(); setAccountingInvoice(inv); }}
+                      >
+                        {t('invoices.sendToAccounting')}
                       </Button>
-                      {activeContract?.invoiceDelivery !== 'email' && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => setAccountingInvoice(inv)}
-                        >
-                          {t('invoices.sendToAccounting')}
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -423,12 +407,13 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('reviews.smbSaved')}</TableHead>
                       <TableHead>{t('reviews.completedAt')}</TableHead>
                       <TableHead>{t('reviews.completedBy')}</TableHead>
+                      <TableHead>{t('invoices.createdAt')}</TableHead>
                       {user?.role === 'admin' && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 7 : 6} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 8 : 7} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -441,6 +426,11 @@ export default function FacilityDetailPage() {
                         <TableCell>{r.smbSaved ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell>{r.completedAt ? formatDateTime(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
+                        <TableCell>
+                          {invoiceByReviewId[r.id]
+                            ? <button className="text-left hover:underline text-sm" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDateTime(invoiceByReviewId[r.id].createdAt)}</button>
+                            : <span className="text-muted-foreground text-sm">-</span>}
+                        </TableCell>
                         {user?.role === 'admin' && (
                           <TableCell className="text-right">
                             {r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
@@ -483,7 +473,11 @@ export default function FacilityDetailPage() {
                         </TableCell>
                       </TableRow>
                     ) : invoices.map((inv) => (
-                      <TableRow key={inv.id}>
+                      <TableRow
+                        key={inv.id}
+                        className={canManageInvoices ? 'cursor-pointer transition-colors' : ''}
+                        onClick={() => canManageInvoices && openInvoiceDialog(inv)}
+                      >
                         <TableCell>
                           <Badge variant={invoiceBadgeVariant(inv.status)}>
                             {invoiceStatusLabel(inv.status)}
@@ -493,31 +487,9 @@ export default function FacilityDetailPage() {
                         <TableCell>{formatDateTime(inv.createdAt)}</TableCell>
                         <TableCell>{inv.completedAt ? formatDateTime(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
-                          <TableCell>
-                            {inv.status !== 'completed' ? (
-                              <div className="flex gap-1 flex-wrap">
-                                {inv.status === 'pending' && (
-                                  <>
-                                    <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_email')}>
-                                      {t('invoices.markSentEmail')}
-                                    </Button>
-                                    <Button size="sm" variant="outline" onClick={() => openInvoiceDialog(inv, 'sent_post')}>
-                                      {t('invoices.markSentPost')}
-                                    </Button>
-                                  </>
-                                )}
-                                <Button size="sm" onClick={() => openInvoiceDialog(inv, 'completed')}>
-                                  {t('invoices.markCompleted')}
-                                </Button>
-                              </div>
-                            ) : null}
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             {activeContract?.invoiceDelivery !== 'email' && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="mt-1"
-                                onClick={() => setAccountingInvoice(inv)}
-                              >
+                              <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
                                 {t('invoices.sendToAccounting')}
                               </Button>
                             )}
@@ -642,11 +614,17 @@ export default function FacilityDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Invoice confirm dialog */}
+      {/* Invoice action dialog */}
       <Dialog open={!!invoiceDialog} onOpenChange={() => { setInvoiceDialog(null); setInvoiceNumber(''); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogTitle>{t('invoices.title')}</DialogTitle>
+            {invoiceDialog && (
+              <p className="text-sm text-muted-foreground">
+                {t('invoices.createdAt')}: {formatDateTime(invoiceDialog.createdAt)}
+                {invoiceDialog.invoiceNumber && ` · ${invoiceDialog.invoiceNumber}`}
+              </p>
+            )}
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
@@ -659,20 +637,25 @@ export default function FacilityDetailPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2 sm:justify-start">
             <Button variant="outline" onClick={() => { setInvoiceDialog(null); setInvoiceNumber(''); }}>
               {t('common.cancel')}
             </Button>
-            <Button
-              disabled={updateInvoiceMutation.isPending}
-              onClick={() => invoiceDialog && updateInvoiceMutation.mutate({
-                invoiceId: invoiceDialog.invoice.id,
-                status: invoiceDialog.targetStatus,
-                num: invoiceNumber,
-              })}
-            >
-              {t('common.confirm')}
-            </Button>
+            {invoiceDialog?.status === 'pending' && (
+              <>
+                <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_email', num: invoiceNumber })}>
+                  {t('invoices.markSentEmail')}
+                </Button>
+                <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_post', num: invoiceNumber })}>
+                  {t('invoices.markSentPost')}
+                </Button>
+              </>
+            )}
+            {invoiceDialog?.status !== 'completed' && (
+              <Button disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'completed', num: invoiceNumber })}>
+                {updateInvoiceMutation.isPending ? t('common.loading') : t('invoices.markCompleted')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -703,6 +686,7 @@ export default function FacilityDetailPage() {
           facilityName: facility.name,
           contractNumber: activeContract.contractNumber,
           scheduledMonth: accountingInvoice.createdAt.slice(0, 7),
+          invoiceNumber: accountingInvoice.invoiceNumber,
         } : null}
         onClose={() => setAccountingInvoice(null)}
         invalidateKeys={activeContract ? [['invoices-facility', activeContract.id]] : []}

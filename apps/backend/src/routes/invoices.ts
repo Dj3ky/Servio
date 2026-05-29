@@ -78,6 +78,9 @@ router.post('/:id/send-accounting', async (req: Request, res: Response): Promise
   const facility = contract?.facility;
   const customer = contract?.customer;
 
+  const invoiceNumberInput = req.body.invoiceNumber?.trim();
+  if (!invoiceNumberInput) { res.status(400).json({ error: 'errors.validation', details: { invoiceNumber: ['Invoice number is required'] } }); return; }
+
   const scheduledMonth = review.scheduledMonth?.slice(0, 7) ?? '';
   const year = scheduledMonth.slice(0, 4);
 
@@ -87,6 +90,7 @@ router.post('/:id/send-accounting', async (req: Request, res: Response): Promise
     month: scheduledMonth,
     year,
     contract_number: contract?.contractNumber ?? '',
+    invoice_number: invoiceNumberInput,
     app_name: s?.appName ?? 'Servio',
   };
 
@@ -111,13 +115,17 @@ router.post('/:id/send-accounting', async (req: Request, res: Response): Promise
       attachments: [{ filename, content: buffer, contentType: 'application/pdf' }],
     });
 
+    await db.update(invoices)
+      .set({ invoiceNumber: invoiceNumberInput })
+      .where(eq(invoices.id, invoice.id));
+
     await createAuditLog({
       userId: req.auth!.userId,
       userEmail: req.auth!.email,
       action: 'send_accounting',
       entityType: 'invoice',
       entityId: invoice.id,
-      payload: { to: accountingEmail },
+      payload: { to: accountingEmail, invoiceNumber: invoiceNumberInput },
       req,
     });
 
