@@ -193,9 +193,11 @@ export default function InvoiceQueuePage() {
                 {t('invoices.markCompleted')}
               </Button>
             )}
-            <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
-              {t('invoices.sendToAccounting')}
-            </Button>
+            {inv.review.contract.invoiceDelivery === 'e_invoice' && (
+              <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
+                {t('invoices.sendToAccounting')}
+              </Button>
+            )}
           </div>
         );
       },

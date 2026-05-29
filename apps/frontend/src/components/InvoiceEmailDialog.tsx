@@ -169,7 +169,10 @@ export function InvoiceEmailDialog({
               </div>
 
               <div className="space-y-1.5">
-                <Label>{t('invoices.invoiceNumber')}</Label>
+                <Label>
+                  {t('invoices.invoiceNumber')}
+                  <span className="text-destructive ml-0.5">*</span>
+                </Label>
                 <Input
                   placeholder="INV-2025-001"
                   value={invoiceNumber}
@@ -217,7 +220,7 @@ export function InvoiceEmailDialog({
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose} disabled={uploading}>{t('common.cancel')}</Button>
-                <Button onClick={handleSend} disabled={uploading || !hasEmail}>
+                <Button onClick={handleSend} disabled={uploading || !hasEmail || !invoiceNumber.trim()}>
                   {uploading ? t('common.loading') : t('invoices.sendByEmail')}
                 </Button>
               </div>

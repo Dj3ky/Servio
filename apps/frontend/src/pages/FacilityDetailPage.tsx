@@ -385,7 +385,7 @@ export default function FacilityDetailPage() {
                       <span className="text-sm text-muted-foreground">{formatDateTime(inv.createdAt)}</span>
                       {inv.invoiceNumber && <span className="text-sm font-medium">{inv.invoiceNumber}</span>}
                     </div>
-                    {activeContract?.invoiceDelivery !== 'email' && (
+                    {activeContract?.invoiceDelivery === 'e_invoice' && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -493,7 +493,7 @@ export default function FacilityDetailPage() {
                         <TableCell>{inv.completedAt ? formatDateTime(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            {activeContract?.invoiceDelivery !== 'email' && (
+                            {activeContract?.invoiceDelivery === 'e_invoice' && (
                               <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
                                 {t('invoices.sendToAccounting')}
                               </Button>
