@@ -111,6 +111,8 @@
     "pdfReport": "PDF poročilo",
     "emailSent": "E-pošta poslana",
     "smbSaved": "SMB shranjeno",
+    "createdAt": "Ustvarjen",
+    "invoiceCreated": "Faktura ustvarjena",
     "completedAt": "Dokončano ob",
     "completedBy": "Dokončal/a",
     "createReview": "Ustvari pregled",

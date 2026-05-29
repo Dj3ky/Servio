@@ -3,7 +3,45 @@ import ExcelJS from 'exceljs';
 import { db } from '../db';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
-export async function generateMonthlyReportPdf(year: number, month: number): Promise<Buffer> {
+const i18n: Record<string, Record<string, string>> = {
+  en: {
+    customer: 'Customer',
+    facility: 'Facility',
+    contractNo: 'Contract No.',
+    completedAt: 'Completed At',
+    scheduledMonth: 'Scheduled Month',
+    emailSent: 'Email Sent',
+    smbSaved: 'SMB Saved',
+    yes: 'Yes',
+    no: 'No',
+    month: 'Month',
+    monthlyReport: 'Monthly Maintenance Report',
+    yearlyReport: 'Yearly Maintenance Report',
+    generated: 'Generated',
+    total: 'Total',
+    reviews: 'reviews',
+  },
+  sl: {
+    customer: 'Naročnik',
+    facility: 'Objekt',
+    contractNo: 'Številka pogodbe',
+    completedAt: 'Dokončano',
+    scheduledMonth: 'Planirani mesec',
+    emailSent: 'E-pošta poslana',
+    smbSaved: 'SMB shranjeno',
+    yes: 'Da',
+    no: 'Ne',
+    month: 'Mesec',
+    monthlyReport: 'Mesečno poročilo vzdrževanj',
+    yearlyReport: 'Letno poročilo vzdrževanj',
+    generated: 'Generirano',
+    total: 'Skupaj',
+    reviews: 'pregledov',
+  },
+};
+
+export async function generateMonthlyReportPdf(year: number, month: number, lang = 'sl'): Promise<Buffer> {
+  const t = i18n[lang] ?? i18n.sl;
   const monthStart = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
@@ -36,15 +74,15 @@ export async function generateMonthlyReportPdf(year: number, month: number): Pro
 </head>
 <body>
   <h1>${appName}</h1>
-  <h2>Monthly Maintenance Report – ${monthLabel}</h2>
+  <h2>${t.monthlyReport} – ${monthLabel}</h2>
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>Customer</th>
-        <th>Facility</th>
-        <th>Contract No.</th>
-        <th>Completed At</th>
+        <th>${t.customer}</th>
+        <th>${t.facility}</th>
+        <th>${t.contractNo}</th>
+        <th>${t.completedAt}</th>
       </tr>
     </thead>
     <tbody>
@@ -63,7 +101,7 @@ export async function generateMonthlyReportPdf(year: number, month: number): Pro
     </tbody>
   </table>
   <div class="footer">
-    <p>Generated: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | Total: ${completedReviews.length} reviews</p>
+    <p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p>
   </div>
 </body>
 </html>`;
@@ -87,7 +125,8 @@ export async function generateMonthlyReportPdf(year: number, month: number): Pro
   return Buffer.from(pdfBuffer);
 }
 
-export async function generateMonthlyReportXlsx(year: number, month: number): Promise<Buffer> {
+export async function generateMonthlyReportXlsx(year: number, month: number, lang = 'sl'): Promise<Buffer> {
+  const t = i18n[lang] ?? i18n.sl;
   const monthStart = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
@@ -104,13 +143,13 @@ export async function generateMonthlyReportXlsx(year: number, month: number): Pr
 
   sheet.columns = [
     { header: '#', key: 'num', width: 5 },
-    { header: 'Customer', key: 'customer', width: 30 },
-    { header: 'Facility', key: 'facility', width: 30 },
-    { header: 'Contract No.', key: 'contract', width: 20 },
-    { header: 'Scheduled Month', key: 'month', width: 18 },
-    { header: 'Completed At', key: 'completedAt', width: 20 },
-    { header: 'Email Sent', key: 'emailSent', width: 12 },
-    { header: 'SMB Saved', key: 'smbSaved', width: 12 },
+    { header: t.customer, key: 'customer', width: 30 },
+    { header: t.facility, key: 'facility', width: 30 },
+    { header: t.contractNo, key: 'contract', width: 20 },
+    { header: t.scheduledMonth, key: 'month', width: 18 },
+    { header: t.completedAt, key: 'completedAt', width: 20 },
+    { header: t.emailSent, key: 'emailSent', width: 12 },
+    { header: t.smbSaved, key: 'smbSaved', width: 12 },
   ];
 
   sheet.getRow(1).font = { bold: true };
@@ -123,8 +162,8 @@ export async function generateMonthlyReportXlsx(year: number, month: number): Pr
       contract: (r as any).contract?.contractNumber ?? '-',
       month: r.scheduledMonth,
       completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy HH:mm') : '-',
-      emailSent: r.emailSent ? 'Yes' : 'No',
-      smbSaved: r.smbSaved ? 'Yes' : 'No',
+      emailSent: r.emailSent ? t.yes : t.no,
+      smbSaved: r.smbSaved ? t.yes : t.no,
     });
   });
 
@@ -132,7 +171,8 @@ export async function generateMonthlyReportXlsx(year: number, month: number): Pr
   return Buffer.from(arrayBuffer);
 }
 
-export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
+export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promise<Buffer> {
+  const t = i18n[lang] ?? i18n.sl;
   const yearStart = format(startOfYear(new Date(year, 0)), 'yyyy-MM-dd');
   const yearEnd = format(endOfYear(new Date(year, 0)), 'yyyy-MM-dd');
 
@@ -155,7 +195,7 @@ export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
 
   const monthRows = Object.entries(byMonth)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([m, rows]) => `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="5">${m} (${rows.length} reviews)</td></tr>` +
+    .map(([m, rows]) => `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="5">${m} (${rows.length} ${t.reviews})</td></tr>` +
       rows.map((r, i) => `<tr><td>${i + 1}</td><td>${(r as any).contract?.customer?.name ?? '-'}</td><td>${(r as any).contract?.facility?.name ?? '-'}</td><td>${(r as any).contract?.contractNumber ?? '-'}</td><td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td></tr>`).join(''))
     .join('');
 
@@ -175,12 +215,12 @@ export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
 </head>
 <body>
   <h1>${appName}</h1>
-  <h2>Yearly Maintenance Report – ${year}</h2>
+  <h2>${t.yearlyReport} – ${year}</h2>
   <table>
-    <thead><tr><th>#</th><th>Customer</th><th>Facility</th><th>Contract No.</th><th>Completed At</th></tr></thead>
+    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th></tr></thead>
     <tbody>${monthRows}</tbody>
   </table>
-  <div class="footer"><p>Generated: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | Total: ${completedReviews.length} reviews</p></div>
+  <div class="footer"><p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p></div>
 </body>
 </html>`;
 
@@ -203,7 +243,8 @@ export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
   return Buffer.from(pdfBuffer);
 }
 
-export async function generateYearlyReportXlsx(year: number): Promise<Buffer> {
+export async function generateYearlyReportXlsx(year: number, lang = 'sl'): Promise<Buffer> {
+  const t = i18n[lang] ?? i18n.sl;
   const yearStart = format(startOfYear(new Date(year, 0)), 'yyyy-MM-dd');
   const yearEnd = format(endOfYear(new Date(year, 0)), 'yyyy-MM-dd');
 
@@ -219,13 +260,13 @@ export async function generateYearlyReportXlsx(year: number): Promise<Buffer> {
 
   sheet.columns = [
     { header: '#', key: 'num', width: 5 },
-    { header: 'Month', key: 'month', width: 12 },
-    { header: 'Customer', key: 'customer', width: 30 },
-    { header: 'Facility', key: 'facility', width: 30 },
-    { header: 'Contract No.', key: 'contract', width: 20 },
-    { header: 'Completed At', key: 'completedAt', width: 20 },
-    { header: 'Email Sent', key: 'emailSent', width: 12 },
-    { header: 'SMB Saved', key: 'smbSaved', width: 12 },
+    { header: t.month, key: 'month', width: 12 },
+    { header: t.customer, key: 'customer', width: 30 },
+    { header: t.facility, key: 'facility', width: 30 },
+    { header: t.contractNo, key: 'contract', width: 20 },
+    { header: t.completedAt, key: 'completedAt', width: 20 },
+    { header: t.emailSent, key: 'emailSent', width: 12 },
+    { header: t.smbSaved, key: 'smbSaved', width: 12 },
   ];
 
   sheet.getRow(1).font = { bold: true };
@@ -238,8 +279,8 @@ export async function generateYearlyReportXlsx(year: number): Promise<Buffer> {
       facility: (r as any).contract?.facility?.name ?? '-',
       contract: (r as any).contract?.contractNumber ?? '-',
       completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy HH:mm') : '-',
-      emailSent: r.emailSent ? 'Yes' : 'No',
-      smbSaved: r.smbSaved ? 'Yes' : 'No',
+      emailSent: r.emailSent ? t.yes : t.no,
+      smbSaved: r.smbSaved ? t.yes : t.no,
     });
   });
 

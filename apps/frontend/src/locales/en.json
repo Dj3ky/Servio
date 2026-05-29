@@ -111,6 +111,8 @@
     "pdfReport": "PDF Report",
     "emailSent": "Email Sent",
     "smbSaved": "SMB Saved",
+    "createdAt": "Created",
+    "invoiceCreated": "Invoice Created",
     "completedAt": "Completed At",
     "completedBy": "Completed By",
     "createReview": "Create Review",

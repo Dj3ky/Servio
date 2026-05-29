@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDateTime } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
 
@@ -154,7 +154,7 @@ export default function InvoiceQueuePage() {
     columnHelper.accessor('createdAt', {
       id: 'createdAt',
       header: t('invoices.createdAt'),
-      cell: (info) => <span className="text-sm text-muted-foreground">{formatDateTime(info.getValue())}</span>,
+      cell: (info) => <span className="text-sm text-muted-foreground">{formatDate(info.getValue())}</span>,
     }),
     columnHelper.accessor('status', {
       id: 'status',

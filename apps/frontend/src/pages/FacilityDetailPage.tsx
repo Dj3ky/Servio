@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDateTime } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
@@ -27,6 +27,7 @@ interface Review {
   scheduledMonth: string;
   status: string;
   pdfFilename: string | null;
+  createdAt: string;
   completedAt: string | null;
   emailSent: boolean;
   smbSaved: boolean;
@@ -372,7 +373,7 @@ export default function FacilityDetailPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Badge variant={invoiceBadgeVariant(inv.status)}>{invoiceStatusLabel(inv.status)}</Badge>
-                      <span className="text-sm text-muted-foreground">{formatDateTime(inv.createdAt)}</span>
+                      <span className="text-sm text-muted-foreground">{formatDate(inv.createdAt)}</span>
                       {inv.invoiceNumber && <span className="text-sm font-medium">{inv.invoiceNumber}</span>}
                     </div>
                     {activeContract?.invoiceDelivery === 'e_invoice' && (
@@ -400,15 +401,16 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('common.status')}</TableHead>
                       <TableHead>{t('reviews.emailSent')}</TableHead>
                       <TableHead>{t('reviews.smbSaved')}</TableHead>
+                      <TableHead>{t('reviews.createdAt')}</TableHead>
                       <TableHead>{t('reviews.completedAt')}</TableHead>
                       <TableHead>{t('reviews.completedBy')}</TableHead>
-                      <TableHead>{t('invoices.createdAt')}</TableHead>
+                      <TableHead>{t('reviews.invoiceCreated')}</TableHead>
                       {user?.role === 'admin' && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 8 : 7} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -419,11 +421,12 @@ export default function FacilityDetailPage() {
                         </TableCell>
                         <TableCell>{r.emailSent ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell>{r.smbSaved ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAt)}</TableCell>
                         <TableCell>{r.completedAt ? formatDateTime(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
                         <TableCell>
                           {invoiceByReviewId[r.id]
-                            ? <button className="text-left hover:underline text-sm" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDateTime(invoiceByReviewId[r.id].createdAt)}</button>
+                            ? <button className="text-left hover:underline text-sm" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDate(invoiceByReviewId[r.id].createdAt)}</button>
                             : <span className="text-muted-foreground text-sm">-</span>}
                         </TableCell>
                         {user?.role === 'admin' && (
@@ -479,7 +482,7 @@ export default function FacilityDetailPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{inv.invoiceNumber ?? '-'}</TableCell>
-                        <TableCell>{formatDateTime(inv.createdAt)}</TableCell>
+                        <TableCell>{formatDate(inv.createdAt)}</TableCell>
                         <TableCell>{inv.completedAt ? formatDateTime(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
                           <TableCell onClick={(e) => e.stopPropagation()}>

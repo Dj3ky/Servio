@@ -38,7 +38,7 @@ export default function ReportsPage() {
     setMonthlyLoading(format);
     try {
       await downloadReport(
-        `/api/reports/monthly/${format}?year=${year}&month=${month}`,
+        `/api/reports/monthly/${format}?year=${year}&month=${month}&lang=${i18n.language}`,
         `report_${year}_${String(month).padStart(2, '0')}.${format}`,
       );
     } catch (err) {
@@ -52,7 +52,7 @@ export default function ReportsPage() {
     setYearlyLoading(format);
     try {
       await downloadReport(
-        `/api/reports/yearly/${format}?year=${yearlyYear}`,
+        `/api/reports/yearly/${format}?year=${yearlyYear}&lang=${i18n.language}`,
         `report_${yearlyYear}.${format}`,
       );
     } catch (err) {

@@ -11,13 +11,14 @@ router.use(requireRole('admin', 'manager', 'accountant'));
 router.get('/monthly/pdf', async (req: Request, res: Response): Promise<void> => {
   const year = parseInt(req.query.year as string, 10);
   const month = parseInt(req.query.month as string, 10);
+  const lang = (req.query.lang as string) === 'en' ? 'en' : 'sl';
 
   if (!year || !month || month < 1 || month > 12) {
     res.status(400).json({ error: 'errors.invalid_params' });
     return;
   }
 
-  const buffer = await generateMonthlyReportPdf(year, month);
+  const buffer = await generateMonthlyReportPdf(year, month, lang);
   const filename = `report_${year}_${String(month).padStart(2, '0')}.pdf`;
 
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'report', payload: { year, month, format: 'pdf' }, req });
@@ -30,13 +31,14 @@ router.get('/monthly/pdf', async (req: Request, res: Response): Promise<void> =>
 router.get('/monthly/xlsx', async (req: Request, res: Response): Promise<void> => {
   const year = parseInt(req.query.year as string, 10);
   const month = parseInt(req.query.month as string, 10);
+  const lang = (req.query.lang as string) === 'en' ? 'en' : 'sl';
 
   if (!year || !month || month < 1 || month > 12) {
     res.status(400).json({ error: 'errors.invalid_params' });
     return;
   }
 
-  const buffer = await generateMonthlyReportXlsx(year, month);
+  const buffer = await generateMonthlyReportXlsx(year, month, lang);
   const filename = `report_${year}_${String(month).padStart(2, '0')}.xlsx`;
 
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'report', payload: { year, month, format: 'xlsx' }, req });
@@ -48,13 +50,14 @@ router.get('/monthly/xlsx', async (req: Request, res: Response): Promise<void> =
 
 router.get('/yearly/pdf', async (req: Request, res: Response): Promise<void> => {
   const year = parseInt(req.query.year as string, 10);
+  const lang = (req.query.lang as string) === 'en' ? 'en' : 'sl';
 
   if (!year || year < 2000 || year > 2100) {
     res.status(400).json({ error: 'errors.invalid_params' });
     return;
   }
 
-  const buffer = await generateYearlyReportPdf(year);
+  const buffer = await generateYearlyReportPdf(year, lang);
   const filename = `report_${year}.pdf`;
 
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'report', payload: { year, format: 'pdf', type: 'yearly' }, req });
@@ -66,13 +69,14 @@ router.get('/yearly/pdf', async (req: Request, res: Response): Promise<void> => 
 
 router.get('/yearly/xlsx', async (req: Request, res: Response): Promise<void> => {
   const year = parseInt(req.query.year as string, 10);
+  const lang = (req.query.lang as string) === 'en' ? 'en' : 'sl';
 
   if (!year || year < 2000 || year > 2100) {
     res.status(400).json({ error: 'errors.invalid_params' });
     return;
   }
 
-  const buffer = await generateYearlyReportXlsx(year);
+  const buffer = await generateYearlyReportXlsx(year, lang);
   const filename = `report_${year}.xlsx`;
 
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'report', payload: { year, format: 'xlsx', type: 'yearly' }, req });
