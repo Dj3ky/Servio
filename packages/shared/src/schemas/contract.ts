@@ -16,7 +16,10 @@ export const createContractSchema = z.object({
   smbPath: z.string().max(500).optional(),
   valueWithoutVat: z.number().nonnegative().nullable().optional(),
   valueWithoutVatPerYear: z.number().nonnegative().nullable().optional(),
-  customerEmail: z.string().email().nullable().optional(),
+  customerEmail: z.string().refine(
+    (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => z.string().email().safeParse(e).success),
+    { message: 'Invalid email address' },
+  ).nullable().optional(),
   invoiceDelivery: invoiceDeliverySchema.optional(),
 });
 

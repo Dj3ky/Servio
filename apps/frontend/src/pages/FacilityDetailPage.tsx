@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, X, Trash2, FileDown } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, X, Trash2, FileDown, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,6 +116,7 @@ export default function FacilityDetailPage() {
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<string | null>(null);
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -213,6 +214,19 @@ export default function FacilityDetailPage() {
     mutationFn: ({ contractId, filename }: { contractId: string; filename: string }) =>
       api.delete(`/contracts/${contractId}/documents/${encodeURIComponent(filename)}`),
     onSuccess: () => { toast.success(t('common.delete')); refetchFacility(); },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  const resetReviewMutation = useMutation({
+    mutationFn: (reviewId: string) => api.post(`/reviews/${reviewId}/reset`, {}),
+    onSuccess: () => {
+      refetchReviews();
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices-facility', activeContract?.id] });
+      refetchInvoices();
+      toast.success(t('reviews.resetSuccess'));
+      setResetTarget(null);
+    },
     onError: () => toast.error(t('errors.internal')),
   });
 
@@ -409,11 +423,12 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('reviews.smbSaved')}</TableHead>
                       <TableHead>{t('reviews.completedAt')}</TableHead>
                       <TableHead>{t('reviews.completedBy')}</TableHead>
+                      {user?.role === 'admin' && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 7 : 6} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -426,6 +441,16 @@ export default function FacilityDetailPage() {
                         <TableCell>{r.smbSaved ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell>{r.completedAt ? formatDateTime(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
+                        {user?.role === 'admin' && (
+                          <TableCell className="text-right">
+                            {r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
+                              <Button size="sm" variant="outline" onClick={() => setResetTarget(r.id)}>
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                {t('reviews.resetReview')}
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -647,6 +672,25 @@ export default function FacilityDetailPage() {
               })}
             >
               {t('common.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetTarget} onOpenChange={(open) => { if (!open) setResetTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('reviews.resetReview')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('reviews.resetConfirm')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={resetReviewMutation.isPending}
+              onClick={() => resetTarget && resetReviewMutation.mutate(resetTarget)}
+            >
+              {resetReviewMutation.isPending ? t('common.loading') : t('reviews.resetReview')}
             </Button>
           </DialogFooter>
         </DialogContent>

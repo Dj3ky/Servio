@@ -122,7 +122,10 @@
     "emailSubject": "Zadeva e-pošte",
     "emailBody": "Vsebina e-pošte",
     "noTemplate": "— brez predloge —",
-    "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen."
+    "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen.",
+    "resetReview": "Ponastavi pregled",
+    "resetConfirm": "Ponastaviti dokončan pregled? Čakajoča faktura bo izbrisana in dovoliti bo novo nalaganje.",
+    "resetSuccess": "Pregled je bil ponastavljen."
   },
   "invoices": {
     "title": "Fakture",
@@ -281,7 +284,7 @@
     "customMonthsHint": "Izberite mesece, v katerih so načrtovani vzdrževalni pregledi",
     "valueHint": "Znesek za posamezen obisk pregleda (brez DDV)",
     "valueYearHint": "Skupna vrednost pogodbe za celo leto (brez DDV)",
-    "customerEmailHint": "Uporablja se za pošiljanje poročil o pregledih in faktur",
+    "customerEmailHint": "Uporablja se za pošiljanje poročil o pregledih. Ločite več naslovov z vejicami.",
     "required": "* Obvezno polje"
   },
   "reports": {

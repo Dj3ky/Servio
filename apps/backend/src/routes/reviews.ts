@@ -246,4 +246,53 @@ router.post(
   },
 );
 
+router.post(
+  '/:id/reset',
+  requireRole('admin'),
+  async (req: Request, res: Response): Promise<void> => {
+    const review = await db.query.reviews.findFirst({
+      where: (r, { eq }) => eq(r.id, req.params.id),
+    });
+    if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
+    if (review.status !== 'completed') { res.status(409).json({ error: 'errors.validation' }); return; }
+
+    const pendingInvoice = await db.query.invoices.findFirst({
+      where: (inv, { eq, and }) => and(eq(inv.reviewId, req.params.id), eq(inv.status, 'pending')),
+    });
+    if (pendingInvoice) {
+      await db.delete(invoices).where(eq(invoices.id, pendingInvoice.id));
+    }
+
+    const [updated] = await db
+      .update(reviews)
+      .set({
+        status: 'pending',
+        pdfPath: null,
+        pdfFilename: null,
+        pdfSize: null,
+        completedAt: null,
+        completedById: null,
+        emailSent: false,
+        smbSaved: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(reviews.id, req.params.id))
+      .returning();
+
+    await createAuditLog({
+      userId: req.auth!.userId,
+      userEmail: req.auth!.email,
+      action: 'reset',
+      entityType: 'review',
+      entityId: review.id,
+      payload: { previousStatus: 'completed' },
+      req,
+    });
+
+    broadcast('dashboard_refresh', {});
+
+    res.json(updated);
+  },
+);
+
 export default router;

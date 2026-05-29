@@ -28,7 +28,10 @@ const Req = () => <span className="text-destructive ml-0.5">*</span>;
 
 const formSchema = z.object({
   customerName: z.string().min(1),
-  customerEmail: z.string().email().optional().or(z.literal('')),
+  customerEmail: z.string().optional().refine(
+    (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)),
+    { message: 'Invalid email address' },
+  ),
   facilityName: z.string().min(1),
   facilityAddress: z.string().optional(),
   facilityNotes: z.string().optional(),
@@ -284,7 +287,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
                       <FormField control={form.control} name="customerEmail" render={({ field }) => (
                         <FormItem>
                           <FormLabel>{t('common.email')}</FormLabel>
-                          <FormControl><Input type="email" placeholder="info@example.com" {...field} /></FormControl>
+                          <FormControl><Input type="text" placeholder="info@example.com, billing@example.com" {...field} /></FormControl>
                           <FormDescription>{t('facility.customerEmailHint')}</FormDescription>
                           <FormMessage />
                         </FormItem>

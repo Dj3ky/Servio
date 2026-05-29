@@ -223,11 +223,6 @@ export default function ContractsPage() {
         </Badge>
       ),
     }),
-    columnHelper.accessor('assignedTechnician', {
-      id: 'technician',
-      header: t('contracts.technician'),
-      cell: (info) => info.getValue()?.name ?? <span className="text-muted-foreground">—</span>,
-    }),
     columnHelper.display({
       id: 'reviewStatus',
       header: t('contracts.reviewStatus'),

@@ -122,7 +122,10 @@
     "emailSubject": "Email Subject",
     "emailBody": "Email Body",
     "noTemplate": "— no template —",
-    "noEmailConfigured": "No email address configured — document will only be saved."
+    "noEmailConfigured": "No email address configured — document will only be saved.",
+    "resetReview": "Reset Review",
+    "resetConfirm": "Reset this completed review? The pending invoice will be deleted and a new upload will be allowed.",
+    "resetSuccess": "Review has been reset."
   },
   "invoices": {
     "title": "Invoices",
@@ -281,7 +284,7 @@
     "customMonthsHint": "Select the specific months when maintenance reviews are scheduled",
     "valueHint": "Amount charged per individual review visit (excl. VAT)",
     "valueYearHint": "Total contract value for the full calendar year (excl. VAT)",
-    "customerEmailHint": "Used for sending review reports and invoices",
+    "customerEmailHint": "Used for sending review reports. Separate multiple addresses with commas.",
     "required": "* Required field"
   },
   "reports": {
