@@ -78,7 +78,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const header = 'contract_number,customer_name,facility_name,review_frequency,status,technician,start_date,end_date,value_without_vat,value_without_vat_per_year';
+  const header = 'contract_number,customer_name,facility_name,review_frequency,status,technician,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes';
   const rows = data.map((c) => [
     escape(c.contractNumber),
     escape(c.customer.name),
@@ -90,6 +90,15 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     escape(c.endDate),
     escape(c.valueWithoutVat),
     escape(c.valueWithoutVatPerYear),
+    escape(c.workOrderNumber),
+    escape(c.customerEmail),
+    escape(c.invoiceEmail),
+    escape(c.invoiceDelivery),
+    escape(c.smbPath),
+    escape((c.customer as any).contactName),
+    escape((c.customer as any).phone),
+    escape(c.facility.address),
+    escape(c.facility.notes),
   ].join(','));
 
   const csv = [header, ...rows].join('\n');
@@ -135,6 +144,7 @@ router.post('/', requireRole('admin', 'manager'), async (req: Request, res: Resp
     valueWithoutVat: parsed.data.valueWithoutVat?.toString() ?? null,
     valueWithoutVatPerYear: parsed.data.valueWithoutVatPerYear?.toString() ?? null,
     customerEmail: parsed.data.customerEmail ?? null,
+    workOrderNumber: parsed.data.workOrderNumber ?? null,
   }).returning();
 
   const nowPost = new Date();
@@ -274,17 +284,31 @@ router.post('/import', requireRole('admin', 'manager'), documentUpload.single('f
     try {
       let customer = await db.query.customers.findFirst({ where: (c, { eq }) => eq(c.name, row['customer_name']) });
       if (!customer) {
-        [customer] = await db.insert(customers).values({ name: row['customer_name'], email: row['customer_email'] || null }).returning();
+        [customer] = await db.insert(customers).values({
+          name: row['customer_name'],
+          email: row['customer_email'] || null,
+          contactName: row['contact_name'] || null,
+          phone: row['phone'] || null,
+        }).returning();
       }
 
       let facility = await db.query.facilities.findFirst({ where: (f, { eq }) => eq(f.name, row['facility_name']) });
       if (!facility) {
-        [facility] = await db.insert(facilities).values({ customerId: customer.id, name: row['facility_name'], address: row['facility_address'] || null }).returning();
+        [facility] = await db.insert(facilities).values({
+          customerId: customer.id,
+          name: row['facility_name'],
+          address: row['facility_address'] || null,
+          notes: row['facility_notes'] || null,
+        }).returning();
       }
 
       const freq = (['monthly', 'biannual', 'quadannual', 'custom'] as const).includes(row['review_frequency'] as any)
         ? (row['review_frequency'] as 'monthly' | 'biannual' | 'quadannual' | 'custom')
         : 'monthly';
+
+      const invoiceDeliveryVal = (['email', 'post', 'e_invoice'] as const).includes(row['invoice_delivery'] as any)
+        ? (row['invoice_delivery'] as 'email' | 'post' | 'e_invoice')
+        : 'email';
 
       const [contract] = await db.insert(contracts).values({
         facilityId: facility.id,
@@ -294,8 +318,12 @@ router.post('/import', requireRole('admin', 'manager'), documentUpload.single('f
         startDate: row['start_date'],
         endDate: row['end_date'] || null,
         customerEmail: row['customer_email'] || null,
+        invoiceEmail: row['invoice_email'] || null,
+        invoiceDelivery: invoiceDeliveryVal,
         valueWithoutVat: row['value_without_vat'] ? row['value_without_vat'] : null,
         valueWithoutVatPerYear: row['value_without_vat_per_year'] ? row['value_without_vat_per_year'] : null,
+        workOrderNumber: row['work_order_number'] || null,
+        smbPath: row['smb_path'] || null,
       }).returning();
 
       created.push(contract.contractNumber);

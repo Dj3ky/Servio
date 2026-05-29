@@ -54,16 +54,20 @@ function monthsLabel(months: number[], lang: string) {
 interface ContractRow {
   id: string;
   contractNumber: string;
+  workOrderNumber?: string | null;
   reviewFrequency: string;
   customMonths?: number[] | null;
+  startDate?: string;
   isActive: boolean;
   valueWithoutVat: string | null;
   valueWithoutVatPerYear: string | null;
-  customer: { name: string };
-  facility: { name: string; id: string };
+  smbPath?: string | null;
+  customer: { name: string; email?: string | null; contactName?: string | null; phone?: string | null };
+  facility: { name: string; id: string; address?: string | null; notes?: string | null };
   assignedTechnician: { name: string } | null;
   currentReview?: { id: string; status: string } | null;
   customerEmail?: string | null;
+  invoiceEmail?: string | null;
   invoiceDelivery?: string;
   emailTemplateId?: string | null;
   currentInvoice?: { id: string; status: string; invoiceNumber: string | null } | null;
@@ -103,6 +107,17 @@ export default function ContractsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     valueWithoutVat: false,
     valueWithoutVatPerYear: false,
+    workOrderNumber: false,
+    startDate: false,
+    assignedTechnician: false,
+    customerEmail: false,
+    invoiceEmail: false,
+    invoiceDelivery: false,
+    contactName: false,
+    phone: false,
+    facilityAddress: false,
+    facilityNotes: false,
+    smbPath: false,
   });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
@@ -258,6 +273,65 @@ export default function ContractsPage() {
         const v = fmtValue(info.getValue());
         return v ? <span className="font-mono text-xs">€ {v}</span> : <span className="text-muted-foreground">—</span>;
       },
+    }),
+    columnHelper.accessor('workOrderNumber', {
+      id: 'workOrderNumber',
+      header: t('contracts.workOrderNumber'),
+      cell: (info) => info.getValue()
+        ? <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>
+        : <span className="text-muted-foreground">—</span>,
+    }),
+    columnHelper.accessor('startDate', {
+      id: 'startDate',
+      header: t('contracts.startDate'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor((row) => row.assignedTechnician?.name ?? null, {
+      id: 'assignedTechnician',
+      header: t('contracts.technician'),
+      cell: (info) => info.getValue()
+        ? <span className="text-sm">{info.getValue()}</span>
+        : <span className="text-muted-foreground">—</span>,
+    }),
+    columnHelper.accessor('customerEmail', {
+      id: 'customerEmail',
+      header: t('facility.reviewEmail'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor('invoiceEmail', {
+      id: 'invoiceEmail',
+      header: t('facility.invoiceEmail'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor('invoiceDelivery', {
+      id: 'invoiceDelivery',
+      header: t('contracts.invoiceDelivery'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ? t(`invoiceDelivery.${info.getValue()}` as any) : '—'}</span>,
+    }),
+    columnHelper.accessor((row) => row.customer.contactName ?? null, {
+      id: 'contactName',
+      header: t('contracts.contactName'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor((row) => row.customer.phone ?? null, {
+      id: 'phone',
+      header: t('common.phone'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor((row) => row.facility.address ?? null, {
+      id: 'facilityAddress',
+      header: t('contracts.facilityAddress'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor((row) => row.facility.notes ?? null, {
+      id: 'facilityNotes',
+      header: t('common.notes'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.accessor('smbPath', {
+      id: 'smbPath',
+      header: t('facility.smbPath'),
+      cell: (info) => <span className="text-sm text-muted-foreground font-mono">{info.getValue() ?? '—'}</span>,
     }),
     columnHelper.display({
       id: 'actions',

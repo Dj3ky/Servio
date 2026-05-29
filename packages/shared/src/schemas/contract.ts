@@ -25,6 +25,7 @@ export const createContractSchema = z.object({
     { message: 'Invalid email address' },
   ).nullable().optional(),
   invoiceDelivery: invoiceDeliverySchema.optional(),
+  workOrderNumber: z.string().max(200).nullable().optional(),
 });
 
 export const updateContractSchema = createContractSchema.partial().extend({
@@ -48,6 +49,7 @@ export const contractSchema = z.object({
   customerEmail: z.string().nullable(),
   invoiceEmail: z.string().nullable(),
   invoiceDelivery: invoiceDeliverySchema,
+  workOrderNumber: z.string().nullable(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

@@ -94,11 +94,14 @@
     "importCreated": "Ustvarjeno",
     "importSkipped": "Preskočeno",
     "importErrors": "Napake",
-    "importCsvHint": "Zahtevani stolpci: customer_name, facility_name, contract_number, review_frequency, start_date",
+    "importCsvHint": "Zahtevano: customer_name, facility_name, contract_number, review_frequency, start_date. Neobvezno: work_order_number, customer_email, invoice_email, invoice_delivery, smb_path, contact_name, phone, facility_address, facility_notes, end_date, value_without_vat, value_without_vat_per_year",
     "startDate": "Datum začetka",
     "endDate": "Datum konca",
     "valueExclVat": "Vrednost brez DDV",
-    "valueExclVatYear": "Vrednost brez DDV/leto"
+    "valueExclVatYear": "Vrednost brez DDV/leto",
+    "workOrderNumber": "Delovni nalog (DN)",
+    "contactName": "Kontaktna oseba",
+    "facilityAddress": "Naslov objekta"
   },
   "reviews": {
     "title": "Pregledi",

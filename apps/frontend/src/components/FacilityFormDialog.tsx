@@ -40,6 +40,7 @@ const formSchema = z.object({
   facilityAddress: z.string().optional(),
   facilityNotes: z.string().optional(),
   contractNumber: z.string().min(1),
+  workOrderNumber: z.string().optional(),
   reviewFrequency: z.enum(['monthly', 'biannual', 'quadannual', 'custom']),
   invoiceDelivery: z.enum(['email', 'post', 'e_invoice']),
   customMonths: z.array(z.number().int().min(1).max(12)).optional(),
@@ -79,6 +80,7 @@ interface FacilityEditData {
     invoiceEmail: string | null;
     isActive: boolean;
     invoiceDelivery?: string;
+    workOrderNumber?: string | null;
   }>;
 }
 
@@ -130,6 +132,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         facilityAddress: '',
         facilityNotes: '',
         contractNumber: '',
+        workOrderNumber: '',
         valueWithoutVat: undefined,
         valueWithoutVatPerYear: undefined,
         smbPath: '',
@@ -150,6 +153,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
       facilityAddress: facilityData.address ?? '',
       facilityNotes: facilityData.notes ?? '',
       contractNumber: contract?.contractNumber ?? '',
+      workOrderNumber: contract?.workOrderNumber ?? '',
       reviewFrequency: (contract?.reviewFrequency as FormData['reviewFrequency']) ?? 'monthly',
       invoiceDelivery: ((contract?.invoiceDelivery) as FormData['invoiceDelivery']) ?? 'email',
       customMonths: contract?.customMonths ?? [],
@@ -189,6 +193,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         facilityId: facility.id,
         customerId: customer.id,
         contractNumber: data.contractNumber,
+        workOrderNumber: data.workOrderNumber || undefined,
         reviewFrequency: data.reviewFrequency,
         invoiceDelivery: data.invoiceDelivery,
         customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
@@ -228,6 +233,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
       if (contract) {
         await api.patch(`/contracts/${contract.id}`, {
           contractNumber: data.contractNumber,
+          workOrderNumber: data.workOrderNumber || undefined,
           reviewFrequency: data.reviewFrequency,
           invoiceDelivery: data.invoiceDelivery,
           customMonths: data.reviewFrequency === 'custom' ? (data.customMonths ?? []) : undefined,
@@ -368,6 +374,13 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
                         <FormItem>
                           <FormLabel>{t('contracts.contractNumber')}<Req /></FormLabel>
                           <FormControl><Input placeholder="371-2025" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="workOrderNumber" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('contracts.workOrderNumber')}</FormLabel>
+                          <FormControl><Input placeholder="DN-2025-001" {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
