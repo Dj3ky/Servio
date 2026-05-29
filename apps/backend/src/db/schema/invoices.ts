@@ -3,7 +3,7 @@ import { reviews } from './reviews';
 import { contracts } from './contracts';
 import { users } from './users';
 
-export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'sent_email', 'sent_post', 'completed']);
+export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'sent_email', 'sent_post', 'e_invoice_created', 'completed']);
 
 export const invoices = pgTable('invoices', {
   id: uuid('id').defaultRandom().primaryKey(),

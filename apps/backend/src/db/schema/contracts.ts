@@ -22,6 +22,7 @@ export const contracts = pgTable('contracts', {
   valueWithoutVat: numeric('value_without_vat', { precision: 12, scale: 2 }),
   valueWithoutVatPerYear: numeric('value_without_vat_per_year', { precision: 12, scale: 2 }),
   customerEmail: text('customer_email'),
+  invoiceEmail: text('invoice_email'),
   invoiceDelivery: invoiceDeliveryEnum('invoice_delivery').notNull().default('email'),
   contractDocuments: jsonb('contract_documents').$type<Array<{ filename: string; url: string }>>(),
   isActive: boolean('is_active').notNull().default(true),

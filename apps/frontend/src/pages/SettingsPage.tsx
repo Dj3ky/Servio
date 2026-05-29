@@ -57,7 +57,7 @@ interface EmailTemplate {
   body: string;
   language: 'sl' | 'en';
   isDefault: boolean;
-  templateType: 'review' | 'accounting';
+  templateType: 'review' | 'accounting' | 'invoice';
   createdAt: string;
   updatedAt: string;
 }
@@ -607,8 +607,8 @@ export default function SettingsPage() {
                         </span>
                       )}
                       <Badge variant="outline" className="text-xs font-mono">{tpl.language.toUpperCase()}</Badge>
-                      <Badge variant={tpl.templateType === 'accounting' ? 'info' : 'secondary'} className="text-xs">
-                        {t(tpl.templateType === 'accounting' ? 'settings.templateTypeAccounting' : 'settings.templateTypeReview')}
+                      <Badge variant={tpl.templateType === 'accounting' ? 'info' : tpl.templateType === 'invoice' ? 'warning' : 'secondary'} className="text-xs">
+                        {t(tpl.templateType === 'accounting' ? 'settings.templateTypeAccounting' : tpl.templateType === 'invoice' ? 'settings.templateTypeInvoice' : 'settings.templateTypeReview')}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 truncate">{tpl.subject}</p>
@@ -772,6 +772,7 @@ export default function SettingsPage() {
                       <SelectContent>
                         <SelectItem value="review">{t('settings.templateTypeReview')}</SelectItem>
                         <SelectItem value="accounting">{t('settings.templateTypeAccounting')}</SelectItem>
+                        <SelectItem value="invoice">{t('settings.templateTypeInvoice')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

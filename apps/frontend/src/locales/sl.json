@@ -142,7 +142,12 @@
     "sentToAccounting": "Poslano v računovodstvo.",
     "createdAt": "Ustvarjena",
     "completedAt": "Dokončana",
-    "pendingTitle": "Odprte fakture"
+    "pendingTitle": "Odprte fakture",
+    "sendByEmail": "Pošlji po e-pošti",
+    "eInvoiceCreated": "E-račun ustvarjen",
+    "markEInvoiceCreated": "E-račun ustvarjen",
+    "sentByEmail": "Faktura poslana po e-pošti.",
+    "noInvoiceEmail": "Ni konfiguriran e-poštni naslov za fakture — dodajte ga v podatke pogodbe."
   },
   "frequency": {
     "monthly": "Mesečno",
@@ -191,6 +196,7 @@
     "templateType": "Vrsta",
     "templateTypeReview": "E-pošta poročila",
     "templateTypeAccounting": "E-pošta računovodstva",
+    "templateTypeInvoice": "E-pošta fakture",
     "templateDefault": "Nastavi kot privzeto predlogo",
     "templateDefaultHint": "Samodejno predizberite to predlogo pri nalaganju pregleda ali pošiljanju v računovodstvo",
     "templateDialogCreate": "Ustvarite novo e-poštno predlogo",
@@ -284,7 +290,10 @@
     "customMonthsHint": "Izberite mesece, v katerih so načrtovani vzdrževalni pregledi",
     "valueHint": "Znesek za posamezen obisk pregleda (brez DDV)",
     "valueYearHint": "Skupna vrednost pogodbe za celo leto (brez DDV)",
-    "customerEmailHint": "Uporablja se za pošiljanje poročil o pregledih. Ločite več naslovov z vejicami.",
+    "reviewEmail": "E-pošta za preglede",
+    "invoiceEmail": "E-pošta za fakture",
+    "customerEmailHint": "Za pošiljanje PDF poročil o pregledih. Ločite več naslovov z vejicami.",
+    "invoiceEmailHint": "Za pošiljanje faktur. Če je prazno, se uporabi e-pošta za preglede. Ločite več naslovov z vejicami.",
     "required": "* Obvezno polje"
   },
   "reports": {

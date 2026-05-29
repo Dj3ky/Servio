@@ -8,7 +8,8 @@ import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
 import { broadcast } from '../ws';
 import { readFromSmb } from '../services/smb';
-import { sendMail } from '../services/email';
+import { sendMail, renderTemplate } from '../services/email';
+import { documentUpload } from '../middleware/upload';
 
 const router = Router();
 router.use(requireAuth);
@@ -53,6 +54,71 @@ router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
     orderBy: (inv, { asc }) => [asc(inv.createdAt)],
   });
   res.json({ data });
+});
+
+router.post('/:id/send-email', documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
+
+  const invoice = await db.query.invoices.findFirst({
+    where: (inv, { eq }) => eq(inv.id, req.params.id),
+    with: { review: { with: { contract: { with: { facility: true, customer: true } } } } },
+  });
+  if (!invoice) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  const review = (invoice as any).review;
+  const contract = review?.contract;
+  const facility = contract?.facility;
+  const customer = contract?.customer;
+
+  const recipientEmail = contract?.invoiceEmail;
+  if (!recipientEmail) { res.status(400).json({ error: 'errors.no_email_configured' }); return; }
+
+  const s = await db.query.settings.findFirst();
+  const scheduledMonth = review?.scheduledMonth?.slice(0, 7) ?? '';
+  const invoiceNumberInput = (req.body as any).invoiceNumber?.trim();
+
+  const vars: Record<string, string> = {
+    customer_name: customer?.name ?? '',
+    facility_name: facility?.name ?? '',
+    month: scheduledMonth,
+    year: scheduledMonth.slice(0, 4),
+    contract_number: contract?.contractNumber ?? '',
+    invoice_number: invoiceNumberInput ?? invoice.invoiceNumber ?? '',
+    app_name: s?.appName ?? 'Servio',
+  };
+
+  const subject = renderTemplate(
+    (req.body as any).emailSubject?.trim() || `Invoice – ${facility?.name ?? ''} – ${scheduledMonth}`,
+    vars,
+  );
+  const html = renderTemplate(
+    (req.body as any).emailBody?.trim() || `Dear ${customer?.name ?? ''},\n\nPlease find attached your invoice.\n\nBest regards,\n${s?.appName ?? 'Servio'}`,
+    vars,
+  ).replace(/\n/g, '<br>');
+
+  const filename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  try {
+    await sendMail({ to: recipientEmail, subject, html, attachments: [{ filename, content: req.file.buffer, contentType: 'application/pdf' }] });
+  } catch (err) {
+    res.status(500).json({ error: 'errors.email_failed', details: String(err) });
+    return;
+  }
+
+  const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'sent_email' };
+  if (invoiceNumberInput) statusUpdate.invoiceNumber = invoiceNumberInput;
+  await db.update(invoices).set(statusUpdate).where(eq(invoices.id, invoice.id));
+
+  await createAuditLog({
+    userId: req.auth!.userId, userEmail: req.auth!.email,
+    action: 'send_invoice_email', entityType: 'invoice', entityId: invoice.id,
+    payload: { to: recipientEmail, invoiceNumber: invoiceNumberInput }, req,
+  });
+
+  broadcast('invoice_updated', { invoiceId: invoice.id, contractId: invoice.contractId, status: 'sent_email' });
+  broadcast('dashboard_refresh', {});
+
+  res.json({ success: true });
 });
 
 router.post('/:id/send-accounting', async (req: Request, res: Response): Promise<void> => {
@@ -100,7 +166,6 @@ router.post('/:id/send-accounting', async (req: Request, res: Response): Promise
   const rawBody: string = req.body.emailBody?.trim()
     || `Invoice for <strong>${customer?.name ?? ''}</strong>, ${facility?.name ?? ''}, ${scheduledMonth}.<br>Contract: ${contract?.contractNumber ?? ''}`;
 
-  const { renderTemplate } = await import('../services/email');
   const subject = renderTemplate(rawSubject, templateVars);
   const html = renderTemplate(rawBody, templateVars);
 

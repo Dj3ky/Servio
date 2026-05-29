@@ -32,6 +32,10 @@ const formSchema = z.object({
     (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)),
     { message: 'Invalid email address' },
   ),
+  invoiceEmail: z.string().optional().refine(
+    (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)),
+    { message: 'Invalid email address' },
+  ),
   facilityName: z.string().min(1),
   facilityAddress: z.string().optional(),
   facilityNotes: z.string().optional(),
@@ -72,6 +76,7 @@ interface FacilityEditData {
     valueWithoutVatPerYear: number | string | null;
     smbPath: string | null;
     customerEmail: string | null;
+    invoiceEmail: string | null;
     isActive: boolean;
     invoiceDelivery?: string;
   }>;
@@ -118,6 +123,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         startDate: new Date().toISOString().slice(0, 10),
         customerName: '',
         customerEmail: '',
+        invoiceEmail: '',
         contactName: '',
         phone: '',
         facilityName: '',
@@ -137,6 +143,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
     form.reset({
       customerName: facilityData.customer.name,
       customerEmail: facilityData.customer.email ?? '',
+      invoiceEmail: contract?.invoiceEmail ?? '',
       contactName: facilityData.customer.contactName ?? '',
       phone: facilityData.customer.phone ?? '',
       facilityName: facilityData.name,
@@ -190,6 +197,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
         smbPath: data.smbPath || undefined,
         customerEmail: data.customerEmail || undefined,
+        invoiceEmail: data.invoiceEmail || undefined,
       });
     },
     onSuccess: () => {
@@ -228,6 +236,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
           valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
           smbPath: data.smbPath || undefined,
           customerEmail: data.customerEmail || undefined,
+          invoiceEmail: data.invoiceEmail || undefined,
         });
       }
     },
@@ -286,9 +295,17 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
                       )} />
                       <FormField control={form.control} name="customerEmail" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('common.email')}</FormLabel>
+                          <FormLabel>{t('facility.reviewEmail')}</FormLabel>
                           <FormControl><Input type="text" placeholder="info@example.com, billing@example.com" {...field} /></FormControl>
                           <FormDescription>{t('facility.customerEmailHint')}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="invoiceEmail" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('facility.invoiceEmail')}</FormLabel>
+                          <FormControl><Input type="text" placeholder="invoices@example.com" {...field} /></FormControl>
+                          <FormDescription>{t('facility.invoiceEmailHint')}</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )} />

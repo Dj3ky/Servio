@@ -20,6 +20,10 @@ export const createContractSchema = z.object({
     (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => z.string().email().safeParse(e).success),
     { message: 'Invalid email address' },
   ).nullable().optional(),
+  invoiceEmail: z.string().refine(
+    (val) => !val || val.split(',').map((e) => e.trim()).filter(Boolean).every((e) => z.string().email().safeParse(e).success),
+    { message: 'Invalid email address' },
+  ).nullable().optional(),
   invoiceDelivery: invoiceDeliverySchema.optional(),
 });
 
@@ -42,6 +46,7 @@ export const contractSchema = z.object({
   valueWithoutVat: z.number().nullable(),
   valueWithoutVatPerYear: z.number().nullable(),
   customerEmail: z.string().nullable(),
+  invoiceEmail: z.string().nullable(),
   invoiceDelivery: invoiceDeliverySchema,
   isActive: z.boolean(),
   createdAt: z.string().datetime(),

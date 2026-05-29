@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const invoiceStatusSchema = z.enum(['pending', 'sent_email', 'sent_post', 'completed']);
+export const invoiceStatusSchema = z.enum(['pending', 'sent_email', 'sent_post', 'e_invoice_created', 'completed']);
 
 export const updateInvoiceSchema = z.object({
   status: invoiceStatusSchema,

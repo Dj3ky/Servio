@@ -142,7 +142,12 @@
     "sentToAccounting": "Sent to accounting.",
     "createdAt": "Created",
     "completedAt": "Completed",
-    "pendingTitle": "Pending Invoices"
+    "pendingTitle": "Pending Invoices",
+    "sendByEmail": "Send by Email",
+    "eInvoiceCreated": "E-Invoice Created",
+    "markEInvoiceCreated": "E-Invoice Created",
+    "sentByEmail": "Invoice sent by email.",
+    "noInvoiceEmail": "No invoice email configured — please add an invoice email address to the contract."
   },
   "frequency": {
     "monthly": "Monthly",
@@ -191,6 +196,7 @@
     "templateType": "Type",
     "templateTypeReview": "Review Email",
     "templateTypeAccounting": "Accounting Email",
+    "templateTypeInvoice": "Invoice Email",
     "templateDefault": "Set as default template",
     "templateDefaultHint": "Automatically pre-select this template when uploading a review or sending to accounting",
     "templateDialogCreate": "Create a new email template",
@@ -284,7 +290,10 @@
     "customMonthsHint": "Select the specific months when maintenance reviews are scheduled",
     "valueHint": "Amount charged per individual review visit (excl. VAT)",
     "valueYearHint": "Total contract value for the full calendar year (excl. VAT)",
-    "customerEmailHint": "Used for sending review reports. Separate multiple addresses with commas.",
+    "reviewEmail": "Review Email",
+    "invoiceEmail": "Invoice Email",
+    "customerEmailHint": "For sending review PDF reports. Separate multiple addresses with commas.",
+    "invoiceEmailHint": "For sending invoice PDFs. Falls back to review email if empty. Separate multiple addresses with commas.",
     "required": "* Required field"
   },
   "reports": {

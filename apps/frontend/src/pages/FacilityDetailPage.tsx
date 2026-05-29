@@ -20,6 +20,7 @@ import { formatDateTime } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
+import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
 import { useAuthStore } from '@/stores/authStore';
 
 interface Review {
@@ -67,6 +68,7 @@ interface FacilityDetail {
     reviewFrequency: string;
     isActive: boolean;
     customerEmail: string | null;
+    invoiceEmail: string | null;
     emailTemplateId: string | null;
     invoiceDelivery: 'email' | 'post' | 'e_invoice';
     contractDocuments: ContractDocument[] | null;
@@ -118,6 +120,7 @@ export default function FacilityDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<string | null>(null);
+  const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<Invoice | null>(null);
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -279,6 +282,7 @@ export default function FacilityDetailPage() {
   const invoiceByReviewId = Object.fromEntries(invoices.map((inv) => [inv.reviewId, inv]));
   const hasCurrentMonthReview = reviews.some((r) => r.scheduledMonth === currentMonthIso());
   const hasEmail = !!(activeContract?.customerEmail || facility.customer.email);
+  const hasInvoiceEmail = !!activeContract?.invoiceEmail;
 
   function handleUploadSuccess() {
     refetchReviews();
@@ -292,6 +296,7 @@ export default function FacilityDetailPage() {
       pending: t('invoices.pending'),
       sent_email: t('invoices.sentEmail'),
       sent_post: t('invoices.sentPost'),
+      e_invoice_created: t('invoices.eInvoiceCreated'),
       completed: t('invoices.completed'),
     };
     return labels[status] ?? status;
@@ -641,15 +646,20 @@ export default function FacilityDetailPage() {
             <Button variant="outline" onClick={() => { setInvoiceDialog(null); setInvoiceNumber(''); }}>
               {t('common.cancel')}
             </Button>
-            {invoiceDialog?.status === 'pending' && (
-              <>
-                <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_email', num: invoiceNumber })}>
-                  {t('invoices.markSentEmail')}
-                </Button>
-                <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_post', num: invoiceNumber })}>
-                  {t('invoices.markSentPost')}
-                </Button>
-              </>
+            {invoiceDialog?.status === 'pending' && activeContract?.invoiceDelivery === 'email' && (
+              <Button variant="outline" onClick={() => { setEmailInvoiceTarget(invoiceDialog); setInvoiceDialog(null); }}>
+                {t('invoices.sendByEmail')}
+              </Button>
+            )}
+            {invoiceDialog?.status === 'pending' && activeContract?.invoiceDelivery === 'post' && (
+              <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_post', num: invoiceNumber })}>
+                {t('invoices.markSentPost')}
+              </Button>
+            )}
+            {invoiceDialog?.status === 'pending' && activeContract?.invoiceDelivery === 'e_invoice' && (
+              <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'e_invoice_created', num: invoiceNumber })}>
+                {t('invoices.markEInvoiceCreated')}
+              </Button>
             )}
             {invoiceDialog?.status !== 'completed' && (
               <Button disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'completed', num: invoiceNumber })}>
@@ -708,6 +718,21 @@ export default function FacilityDetailPage() {
           contractEmailTemplateId={activeContract?.emailTemplateId}
           scheduledMonth={pendingReview.scheduledMonth}
           onSuccess={handleUploadSuccess}
+        />
+      )}
+
+      {emailInvoiceTarget && (
+        <InvoiceEmailDialog
+          open={!!emailInvoiceTarget}
+          onClose={() => setEmailInvoiceTarget(null)}
+          invoiceId={emailInvoiceTarget.id}
+          invoiceNumber={emailInvoiceTarget.invoiceNumber}
+          hasEmail={hasInvoiceEmail}
+          onSuccess={() => {
+            setEmailInvoiceTarget(null);
+            refetchInvoices();
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          }}
         />
       )}
     </div>

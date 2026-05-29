@@ -23,6 +23,7 @@ import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
+import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
 
 interface InvoiceQueueItem {
   id: string;
@@ -34,6 +35,7 @@ interface InvoiceQueueItem {
     contract: {
       contractNumber: string;
       valueWithoutVat: string | null;
+      invoiceDelivery: string;
       facility: { name: string };
       customer: { name: string };
     };
@@ -44,10 +46,11 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'secondary
   pending: 'warning',
   sent_email: 'info',
   sent_post: 'info',
+  e_invoice_created: 'info',
   completed: 'success',
 };
 
-type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post' | 'completed';
+type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post' | 'e_invoice_created' | 'completed';
 
 const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
@@ -61,6 +64,7 @@ export default function InvoiceQueuePage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
+  const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<InvoiceQueueItem | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', statusFilter === 'completed' ? 'completed' : 'pending'],
@@ -169,15 +173,20 @@ export default function InvoiceQueuePage() {
         const inv = row.original;
         return (
           <div className="flex gap-1 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-            {inv.status === 'pending' && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'sent_email')}>
-                  {t('invoices.markSentEmail')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'sent_post')}>
-                  {t('invoices.markSentPost')}
-                </Button>
-              </>
+            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'email' && (
+              <Button size="sm" variant="outline" onClick={() => setEmailInvoiceTarget(inv)}>
+                {t('invoices.sendByEmail')}
+              </Button>
+            )}
+            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post' && (
+              <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'sent_post')}>
+                {t('invoices.markSentPost')}
+              </Button>
+            )}
+            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice' && (
+              <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'e_invoice_created')}>
+                {t('invoices.markEInvoiceCreated')}
+              </Button>
             )}
             {inv.status !== 'completed' && (
               <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
@@ -212,6 +221,7 @@ export default function InvoiceQueuePage() {
     { value: 'pending', label: t('invoices.pending') },
     { value: 'sent_email', label: t('invoices.sentEmail') },
     { value: 'sent_post', label: t('invoices.sentPost') },
+    { value: 'e_invoice_created', label: t('invoices.eInvoiceCreated') },
     { value: 'completed', label: t('invoices.completed') },
   ];
 
@@ -346,6 +356,7 @@ export default function InvoiceQueuePage() {
             <DialogTitle>
               {targetStatus === 'completed' ? t('invoices.markCompleted') :
                targetStatus === 'sent_email' ? t('invoices.markSentEmail') :
+               targetStatus === 'e_invoice_created' ? t('invoices.markEInvoiceCreated') :
                t('invoices.markSentPost')}
             </DialogTitle>
             {selectedInvoice && (
@@ -391,6 +402,21 @@ export default function InvoiceQueuePage() {
         } : null}
         onClose={() => setAccountingInvoice(null)}
       />
+
+      {emailInvoiceTarget && (
+        <InvoiceEmailDialog
+          open={!!emailInvoiceTarget}
+          onClose={() => setEmailInvoiceTarget(null)}
+          invoiceId={emailInvoiceTarget.id}
+          invoiceNumber={emailInvoiceTarget.invoiceNumber}
+          hasEmail={true}
+          onSuccess={() => {
+            setEmailInvoiceTarget(null);
+            queryClient.invalidateQueries({ queryKey: ['invoices'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          }}
+        />
+      )}
     </div>
   );
 }

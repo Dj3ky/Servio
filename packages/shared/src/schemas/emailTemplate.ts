@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const emailTemplateTypeEnum = z.enum(['review', 'accounting']);
+export const emailTemplateTypeEnum = z.enum(['review', 'accounting', 'invoice']);
 
 export const createEmailTemplateSchema = z.object({
   name: z.string().min(1).max(200),

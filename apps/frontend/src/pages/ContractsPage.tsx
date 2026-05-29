@@ -89,6 +89,7 @@ const INVOICE_STATUS_VARIANT: Record<string, 'success' | 'info' | 'secondary' | 
   pending: 'warning',
   sent_email: 'info',
   sent_post: 'info',
+  e_invoice_created: 'info',
 };
 
 type StatusFilter = 'all' | 'active' | 'inactive';
