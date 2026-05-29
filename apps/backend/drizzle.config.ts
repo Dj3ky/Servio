@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+// look for .env in apps/backend first, fall back to monorepo root
+config({ path: resolve(__dirname, '.env') });
+config({ path: resolve(__dirname, '../../.env') });
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
