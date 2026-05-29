@@ -8,7 +8,6 @@ const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ContractsPage = lazy(() => import('@/pages/ContractsPage'));
 const FacilityDetailPage = lazy(() => import('@/pages/FacilityDetailPage'));
-const FacilityFormPage = lazy(() => import('@/pages/FacilityFormPage'));
 const InvoiceQueuePage = lazy(() => import('@/pages/InvoiceQueuePage'));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
@@ -43,18 +42,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'contracts', element: withSuspense(<ContractsPage />) },
-      {
-        path: 'facilities/new',
-        element: withSuspense(
-          <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute>,
-        ),
-      },
-      {
-        path: 'facilities/:id/edit',
-        element: withSuspense(
-          <ProtectedRoute roles={['admin', 'manager']}><FacilityFormPage /></ProtectedRoute>,
-        ),
-      },
       { path: 'facilities/:id', element: withSuspense(<FacilityDetailPage />) },
       {
         path: 'invoices',

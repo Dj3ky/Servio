@@ -141,7 +141,7 @@ export default function InvoiceQueuePage() {
     columnHelper.accessor((row) => row.review.contract.contractNumber, {
       id: 'contractNumber',
       header: t('contracts.contractNumber'),
-      cell: (info) => <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">#{info.getValue()}</span>,
+      cell: (info) => <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>,
     }),
     columnHelper.accessor((row) => row.review.scheduledMonth, {
       id: 'scheduledMonth',

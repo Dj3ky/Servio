@@ -24,6 +24,7 @@ import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useDebounce } from '@/hooks/useDebounce';
+import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 
 interface ImportResult {
   created: string[];
@@ -108,6 +109,7 @@ export default function ContractsPage() {
 
   const [exporting, setExporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; contractNumber: string } | null>(null);
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/contracts/${id}`),
@@ -332,7 +334,7 @@ export default function ContractsPage() {
               <FileUp className="mr-2 h-4 w-4" />
               {importing ? t('common.loading') : t('contracts.importCsv')}
             </Button>
-            <Button onClick={() => navigate('/facilities/new')}>
+            <Button onClick={() => setFormDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               {t('contracts.addContract')}
             </Button>
@@ -467,6 +469,8 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
+
+      <FacilityFormDialog open={formDialogOpen} onClose={() => setFormDialogOpen(false)} />
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>

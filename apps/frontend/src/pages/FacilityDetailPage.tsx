@@ -21,6 +21,7 @@ import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
+import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { useAuthStore } from '@/stores/authStore';
 
 interface Review {
@@ -294,6 +295,7 @@ export default function FacilityDetailPage() {
   const [invoiceDialog, setInvoiceDialog] = useState<{ invoice: Invoice; targetStatus: string } | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -486,7 +488,7 @@ export default function FacilityDetailPage() {
           <p className="text-sm text-muted-foreground">{facility.customer.name}</p>
         </div>
         {canManageContracts && (
-          <Button className="ml-auto" onClick={() => navigate(`/facilities/${id}/edit`)}>
+          <Button className="ml-auto" onClick={() => setEditDialogOpen(true)}>
             {t('common.edit')}
           </Button>
         )}
@@ -845,6 +847,12 @@ export default function FacilityDetailPage() {
         } : null}
         onClose={() => setAccountingInvoice(null)}
         invalidateKeys={activeContract ? [['invoices-facility', activeContract.id]] : []}
+      />
+
+      <FacilityFormDialog
+        open={editDialogOpen}
+        onClose={() => { setEditDialogOpen(false); refetchFacility(); }}
+        facilityId={id}
       />
     </div>
   );
