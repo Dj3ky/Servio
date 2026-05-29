@@ -212,50 +212,6 @@ export default function ContractsPage() {
       header: t('contracts.contractNumber'),
       cell: (info) => <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>,
     }),
-    columnHelper.display({
-      id: 'frequency',
-      header: t('contracts.frequency'),
-      cell: ({ row }) => {
-        const freq = row.original.reviewFrequency;
-        const months = reviewMonths(freq, row.original.customMonths);
-        return (
-          <div>
-            <span>{t(`frequency.${freq}` as any)}</span>
-            {months && months.length > 0 && (
-              <div className="text-xs text-muted-foreground mt-0.5">{monthsLabel(months, i18n.language)}</div>
-            )}
-          </div>
-        );
-      },
-    }),
-    columnHelper.accessor('isActive', {
-      id: 'status',
-      header: t('common.status'),
-      cell: (info) => (
-        <Badge variant={info.getValue() ? 'success' : 'secondary'}>
-          {info.getValue() ? t('common.active') : t('common.inactive')}
-        </Badge>
-      ),
-    }),
-    columnHelper.display({
-      id: 'reviewStatus',
-      header: t('contracts.reviewStatus'),
-      cell: ({ row }) => {
-        const status = row.original.currentReview?.status;
-        if (status) return <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>;
-        if (!row.original.reviewNeededThisMonth) return <Badge variant="outline">{t('reviews.notNeeded')}</Badge>;
-        return <Badge variant="secondary">—</Badge>;
-      },
-    }),
-    columnHelper.accessor('currentInvoice', {
-      id: 'invoiceStatus',
-      header: t('contracts.invoiceStatus'),
-      cell: (info) => {
-        const status = info.getValue()?.status;
-        if (!status) return <Badge variant="secondary">—</Badge>;
-        return <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>;
-      },
-    }),
     columnHelper.accessor('valueWithoutVat', {
       id: 'valueWithoutVat',
       header: t('contracts.valueExclVat'),
@@ -323,6 +279,50 @@ export default function ContractsPage() {
       id: 'smbPath',
       header: t('facility.smbPath'),
       cell: (info) => <span className="text-sm text-muted-foreground font-mono">{info.getValue() ?? '—'}</span>,
+    }),
+    columnHelper.display({
+      id: 'frequency',
+      header: t('contracts.frequency'),
+      cell: ({ row }) => {
+        const freq = row.original.reviewFrequency;
+        const months = reviewMonths(freq, row.original.customMonths);
+        return (
+          <div>
+            <span>{t(`frequency.${freq}` as any)}</span>
+            {months && months.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-0.5">{monthsLabel(months, i18n.language)}</div>
+            )}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor('isActive', {
+      id: 'status',
+      header: t('common.status'),
+      cell: (info) => (
+        <Badge variant={info.getValue() ? 'success' : 'secondary'}>
+          {info.getValue() ? t('common.active') : t('common.inactive')}
+        </Badge>
+      ),
+    }),
+    columnHelper.display({
+      id: 'reviewStatus',
+      header: t('contracts.reviewStatus'),
+      cell: ({ row }) => {
+        const status = row.original.currentReview?.status;
+        if (status) return <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>;
+        if (!row.original.reviewNeededThisMonth) return <Badge variant="outline">{t('reviews.notNeeded')}</Badge>;
+        return <Badge variant="secondary">—</Badge>;
+      },
+    }),
+    columnHelper.accessor('currentInvoice', {
+      id: 'invoiceStatus',
+      header: t('contracts.invoiceStatus'),
+      cell: (info) => {
+        const status = info.getValue()?.status;
+        if (!status) return <Badge variant="secondary">—</Badge>;
+        return <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>;
+      },
     }),
     columnHelper.display({
       id: 'actions',
