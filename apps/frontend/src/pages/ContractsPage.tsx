@@ -331,6 +331,7 @@ export default function ContractsPage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[10px] text-red-500">{String(row.original.notes)}</span>
           {!!row.original.notes && (
             <span title={row.original.notes} className="cursor-default">
               <Info className="h-4 w-4 text-blue-500" />
