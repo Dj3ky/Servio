@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDate, formatDateTime } from '@/lib/utils';
+import { formatDate, formatDateTime, formatScheduledMonth } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
@@ -86,10 +86,6 @@ function currentMonthIso() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-function formatScheduledMonth(s: string, lang: string) {
-  const d = new Date(s + 'T00:00:00');
-  return new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(d);
-}
 
 function getToken() {
   try {

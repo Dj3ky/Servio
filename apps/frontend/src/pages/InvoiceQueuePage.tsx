@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatScheduledMonth } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
 
@@ -56,7 +56,7 @@ type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post' | 'e_invoice_
 const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
 export default function InvoiceQueuePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceQueueItem | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [targetStatus, setTargetStatus] = useState<string>('');
@@ -151,6 +151,7 @@ export default function InvoiceQueuePage() {
     columnHelper.accessor((row) => row.review.scheduledMonth, {
       id: 'scheduledMonth',
       header: t('reviews.scheduledMonth'),
+      cell: (info) => formatScheduledMonth(info.getValue(), i18n.language),
     }),
     columnHelper.accessor('createdAt', {
       id: 'createdAt',

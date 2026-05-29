@@ -23,3 +23,10 @@ export function formatCurrency(value: number | null | undefined, currency = 'EUR
 export function getMonthName(month: number, locale = 'sl-SI'): string {
   return new Date(2000, month - 1, 1).toLocaleDateString(locale, { month: 'long' });
 }
+
+export function formatScheduledMonth(s: string, lang: string): string {
+  const d = new Date(s + 'T00:00:00');
+  const locale = lang === 'sl' ? 'sl-SI' : 'en-US';
+  const monthName = new Intl.DateTimeFormat(locale, { month: 'long' }).format(d);
+  return `${monthName} ${d.getFullYear()}`;
+}
