@@ -30,14 +30,19 @@ if ! command -v smbclient &>/dev/null; then
   sudo apt-get install -y samba-client
 fi
 
-# Chromium dependencies (required for Puppeteer PDF generation)
-echo "==> Installing Chromium dependencies..."
-sudo apt-get install -y \
-  libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
-  libcups2 libdrm2 libdbus-1-3 libxkbcommon0 \
-  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-  libgbm1 libasound2t64 libpango-1.0-0 libcairo2 \
-  libgtk-3-0 fonts-liberation
+# Chrome (required for Puppeteer PDF generation)
+# chromium-browser on Ubuntu 22.04+ is a snap stub — install Google Chrome .deb instead
+if ! command -v google-chrome-stable &>/dev/null && ! command -v chromium &>/dev/null; then
+  echo "==> Installing Google Chrome for PDF generation..."
+  curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/google-chrome.deb
+  sudo apt-get install -y /tmp/google-chrome.deb
+  rm -f /tmp/google-chrome.deb
+fi
+
+CHROME_PATH=$(command -v google-chrome-stable 2>/dev/null || command -v chromium 2>/dev/null || true)
+if [ -n "$CHROME_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
+  echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> .env
+fi
 
 # PM2
 if ! command -v pm2 &>/dev/null; then
