@@ -30,6 +30,15 @@ if ! command -v smbclient &>/dev/null; then
   sudo apt-get install -y samba-client
 fi
 
+# Chromium dependencies (required for Puppeteer PDF generation)
+echo "==> Installing Chromium dependencies..."
+sudo apt-get install -y \
+  libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+  libcups2 libdrm2 libdbus-1-3 libxkbcommon0 \
+  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+  libgbm1 libasound2t64 libpango-1.0-0 libcairo2 \
+  libgtk-3-0 fonts-liberation
+
 # PM2
 if ! command -v pm2 &>/dev/null; then
   echo "==> Installing PM2..."
