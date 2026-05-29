@@ -30,7 +30,6 @@ import {
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
-import { useAuthStore } from '@/stores/authStore';
 
 interface FullSettings {
   appName: string;
@@ -93,7 +92,6 @@ function SectionHeader({ icon: Icon, title, description }: { icon: React.Compone
 
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
