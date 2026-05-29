@@ -191,7 +191,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         customerId: customer.id,
         name: data.facilityName,
         address: data.facilityAddress || undefined,
-        notes: data.facilityNotes || undefined,
+        notes: data.facilityNotes?.trim() || null,
       });
       await api.post('/contracts', {
         facilityId: facility.id,
@@ -207,7 +207,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         smbPath: data.smbPath || undefined,
         customerEmail: data.customerEmail || undefined,
         invoiceEmail: data.invoiceEmail || undefined,
-        notes: data.notes || undefined,
+        notes: data.notes?.trim() || null,
       });
     },
     onSuccess: () => {
@@ -232,7 +232,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         api.patch(`/facilities/${facilityId}`, {
           name: data.facilityName,
           address: data.facilityAddress || undefined,
-          notes: data.facilityNotes || undefined,
+          notes: data.facilityNotes?.trim() || null,
         }),
       ]);
       if (contract) {
@@ -248,7 +248,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
           smbPath: data.smbPath || undefined,
           customerEmail: data.customerEmail || undefined,
           invoiceEmail: data.invoiceEmail || undefined,
-          notes: data.notes || undefined,
+          notes: data.notes?.trim() || null,
         });
       }
     },
