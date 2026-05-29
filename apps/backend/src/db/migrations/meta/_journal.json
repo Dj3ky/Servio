@@ -15,6 +15,34 @@
       "when": 1748390400000,
       "tag": "0001_add_template_type",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780012800000,
+      "tag": "0002_add_invoice_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780099200000,
+      "tag": "0003_add_e_invoice_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780185600000,
+      "tag": "0004_add_work_order_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780272000000,
+      "tag": "0005_add_contract_notes",
+      "breakpoints": true
     }
   ]
 }
