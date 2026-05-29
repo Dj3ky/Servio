@@ -25,6 +25,7 @@ import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
+import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
 
 interface ImportResult {
   created: string[];
@@ -61,7 +62,10 @@ interface ContractRow {
   customer: { name: string };
   facility: { name: string; id: string };
   assignedTechnician: { name: string } | null;
-  currentReview?: { status: string } | null;
+  currentReview?: { id: string; status: string } | null;
+  customerEmail?: string | null;
+  invoiceDelivery?: string;
+  emailTemplateId?: string | null;
   currentInvoice?: { id: string; status: string; invoiceNumber: string | null } | null;
   reviewNeededThisMonth?: boolean;
 }
@@ -110,6 +114,7 @@ export default function ContractsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; contractNumber: string } | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState<ContractRow | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/contracts/${id}`),
@@ -265,7 +270,7 @@ export default function ContractsPage() {
       cell: ({ row }) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
-            <Button size="sm" variant="outline" onClick={() => navigate(`/facilities/${row.original.facility.id}`)}>
+            <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
               <Upload className="h-3 w-3 mr-1" />
               {t('reviews.uploadPdf')}
             </Button>
@@ -471,6 +476,18 @@ export default function ContractsPage() {
       )}
 
       <FacilityFormDialog open={formDialogOpen} onClose={() => setFormDialogOpen(false)} />
+
+      {uploadTarget?.currentReview && (
+        <ReviewUploadDialog
+          open={!!uploadTarget}
+          onClose={() => setUploadTarget(null)}
+          reviewId={uploadTarget.currentReview.id}
+          hasEmail={!!uploadTarget.customerEmail}
+          invoiceDelivery={(uploadTarget.invoiceDelivery as 'email' | 'post' | 'e_invoice') ?? 'email'}
+          contractEmailTemplateId={uploadTarget.emailTemplateId}
+          onSuccess={() => { setUploadTarget(null); queryClient.invalidateQueries({ queryKey: ['contracts'] }); }}
+        />
+      )}
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
