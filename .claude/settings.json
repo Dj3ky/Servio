@@ -14,7 +14,8 @@
       "Read(//c/Program Files/**)",
       "Bash(dir \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\src\\\\pages\")",
       "Bash(findstr -i invoice)",
-      "Bash(xargs grep -l \"invoiceStatus\\\\|invoice.*status\")"
+      "Bash(xargs grep -l \"invoiceStatus\\\\|invoice.*status\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }

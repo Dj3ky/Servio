@@ -134,6 +134,7 @@
     "title": "Invoices",
     "queue": "Invoice Queue",
     "invoiceNumber": "Invoice Number",
+    "inProgress": "In Progress",
     "pending": "Pending",
     "sent_email": "Sent by Email",
     "sent_post": "Sent by Post",

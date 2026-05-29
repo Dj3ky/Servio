@@ -134,6 +134,7 @@
     "title": "Fakture",
     "queue": "Čakalna vrsta faktur",
     "invoiceNumber": "Številka fakture",
+    "inProgress": "V teku",
     "pending": "Čaka",
     "sent_email": "Poslana e-pošta",
     "sent_post": "Poslana pošta",

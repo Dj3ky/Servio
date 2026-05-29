@@ -11,14 +11,15 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
+import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDate, formatScheduledMonth } from '@/lib/utils';
@@ -51,7 +52,13 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'secondary
   completed: 'success',
 };
 
-type StatusFilter = 'all' | 'pending' | 'sent_email' | 'sent_post' | 'e_invoice_created' | 'completed';
+const DELIVERY_LABEL: Record<string, string> = {
+  email: 'Email',
+  post: 'Post',
+  e_invoice: 'E-Invoice',
+};
+
+type StatusFilter = 'in_progress' | 'pending' | 'sent_email' | 'sent_post' | 'e_invoice_created' | 'completed';
 
 const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
@@ -63,17 +70,39 @@ export default function InvoiceQueuePage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('in_progress');
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
   const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<InvoiceQueueItem | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['invoices', statusFilter === 'completed' ? 'completed' : 'pending'],
-    queryFn: () => statusFilter === 'completed'
-      ? api.get<{ data: InvoiceQueueItem[] }>('/invoices?status=completed&limit=200')
-      : api.get<{ data: InvoiceQueueItem[] }>('/invoices/pending'),
+  // Always fetch pending so we have counts for all non-completed statuses
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
+    queryKey: ['invoices', 'pending'],
+    queryFn: () => api.get<{ data: InvoiceQueueItem[] }>('/invoices/pending'),
     refetchInterval: 30000,
   });
+
+  // Only fetch completed when that filter is active
+  const { data: completedData, isLoading: completedLoading } = useQuery({
+    queryKey: ['invoices', 'completed'],
+    queryFn: () => api.get<{ data: InvoiceQueueItem[] }>('/invoices?status=completed&limit=200'),
+    enabled: statusFilter === 'completed',
+    refetchInterval: 30000,
+  });
+
+  const isLoading = statusFilter === 'completed' ? completedLoading : pendingLoading;
+  const activeData = statusFilter === 'completed' ? completedData : pendingData;
+
+  const statusCounts = useMemo(() => {
+    const rows = pendingData?.data ?? [];
+    return {
+      in_progress: rows.length,
+      pending: rows.filter((i) => i.status === 'pending').length,
+      sent_email: rows.filter((i) => i.status === 'sent_email').length,
+      sent_post: rows.filter((i) => i.status === 'sent_post').length,
+      e_invoice_created: rows.filter((i) => i.status === 'e_invoice_created').length,
+      completed: completedData?.data?.length ?? null,
+    };
+  }, [pendingData, completedData]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status, invoiceNumber }: { id: string; status: string; invoiceNumber?: string }) =>
@@ -114,10 +143,9 @@ export default function InvoiceQueuePage() {
     setInvoiceNumber(invoice.invoiceNumber ?? '');
   };
 
-  // Manual filtering — avoids TanStack globalFilter re-render loop
   const filteredData = useMemo(() => {
-    let rows = data?.data ?? [];
-    if (statusFilter !== 'all') {
+    let rows = activeData?.data ?? [];
+    if (statusFilter !== 'in_progress' && statusFilter !== 'completed') {
       rows = rows.filter((inv) => inv.status === statusFilter);
     }
     if (search.trim()) {
@@ -131,7 +159,7 @@ export default function InvoiceQueuePage() {
       );
     }
     return rows;
-  }, [data, statusFilter, search]);
+  }, [activeData, statusFilter, search]);
 
   const columns = useMemo(() => [
     columnHelper.accessor((row) => row.review.contract.customer.name, {
@@ -147,6 +175,22 @@ export default function InvoiceQueuePage() {
       id: 'contractNumber',
       header: t('contracts.contractNumber'),
       cell: (info) => <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('invoiceNumber', {
+      id: 'invoiceNumber',
+      header: t('invoices.invoiceNumber'),
+      cell: (info) => info.getValue()
+        ? <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>
+        : <span className="text-muted-foreground text-xs">—</span>,
+    }),
+    columnHelper.accessor((row) => row.review.contract.invoiceDelivery, {
+      id: 'delivery',
+      header: t('contracts.invoiceDelivery'),
+      cell: (info) => (
+        <span className="text-sm text-muted-foreground">
+          {DELIVERY_LABEL[info.getValue()] ?? info.getValue()}
+        </span>
+      ),
     }),
     columnHelper.accessor((row) => row.review.scheduledMonth, {
       id: 'scheduledMonth',
@@ -178,33 +222,54 @@ export default function InvoiceQueuePage() {
       enableHiding: false,
       cell: ({ row }) => {
         const inv = row.original;
+        const hasPrimaryAction =
+          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'email') ||
+          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post') ||
+          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice');
+        const canComplete = inv.status !== 'completed';
+        const canSendAccounting = inv.review.contract.invoiceDelivery === 'e_invoice';
+
+        if (!hasPrimaryAction && !canComplete && !canSendAccounting) return null;
+
         return (
-          <div className="flex gap-1 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'email' && (
-              <Button size="sm" variant="outline" onClick={() => setEmailInvoiceTarget(inv)}>
-                {t('invoices.sendByEmail')}
-              </Button>
-            )}
-            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post' && (
-              <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'sent_post')}>
-                {t('invoices.markSentPost')}
-              </Button>
-            )}
-            {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice' && (
-              <Button size="sm" variant="outline" onClick={() => handleAction(inv, 'e_invoice_created')}>
-                {t('invoices.markEInvoiceCreated')}
-              </Button>
-            )}
-            {inv.status !== 'completed' && (
-              <Button size="sm" onClick={() => handleAction(inv, 'completed')}>
-                {t('invoices.markCompleted')}
-              </Button>
-            )}
-            {inv.review.contract.invoiceDelivery === 'e_invoice' && (
-              <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
-                {t('invoices.sendToAccounting')}
-              </Button>
-            )}
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'email' && (
+                  <DropdownMenuItem onClick={() => setEmailInvoiceTarget(inv)}>
+                    {t('invoices.sendByEmail')}
+                  </DropdownMenuItem>
+                )}
+                {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post' && (
+                  <DropdownMenuItem onClick={() => handleAction(inv, 'sent_post')}>
+                    {t('invoices.markSentPost')}
+                  </DropdownMenuItem>
+                )}
+                {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice' && (
+                  <DropdownMenuItem onClick={() => handleAction(inv, 'e_invoice_created')}>
+                    {t('invoices.markEInvoiceCreated')}
+                  </DropdownMenuItem>
+                )}
+                {canSendAccounting && (
+                  <DropdownMenuItem onClick={() => setAccountingInvoice(inv)}>
+                    {t('invoices.sendToAccounting')}
+                  </DropdownMenuItem>
+                )}
+                {(hasPrimaryAction || canSendAccounting) && canComplete && (
+                  <DropdownMenuSeparator />
+                )}
+                {canComplete && (
+                  <DropdownMenuItem onClick={() => handleAction(inv, 'completed')}>
+                    {t('invoices.markCompleted')}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       },
@@ -222,11 +287,10 @@ export default function InvoiceQueuePage() {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const allInvoices = data?.data ?? [];
-  const pendingCount = allInvoices.filter((i) => i.status === 'pending').length;
+  const pendingCount = pendingData?.data?.filter((i) => i.status === 'pending').length ?? 0;
 
   const statusFilters: { value: StatusFilter; label: string }[] = [
-    { value: 'all', label: t('common.all') },
+    { value: 'in_progress', label: t('invoices.inProgress') },
     { value: 'pending', label: t('invoices.pending') },
     { value: 'sent_email', label: t('invoices.sentEmail') },
     { value: 'sent_post', label: t('invoices.sentPost') },
@@ -242,7 +306,7 @@ export default function InvoiceQueuePage() {
           <h1 className="text-2xl font-bold">{t('invoices.queue')}</h1>
           {!isLoading && (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {allInvoices.length} {t('common.total').toLowerCase()}
+              {(activeData?.data ?? []).length} {t('common.total').toLowerCase()}
               {pendingCount > 0 && (
                 <span className="ml-2 inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-950/50 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:text-yellow-400">
                   {pendingCount} {t('invoices.pending').toLowerCase()}
@@ -265,21 +329,26 @@ export default function InvoiceQueuePage() {
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
-          {statusFilters.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === f.value
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusFilter)}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statusFilters.map((f) => {
+              const count = statusCounts[f.value];
+              return (
+                <SelectItem key={f.value} value={f.value}>
+                  <span className="flex items-center justify-between gap-6 w-full">
+                    <span>{f.label}</span>
+                    {count !== null && count !== undefined && (
+                      <span className="ml-auto text-xs text-muted-foreground tabular-nums">{count}</span>
+                    )}
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
