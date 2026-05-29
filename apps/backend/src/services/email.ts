@@ -38,6 +38,7 @@ export async function sendMail(options: MailOptions): Promise<void> {
     attachments: options.attachments?.map((a) => ({
       filename: a.filename,
       content: a.content,
+      path: a.path,
       contentType: a.contentType,
     })),
   });
