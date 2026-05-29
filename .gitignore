@@ -15,3 +15,4 @@ apps/backend/dist/
 packages/shared/dist/
 uploads/
 backups/
+.claude/

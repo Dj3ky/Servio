@@ -11,7 +11,10 @@
       "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); Set-Location \"d:\\\\GitHub\\\\Servio\"; node --version; npm --version)",
       "Bash(npm install *)",
       "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\npm\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:ProgramFiles\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object -First 5)",
-      "Read(//c/Program Files/**)"
+      "Read(//c/Program Files/**)",
+      "Bash(dir \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\src\\\\pages\")",
+      "Bash(findstr -i invoice)",
+      "Bash(xargs grep -l \"invoiceStatus\\\\|invoice.*status\")"
     ]
   }
 }
