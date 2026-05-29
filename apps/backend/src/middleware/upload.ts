@@ -14,7 +14,7 @@ export const documentUpload = multer({
 export const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter(_req: Request, file, cb) {
+  fileFilter(_req, file, cb) {
     const allowed = ['image/png', 'image/jpeg', 'image/svg+xml'];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);

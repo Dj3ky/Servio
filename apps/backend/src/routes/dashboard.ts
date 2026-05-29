@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql, and, gte, lte } from 'drizzle-orm';
+import { eq, sql, and, gte, lte, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
 import { contracts, reviews, invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -41,8 +41,9 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     }),
   ]);
 
+  // 12-month review completion trend
   const trendMonths: Array<{ month: string; completed: number }> = [];
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 11; i >= 0; i--) {
     const d = subMonths(now, i);
     const start = format(startOfMonth(d), 'yyyy-MM-dd');
     const end = format(endOfMonth(d), 'yyyy-MM-dd');
@@ -50,7 +51,40 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       .select({ count: sql<number>`count(*)` })
       .from(reviews)
       .where(and(eq(reviews.status, 'completed'), gte(reviews.scheduledMonth, start), lte(reviews.scheduledMonth, end)));
-    trendMonths.push({ month: format(d, 'MMM'), completed: Number(count) });
+    trendMonths.push({ month: format(d, 'MMM yy'), completed: Number(count) });
+  }
+
+  // 12-month revenue trend — sum valueWithoutVat for completed invoices per month
+  const rawRevenue = await db
+    .select({
+      monthKey: sql<string>`to_char(date_trunc('month', ${invoices.completedAt}), 'YYYY-MM')`,
+      revenue: sql<string>`COALESCE(SUM(${contracts.valueWithoutVat}::numeric), 0)`,
+      invoiceCount: sql<number>`count(*)`,
+    })
+    .from(invoices)
+    .innerJoin(contracts, eq(invoices.contractId, contracts.id))
+    .where(and(
+      eq(invoices.status, 'completed'),
+      isNotNull(invoices.completedAt),
+      gte(invoices.completedAt, subMonths(now, 12)),
+    ))
+    .groupBy(sql`date_trunc('month', ${invoices.completedAt})`)
+    .orderBy(sql`date_trunc('month', ${invoices.completedAt})`);
+
+  const revenueMap: Record<string, { revenue: number; invoiceCount: number }> = {};
+  rawRevenue.forEach((r) => {
+    revenueMap[r.monthKey] = { revenue: parseFloat(r.revenue), invoiceCount: Number(r.invoiceCount) };
+  });
+
+  const revenueTrend: Array<{ month: string; revenue: number; invoiceCount: number }> = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = subMonths(now, i);
+    const key = format(d, 'yyyy-MM');
+    revenueTrend.push({
+      month: format(d, 'MMM yy'),
+      revenue: revenueMap[key]?.revenue ?? 0,
+      invoiceCount: revenueMap[key]?.invoiceCount ?? 0,
+    });
   }
 
   res.json({
@@ -59,6 +93,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     completedThisMonth: Number(completedThisMonth),
     pendingInvoices: Number(pendingInvoices),
     monthlyTrend: trendMonths,
+    revenueTrend,
     pendingReviewsList,
     pendingInvoicesList,
   });

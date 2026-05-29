@@ -1,7 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, ClipboardCheck, Receipt, Activity, ArrowRight } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { FileText, ClipboardCheck, Receipt, Activity, ArrowRight, TrendingUp } from 'lucide-react';
+import {
+  AreaChart, Area,
+  BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +20,7 @@ interface DashboardData {
   completedThisMonth: number;
   pendingInvoices: number;
   monthlyTrend: Array<{ month: string; completed: number }>;
+  revenueTrend: Array<{ month: string; revenue: number; invoiceCount: number }>;
   pendingReviewsList: Array<{
     id: string;
     scheduledMonth: string;
@@ -64,6 +69,21 @@ function StatCard({ title, value, icon: Icon, loading, color }: StatCardProps) {
   );
 }
 
+const chartStyle = {
+  contentStyle: {
+    borderRadius: '8px',
+    border: '1px solid hsl(var(--border))',
+    background: 'hsl(var(--popover))',
+    fontSize: 12,
+  },
+  labelStyle: { color: 'hsl(var(--popover-foreground))', fontWeight: 600 },
+};
+
+function formatRevenue(v: number) {
+  if (v === 0) return '—';
+  return `€ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -81,6 +101,8 @@ export default function DashboardPage() {
     { title: t('dashboard.pendingInvoices'), value: data?.pendingInvoices ?? 0, icon: Receipt, loading: isLoading, color: 'rose' },
   ];
 
+  const totalRevenue = (data?.revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -95,31 +117,109 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Chart */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base">{t('dashboard.monthlyTrend')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-52 w-full" />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data?.monthlyTrend ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))' }}
-                  labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-                  itemStyle={{ color: 'hsl(var(--primary))' }}
-                />
-                <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={48} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      {/* Charts row */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Review activity area chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t('dashboard.monthlyTrend')}</CardTitle>
+            <p className="text-xs text-muted-foreground">{t('dashboard.last12Months')}</p>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-52 w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <AreaChart data={data?.monthlyTrend ?? []} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="completedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={chartStyle.contentStyle}
+                    labelStyle={chartStyle.labelStyle}
+                    itemStyle={{ color: 'hsl(var(--primary))' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="completed"
+                    name={t('dashboard.completedReviews')}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="url(#completedGrad)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Revenue bar chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">{t('dashboard.monthlyRevenue')}</CardTitle>
+                <p className="text-xs text-muted-foreground">{t('dashboard.last12Months')}</p>
+              </div>
+              {!isLoading && totalRevenue > 0 && (
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    {formatRevenue(totalRevenue)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{t('dashboard.totalEarned')}</div>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-52 w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={data?.revenueTrend ?? []} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.7} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => v === 0 ? '0' : `€${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={chartStyle.contentStyle}
+                    labelStyle={chartStyle.labelStyle}
+                    formatter={(value: number, _name, props) => [
+                      formatRevenue(value),
+                      `${t('dashboard.revenueEarned')} (${props.payload?.invoiceCount ?? 0} inv.)`,
+                    ]}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="url(#revenueGrad)"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Recent lists */}
       <div className="grid gap-6 lg:grid-cols-2">

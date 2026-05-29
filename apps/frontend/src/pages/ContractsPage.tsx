@@ -40,11 +40,20 @@ interface ContractRow {
   contractNumber: string;
   reviewFrequency: string;
   isActive: boolean;
+  valueWithoutVat: string | null;
+  valueWithoutVatPerYear: string | null;
   customer: { name: string };
   facility: { name: string; id: string };
   assignedTechnician: { name: string } | null;
   currentReview?: { status: string } | null;
   currentInvoice?: { id: string; status: string; invoiceNumber: string | null } | null;
+}
+
+function fmtValue(v: string | null | undefined) {
+  if (!v) return null;
+  const n = parseFloat(v);
+  if (isNaN(n)) return null;
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const REVIEW_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'secondary'> = {
@@ -69,7 +78,10 @@ export default function ContractsPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
+    valueWithoutVat: false,
+    valueWithoutVatPerYear: false,
+  });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
@@ -187,6 +199,22 @@ export default function ContractsPage() {
         const status = info.getValue()?.status;
         if (!status) return <Badge variant="secondary">—</Badge>;
         return <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>;
+      },
+    }),
+    columnHelper.accessor('valueWithoutVat', {
+      id: 'valueWithoutVat',
+      header: t('contracts.valueExclVat'),
+      cell: (info) => {
+        const v = fmtValue(info.getValue());
+        return v ? <span className="font-mono text-xs">€ {v}</span> : <span className="text-muted-foreground">—</span>;
+      },
+    }),
+    columnHelper.accessor('valueWithoutVatPerYear', {
+      id: 'valueWithoutVatPerYear',
+      header: t('contracts.valueExclVatYear'),
+      cell: (info) => {
+        const v = fmtValue(info.getValue());
+        return v ? <span className="font-mono text-xs">€ {v}</span> : <span className="text-muted-foreground">—</span>;
       },
     }),
     columnHelper.display({
