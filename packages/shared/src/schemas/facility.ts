@@ -4,7 +4,7 @@ export const createFacilitySchema = z.object({
   customerId: z.string().uuid(),
   name: z.string().min(1).max(200),
   address: z.string().max(500).optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(2000).nullable().optional(),
 });
 
 export const updateFacilitySchema = createFacilitySchema.partial().extend({
