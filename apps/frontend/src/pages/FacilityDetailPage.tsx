@@ -401,18 +401,16 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('common.status')}</TableHead>
                       <TableHead>{t('reviews.emailSent')}</TableHead>
                       <TableHead>{t('reviews.smbSaved')}</TableHead>
-                      <TableHead>{t('reviews.createdAt')}</TableHead>
-                      <TableHead>{t('reviews.completedAt')}</TableHead>
+                      <TableHead>{t('reviews.reviewDone')}</TableHead>
                       <TableHead>{t('reviews.completedBy')}</TableHead>
                       <TableHead>{t('reviews.invoiceNo')}</TableHead>
-                      <TableHead>{t('reviews.invoiceCreated')}</TableHead>
                       <TableHead>{t('reviews.invoiceSent')}</TableHead>
                       {user?.role === 'admin' && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 11 : 10} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -423,18 +421,10 @@ export default function FacilityDetailPage() {
                         </TableCell>
                         <TableCell>{r.emailSent ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell>{r.smbSaved ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAt)}</TableCell>
-                        <TableCell>{r.completedAt ? formatDateTime(r.completedAt) : '-'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{r.completedAt ? formatDate(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
-                        <TableCell className="text-sm">
-                          {invoiceByReviewId[r.id]?.invoiceNumber
-                            ? <button className="hover:underline font-mono text-xs" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{invoiceByReviewId[r.id].invoiceNumber}</button>
-                            : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {invoiceByReviewId[r.id]
-                            ? <button className="hover:underline" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDate(invoiceByReviewId[r.id].createdAt)}</button>
-                            : '-'}
+                        <TableCell className="text-sm font-mono">
+                          {invoiceByReviewId[r.id]?.invoiceNumber ?? <span className="text-muted-foreground font-sans">-</span>}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {invoiceByReviewId[r.id]?.completedAt ? formatDate(invoiceByReviewId[r.id].completedAt!) : '-'}
@@ -493,7 +483,7 @@ export default function FacilityDetailPage() {
                         </TableCell>
                         <TableCell>{inv.invoiceNumber ?? '-'}</TableCell>
                         <TableCell>{formatDate(inv.createdAt)}</TableCell>
-                        <TableCell>{inv.completedAt ? formatDateTime(inv.completedAt) : '-'}</TableCell>
+                        <TableCell>{inv.completedAt ? formatDate(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             {activeContract?.invoiceDelivery === 'e_invoice' && (
