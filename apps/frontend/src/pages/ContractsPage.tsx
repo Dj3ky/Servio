@@ -20,7 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -333,16 +332,9 @@ export default function ContractsPage() {
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
           {!!row.original.notes && (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-blue-500 cursor-default" />
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs whitespace-pre-wrap">
-                  {row.original.notes}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <span title={row.original.notes} className="cursor-default">
+              <Info className="h-4 w-4 text-blue-500" />
+            </span>
           )}
           {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
             <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
