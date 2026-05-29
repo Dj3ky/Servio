@@ -6,7 +6,7 @@ interface MailOptions {
   to: string;
   subject: string;
   html: string;
-  attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
+  attachments?: Array<{ filename: string; content?: Buffer; path?: string; contentType?: string }>;
 }
 
 async function getTransporter() {

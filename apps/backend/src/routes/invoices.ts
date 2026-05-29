@@ -7,6 +7,9 @@ import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
 import { broadcast } from '../ws';
+import path from 'path';
+import os from 'os';
+import fs from 'fs/promises';
 import { readFromSmb } from '../services/smb';
 import { sendMail, renderTemplate } from '../services/email';
 import { documentUpload } from '../middleware/upload';
@@ -96,13 +99,22 @@ router.post('/:id/send-email', documentUpload.single('file'), async (req: Reques
     vars,
   ).replace(/\n/g, '<br>');
 
-  const filename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_') || 'invoice.pdf';
+  const tmpFile = path.join(os.tmpdir(), `servio-inv-${Date.now()}-${filename}`);
 
   try {
-    await sendMail({ to: recipientEmail, subject, html, attachments: [{ filename, content: req.file.buffer, contentType: 'application/pdf' }] });
+    await fs.writeFile(tmpFile, req.file.buffer);
+    await sendMail({
+      to: recipientEmail,
+      subject,
+      html,
+      attachments: [{ filename, path: tmpFile, contentType: req.file.mimetype || 'application/pdf' }],
+    });
   } catch (err) {
     res.status(500).json({ error: 'errors.email_failed', details: String(err) });
     return;
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {});
   }
 
   const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'sent_email' };
