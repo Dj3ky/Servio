@@ -25,6 +25,21 @@ else
   ok ".env created with generated secrets"
 fi
 
+# ── Chromium (Puppeteer PDF generation) ──────────────────────────────────────
+if ! command -v chromium-browser &>/dev/null && ! command -v chromium &>/dev/null; then
+  info "Installing Chromium for PDF generation..."
+  sudo apt-get install -y chromium-browser 2>/dev/null || sudo apt-get install -y chromium
+  ok "Chromium installed"
+else
+  ok "Chromium already installed"
+fi
+
+CHROMIUM_PATH=$(command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || true)
+if [ -n "$CHROMIUM_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
+  echo "PUPPETEER_EXECUTABLE_PATH=$CHROMIUM_PATH" >> .env
+  ok "PUPPETEER_EXECUTABLE_PATH set to $CHROMIUM_PATH"
+fi
+
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 info "Setting up PostgreSQL database..."
 sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='servio'" | grep -q 1 \
