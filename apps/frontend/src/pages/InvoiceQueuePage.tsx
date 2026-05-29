@@ -30,6 +30,7 @@ interface InvoiceQueueItem {
   status: string;
   invoiceNumber: string | null;
   createdAt: string;
+  completedAt: string | null;
   review: {
     scheduledMonth: string;
     contract: {
@@ -155,6 +156,11 @@ export default function InvoiceQueuePage() {
       id: 'createdAt',
       header: t('invoices.createdAt'),
       cell: (info) => <span className="text-sm text-muted-foreground">{formatDate(info.getValue())}</span>,
+    }),
+    columnHelper.accessor('completedAt', {
+      id: 'completedAt',
+      header: t('reviews.invoiceSent'),
+      cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue() ? formatDate(info.getValue()!) : '-'}</span>,
     }),
     columnHelper.accessor('status', {
       id: 'status',

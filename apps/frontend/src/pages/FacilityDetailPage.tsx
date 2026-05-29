@@ -404,13 +404,15 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('reviews.createdAt')}</TableHead>
                       <TableHead>{t('reviews.completedAt')}</TableHead>
                       <TableHead>{t('reviews.completedBy')}</TableHead>
+                      <TableHead>{t('reviews.invoiceNo')}</TableHead>
                       <TableHead>{t('reviews.invoiceCreated')}</TableHead>
+                      <TableHead>{t('reviews.invoiceSent')}</TableHead>
                       {user?.role === 'admin' && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 11 : 10} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -424,10 +426,18 @@ export default function FacilityDetailPage() {
                         <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAt)}</TableCell>
                         <TableCell>{r.completedAt ? formatDateTime(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-sm">
+                          {invoiceByReviewId[r.id]?.invoiceNumber
+                            ? <button className="hover:underline font-mono text-xs" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{invoiceByReviewId[r.id].invoiceNumber}</button>
+                            : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
                           {invoiceByReviewId[r.id]
-                            ? <button className="text-left hover:underline text-sm" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDate(invoiceByReviewId[r.id].createdAt)}</button>
-                            : <span className="text-muted-foreground text-sm">-</span>}
+                            ? <button className="hover:underline" onClick={() => openInvoiceDialog(invoiceByReviewId[r.id])}>{formatDate(invoiceByReviewId[r.id].createdAt)}</button>
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {invoiceByReviewId[r.id]?.completedAt ? formatDate(invoiceByReviewId[r.id].completedAt!) : '-'}
                         </TableCell>
                         {user?.role === 'admin' && (
                           <TableCell className="text-right">

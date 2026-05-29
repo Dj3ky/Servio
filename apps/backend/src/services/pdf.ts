@@ -8,7 +8,7 @@ const i18n: Record<string, Record<string, string>> = {
     customer: 'Customer',
     facility: 'Facility',
     contractNo: 'Contract No.',
-    completedAt: 'Completed At',
+    completedAt: 'Review Completed',
     scheduledMonth: 'Scheduled Month',
     emailSent: 'Email Sent',
     smbSaved: 'SMB Saved',
@@ -20,12 +20,15 @@ const i18n: Record<string, Record<string, string>> = {
     generated: 'Generated',
     total: 'Total',
     reviews: 'reviews',
+    invoiceNo: 'Invoice No.',
+    invoiceCreated: 'Invoice Created',
+    invoiceCompleted: 'Invoice Sent',
   },
   sl: {
     customer: 'Naročnik',
     facility: 'Objekt',
     contractNo: 'Številka pogodbe',
-    completedAt: 'Dokončano',
+    completedAt: 'Pregled dokončan',
     scheduledMonth: 'Planirani mesec',
     emailSent: 'E-pošta poslana',
     smbSaved: 'SMB shranjeno',
@@ -37,6 +40,9 @@ const i18n: Record<string, Record<string, string>> = {
     generated: 'Generirano',
     total: 'Skupaj',
     reviews: 'pregledov',
+    invoiceNo: 'Št. fakture',
+    invoiceCreated: 'Faktura ustvarjena',
+    invoiceCompleted: 'Faktura poslana',
   },
 };
 
@@ -50,6 +56,7 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
       and(eq(r.status, 'completed'), gte(r.scheduledMonth, monthStart), lte(r.scheduledMonth, monthEnd)),
     with: {
       contract: { with: { customer: true, facility: true } },
+      invoice: true,
     },
   });
 
@@ -65,9 +72,9 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
     body { font-family: Arial, sans-serif; margin: 40px; color: #111; }
     h1 { font-size: 24px; margin-bottom: 4px; }
     h2 { font-size: 16px; color: #555; margin-top: 0; margin-bottom: 32px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #1e293b; color: white; padding: 8px 12px; text-align: left; }
-    td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { background: #1e293b; color: white; padding: 6px 10px; text-align: left; }
+    td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
     tr:nth-child(even) td { background: #f8fafc; }
     .footer { margin-top: 40px; font-size: 11px; color: #999; }
   </style>
@@ -83,6 +90,9 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
         <th>${t.facility}</th>
         <th>${t.contractNo}</th>
         <th>${t.completedAt}</th>
+        <th>${t.invoiceNo}</th>
+        <th>${t.invoiceCreated}</th>
+        <th>${t.invoiceCompleted}</th>
       </tr>
     </thead>
     <tbody>
@@ -94,7 +104,10 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
           <td>${(r as any).contract?.customer?.name ?? '-'}</td>
           <td>${(r as any).contract?.facility?.name ?? '-'}</td>
           <td>${(r as any).contract?.contractNumber ?? '-'}</td>
-          <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy HH:mm') : '-'}</td>
+          <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
+          <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
+          <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
+          <td>${(r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-'}</td>
         </tr>`,
         )
         .join('')}
@@ -135,6 +148,7 @@ export async function generateMonthlyReportXlsx(year: number, month: number, lan
       and(eq(r.status, 'completed'), gte(r.scheduledMonth, monthStart), lte(r.scheduledMonth, monthEnd)),
     with: {
       contract: { with: { customer: true, facility: true } },
+      invoice: true,
     },
   });
 
@@ -147,9 +161,12 @@ export async function generateMonthlyReportXlsx(year: number, month: number, lan
     { header: t.facility, key: 'facility', width: 30 },
     { header: t.contractNo, key: 'contract', width: 20 },
     { header: t.scheduledMonth, key: 'month', width: 18 },
-    { header: t.completedAt, key: 'completedAt', width: 20 },
+    { header: t.completedAt, key: 'completedAt', width: 18 },
     { header: t.emailSent, key: 'emailSent', width: 12 },
     { header: t.smbSaved, key: 'smbSaved', width: 12 },
+    { header: t.invoiceNo, key: 'invoiceNo', width: 18 },
+    { header: t.invoiceCreated, key: 'invoiceCreated', width: 18 },
+    { header: t.invoiceCompleted, key: 'invoiceCompleted', width: 18 },
   ];
 
   sheet.getRow(1).font = { bold: true };
@@ -161,9 +178,12 @@ export async function generateMonthlyReportXlsx(year: number, month: number, lan
       facility: (r as any).contract?.facility?.name ?? '-',
       contract: (r as any).contract?.contractNumber ?? '-',
       month: r.scheduledMonth,
-      completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy HH:mm') : '-',
+      completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-',
       emailSent: r.emailSent ? t.yes : t.no,
       smbSaved: r.smbSaved ? t.yes : t.no,
+      invoiceNo: (r as any).invoice?.invoiceNumber ?? '-',
+      invoiceCreated: (r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-',
+      invoiceCompleted: (r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-',
     });
   });
 
@@ -179,7 +199,7 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
   const completedReviews = await db.query.reviews.findMany({
     where: (r, { eq, and, gte, lte }) =>
       and(eq(r.status, 'completed'), gte(r.scheduledMonth, yearStart), lte(r.scheduledMonth, yearEnd)),
-    with: { contract: { with: { customer: true, facility: true } } },
+    with: { contract: { with: { customer: true, facility: true } }, invoice: true },
     orderBy: (r, { asc }) => [asc(r.scheduledMonth)],
   });
 
@@ -195,8 +215,17 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
 
   const monthRows = Object.entries(byMonth)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([m, rows]) => `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="5">${m} (${rows.length} ${t.reviews})</td></tr>` +
-      rows.map((r, i) => `<tr><td>${i + 1}</td><td>${(r as any).contract?.customer?.name ?? '-'}</td><td>${(r as any).contract?.facility?.name ?? '-'}</td><td>${(r as any).contract?.contractNumber ?? '-'}</td><td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td></tr>`).join(''))
+    .map(([m, rows]) => `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="7">${m} (${rows.length} ${t.reviews})</td></tr>` +
+      rows.map((r, i) => `<tr>
+        <td>${i + 1}</td>
+        <td>${(r as any).contract?.customer?.name ?? '-'}</td>
+        <td>${(r as any).contract?.facility?.name ?? '-'}</td>
+        <td>${(r as any).contract?.contractNumber ?? '-'}</td>
+        <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
+        <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
+        <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
+        <td>${(r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-'}</td>
+      </tr>`).join(''))
     .join('');
 
   const html = `<!DOCTYPE html>
@@ -207,9 +236,9 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
     body { font-family: Arial, sans-serif; margin: 40px; color: #111; }
     h1 { font-size: 24px; margin-bottom: 4px; }
     h2 { font-size: 16px; color: #555; margin-top: 0; margin-bottom: 32px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #1e293b; color: white; padding: 8px 12px; text-align: left; }
-    td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { background: #1e293b; color: white; padding: 6px 10px; text-align: left; }
+    td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
     .footer { margin-top: 40px; font-size: 11px; color: #999; }
   </style>
 </head>
@@ -217,7 +246,7 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
   <h1>${appName}</h1>
   <h2>${t.yearlyReport} – ${year}</h2>
   <table>
-    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th></tr></thead>
+    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th><th>${t.invoiceNo}</th><th>${t.invoiceCreated}</th><th>${t.invoiceCompleted}</th></tr></thead>
     <tbody>${monthRows}</tbody>
   </table>
   <div class="footer"><p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p></div>
@@ -251,7 +280,7 @@ export async function generateYearlyReportXlsx(year: number, lang = 'sl'): Promi
   const completedReviews = await db.query.reviews.findMany({
     where: (r, { eq, and, gte, lte }) =>
       and(eq(r.status, 'completed'), gte(r.scheduledMonth, yearStart), lte(r.scheduledMonth, yearEnd)),
-    with: { contract: { with: { customer: true, facility: true } } },
+    with: { contract: { with: { customer: true, facility: true } }, invoice: true },
     orderBy: (r, { asc }) => [asc(r.scheduledMonth)],
   });
 
@@ -264,9 +293,12 @@ export async function generateYearlyReportXlsx(year: number, lang = 'sl'): Promi
     { header: t.customer, key: 'customer', width: 30 },
     { header: t.facility, key: 'facility', width: 30 },
     { header: t.contractNo, key: 'contract', width: 20 },
-    { header: t.completedAt, key: 'completedAt', width: 20 },
+    { header: t.completedAt, key: 'completedAt', width: 18 },
     { header: t.emailSent, key: 'emailSent', width: 12 },
     { header: t.smbSaved, key: 'smbSaved', width: 12 },
+    { header: t.invoiceNo, key: 'invoiceNo', width: 18 },
+    { header: t.invoiceCreated, key: 'invoiceCreated', width: 18 },
+    { header: t.invoiceCompleted, key: 'invoiceCompleted', width: 18 },
   ];
 
   sheet.getRow(1).font = { bold: true };
@@ -278,9 +310,12 @@ export async function generateYearlyReportXlsx(year: number, lang = 'sl'): Promi
       customer: (r as any).contract?.customer?.name ?? '-',
       facility: (r as any).contract?.facility?.name ?? '-',
       contract: (r as any).contract?.contractNumber ?? '-',
-      completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy HH:mm') : '-',
+      completedAt: r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-',
       emailSent: r.emailSent ? t.yes : t.no,
       smbSaved: r.smbSaved ? t.yes : t.no,
+      invoiceNo: (r as any).invoice?.invoiceNumber ?? '-',
+      invoiceCreated: (r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-',
+      invoiceCompleted: (r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-',
     });
   });
 
