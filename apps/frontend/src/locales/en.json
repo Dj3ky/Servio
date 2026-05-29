@@ -82,6 +82,7 @@
     "invoiceStatus": "Invoice Status",
     "addContract": "Add Contract",
     "editContract": "Edit Contract",
+    "exportCsv": "Export CSV",
     "importCsv": "Import CSV",
     "importResult": "Import Result",
     "importCreated": "Created",

@@ -51,11 +51,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         open ? 'translate-x-0' : '-translate-x-full',
       )}>
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            {settings.logoUrl && (
-              <img src={settings.logoUrl} alt="logo" className="h-8 w-8 object-contain" />
+          <div className="flex items-center">
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} alt={settings.appName} className="max-h-9 max-w-[160px] object-contain" />
+            ) : (
+              <span className="text-lg font-semibold text-sidebar-foreground">{settings.appName}</span>
             )}
-            <span className="text-lg font-semibold text-sidebar-foreground">{settings.appName}</span>
           </div>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onClose}>
             <X className="h-4 w-4" />

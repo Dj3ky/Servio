@@ -82,6 +82,7 @@
     "invoiceStatus": "Status fakture",
     "addContract": "Dodaj pogodbo",
     "editContract": "Uredi pogodbo",
+    "exportCsv": "Izvozi CSV",
     "importCsv": "Uvozi CSV",
     "importResult": "Rezultat uvoza",
     "importCreated": "Ustvarjeno",

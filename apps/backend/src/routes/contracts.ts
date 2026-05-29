@@ -59,6 +59,41 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   res.json({ data: enriched, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
 });
 
+router.get('/export', async (req: Request, res: Response): Promise<void> => {
+  const data = await db.query.contracts.findMany({
+    with: {
+      customer: true,
+      facility: true,
+      assignedTechnician: { columns: { id: true, name: true, email: true } },
+    },
+    orderBy: (c, { asc }) => [asc(c.contractNumber)],
+  });
+
+  const escape = (v: string | null | undefined) => {
+    const s = String(v ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = 'contract_number,customer_name,facility_name,review_frequency,status,technician,start_date,end_date,value_without_vat,value_without_vat_per_year';
+  const rows = data.map((c) => [
+    escape(c.contractNumber),
+    escape(c.customer.name),
+    escape(c.facility.name),
+    escape(c.reviewFrequency),
+    c.isActive ? 'active' : 'inactive',
+    escape(c.assignedTechnician?.name),
+    escape(c.startDate),
+    escape(c.endDate),
+    escape(c.valueWithoutVat),
+    escape(c.valueWithoutVatPerYear),
+  ].join(','));
+
+  const csv = [header, ...rows].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="contracts-${format(new Date(), 'yyyy-MM-dd')}.csv"`);
+  res.send(csv);
+});
+
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const contract = await db.query.contracts.findFirst({
     where: (c, { eq }) => eq(c.id, req.params.id),

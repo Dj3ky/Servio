@@ -11,7 +11,7 @@ import {
   type SortingState,
   type ColumnVisibilityState,
 } from '@tanstack/react-table';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, SlidersHorizontal, CircleDot } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +77,29 @@ export default function ContractsPage() {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/contracts/export?search=${encodeURIComponent(debouncedSearch)}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { toast.error(t('errors.internal')); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contracts-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleCsvImport(file: File) {
     setImporting(true);
@@ -224,6 +247,10 @@ export default function ContractsPage() {
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvImport(f); e.target.value = ''; }}
             />
+            <Button variant="outline" disabled={exporting} onClick={handleExportCsv}>
+              <FileDown className="mr-2 h-4 w-4" />
+              {exporting ? t('common.loading') : t('contracts.exportCsv')}
+            </Button>
             <Button variant="outline" disabled={importing} onClick={() => csvInputRef.current?.click()}>
               <FileUp className="mr-2 h-4 w-4" />
               {importing ? t('common.loading') : t('contracts.importCsv')}
