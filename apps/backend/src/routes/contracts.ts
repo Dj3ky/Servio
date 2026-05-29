@@ -177,6 +177,31 @@ router.patch('/:id', requireRole('admin', 'manager'), async (req: Request, res: 
   const [updated] = await db.update(contracts).set(updates as any).where(eq(contracts.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
+  // Reconcile pending review for current month when frequency/customMonths changed
+  if (parsed.data.reviewFrequency !== undefined || parsed.data.customMonths !== undefined) {
+    const nowPatch = new Date();
+    const scheduledMonth = format(startOfMonth(nowPatch), 'yyyy-MM-dd');
+    const needed = shouldCreateReview(updated.reviewFrequency, updated.customMonths, nowPatch.getMonth() + 1);
+
+    const existingReview = await db.query.reviews.findFirst({
+      where: (r, { eq, and }) => and(eq(r.contractId, req.params.id), eq(r.scheduledMonth, scheduledMonth)),
+      columns: { id: true, status: true },
+    });
+
+    if (!needed && existingReview?.status === 'pending') {
+      await db.delete(reviews).where(eq(reviews.id, existingReview.id));
+    } else if (needed && !existingReview) {
+      await db.insert(reviews).values({
+        contractId: updated.id,
+        facilityId: updated.facilityId,
+        scheduledMonth,
+        status: 'pending',
+        emailSent: false,
+        smbSaved: false,
+      });
+    }
+  }
+
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'contract', entityId: req.params.id, payload: parsed.data as Record<string, unknown>, req });
   res.json(updated);
 });
