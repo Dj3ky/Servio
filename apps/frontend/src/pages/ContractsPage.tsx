@@ -332,11 +332,11 @@ export default function ContractsPage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
-          {row.original.notes && (
-            <TooltipProvider delayDuration={100}>
+          {!!row.original.notes && (
+            <TooltipProvider delayDuration={150}>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors cursor-default" />
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-blue-500 cursor-default" />
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs whitespace-pre-wrap">
                   {row.original.notes}
