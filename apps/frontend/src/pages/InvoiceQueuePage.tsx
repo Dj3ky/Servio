@@ -350,7 +350,7 @@ export default function InvoiceQueuePage() {
             </DialogTitle>
             {selectedInvoice && (
               <p className="text-sm text-muted-foreground">
-                {selectedInvoice.review.contract.customer.name} · #{selectedInvoice.review.contract.contractNumber}
+                {selectedInvoice.review.contract.customer.name} · {selectedInvoice.review.contract.contractNumber}
               </p>
             )}
           </DialogHeader>

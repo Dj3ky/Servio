@@ -99,7 +99,7 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
           <DialogTitle>{t('invoices.sendToAccounting')}</DialogTitle>
           {invoice && (
             <p className="text-sm text-muted-foreground">
-              {invoice.customerName} · {invoice.facilityName} · #{invoice.contractNumber}
+              {invoice.customerName} · {invoice.facilityName} · {invoice.contractNumber}
             </p>
           )}
         </DialogHeader>

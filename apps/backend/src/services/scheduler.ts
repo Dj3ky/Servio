@@ -7,7 +7,7 @@ import { createAuditLog } from '../utils/audit';
 const BIANNUAL_MONTHS = [1, 7];
 const QUADANNUAL_MONTHS = [1, 4, 7, 10];
 
-function shouldCreateReview(frequency: string, customMonths: number[] | null, month: number): boolean {
+export function shouldCreateReview(frequency: string, customMonths: number[] | null, month: number): boolean {
   switch (frequency) {
     case 'monthly':
       return true;

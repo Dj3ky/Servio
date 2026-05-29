@@ -247,7 +247,7 @@ export default function DashboardPage() {
                 >
                   <div>
                     <div className="font-medium leading-none">{r.contract.facility.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{r.contract.customer.name} · #{r.contract.contractNumber}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{r.contract.customer.name} · {r.contract.contractNumber}</div>
                   </div>
                   <Badge variant="warning" className="shrink-0">{r.scheduledMonth.slice(0, 7)}</Badge>
                 </div>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                 >
                   <div>
                     <div className="font-medium leading-none">{inv.review.contract.facility.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{inv.review.contract.customer.name} · #{inv.review.contract.contractNumber}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{inv.review.contract.customer.name} · {inv.review.contract.contractNumber}</div>
                   </div>
                   <Badge variant="info" className="shrink-0">{formatDate(inv.createdAt)}</Badge>
                 </div>

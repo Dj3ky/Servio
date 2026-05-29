@@ -697,7 +697,7 @@ export default function FacilityDetailPage() {
               <CardContent className="pt-6 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium">#{c.contractNumber}</div>
+                    <div className="font-medium">{c.contractNumber}</div>
                     <div className="text-sm text-muted-foreground">{t(`frequency.${c.reviewFrequency}` as any)}</div>
                   </div>
                   <Badge variant={c.isActive ? 'success' : 'secondary'}>

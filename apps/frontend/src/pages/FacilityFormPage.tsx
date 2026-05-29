@@ -373,6 +373,16 @@ export default function FacilityFormPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {reviewFrequency === 'biannual' && (
+                      <FormDescription>
+                        {[1, 7].map((m) => new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2024, m - 1, 1))).join(', ')}
+                      </FormDescription>
+                    )}
+                    {reviewFrequency === 'quadannual' && (
+                      <FormDescription>
+                        {[1, 4, 7, 10].map((m) => new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2024, m - 1, 1))).join(', ')}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )} />

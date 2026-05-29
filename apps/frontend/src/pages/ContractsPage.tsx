@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   createColumnHelper,
   flexRender,
@@ -11,7 +11,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,10 +35,25 @@ function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
 }
 
+const BIANNUAL_MONTHS = [1, 7];
+const QUADANNUAL_MONTHS = [1, 4, 7, 10];
+
+function reviewMonths(frequency: string, customMonths: number[] | null | undefined): number[] | null {
+  if (frequency === 'biannual') return BIANNUAL_MONTHS;
+  if (frequency === 'quadannual') return QUADANNUAL_MONTHS;
+  if (frequency === 'custom') return customMonths ?? [];
+  return null;
+}
+
+function monthsLabel(months: number[], lang: string) {
+  return months.map((m) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(2024, m - 1, 1))).join(', ');
+}
+
 interface ContractRow {
   id: string;
   contractNumber: string;
   reviewFrequency: string;
+  customMonths?: number[] | null;
   isActive: boolean;
   valueWithoutVat: string | null;
   valueWithoutVatPerYear: string | null;
@@ -47,6 +62,7 @@ interface ContractRow {
   assignedTechnician: { name: string } | null;
   currentReview?: { status: string } | null;
   currentInvoice?: { id: string; status: string; invoiceNumber: string | null } | null;
+  reviewNeededThisMonth?: boolean;
 }
 
 function fmtValue(v: string | null | undefined) {
@@ -73,7 +89,7 @@ const INVOICE_STATUS_VARIANT: Record<string, 'success' | 'info' | 'secondary' | 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function ContractsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
@@ -91,6 +107,17 @@ export default function ContractsPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const [exporting, setExporting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; contractNumber: string } | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/contracts/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      toast.success(t('common.delete') + ' OK');
+      setDeleteTarget(null);
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
 
   async function handleExportCsv() {
     setExporting(true);
@@ -164,10 +191,21 @@ export default function ContractsPage() {
       header: t('contracts.contractNumber'),
       cell: (info) => <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{info.getValue()}</span>,
     }),
-    columnHelper.accessor('reviewFrequency', {
+    columnHelper.display({
       id: 'frequency',
       header: t('contracts.frequency'),
-      cell: (info) => t(`frequency.${info.getValue()}` as any),
+      cell: ({ row }) => {
+        const freq = row.original.reviewFrequency;
+        const months = reviewMonths(freq, row.original.customMonths);
+        return (
+          <div>
+            <span>{t(`frequency.${freq}` as any)}</span>
+            {months && months.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-0.5">{monthsLabel(months, i18n.language)}</div>
+            )}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor('isActive', {
       id: 'status',
@@ -183,13 +221,14 @@ export default function ContractsPage() {
       header: t('contracts.technician'),
       cell: (info) => info.getValue()?.name ?? <span className="text-muted-foreground">—</span>,
     }),
-    columnHelper.accessor('currentReview', {
+    columnHelper.display({
       id: 'reviewStatus',
       header: t('contracts.reviewStatus'),
-      cell: (info) => {
-        const status = info.getValue()?.status;
-        if (!status) return <Badge variant="secondary">—</Badge>;
-        return <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>;
+      cell: ({ row }) => {
+        const status = row.original.currentReview?.status;
+        if (status) return <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>;
+        if (!row.original.reviewNeededThisMonth) return <Badge variant="outline">{t('reviews.notNeeded')}</Badge>;
+        return <Badge variant="secondary">—</Badge>;
       },
     }),
     columnHelper.accessor('currentInvoice', {
@@ -227,6 +266,16 @@ export default function ContractsPage() {
             <Button size="sm" variant="outline" onClick={() => navigate(`/facilities/${row.original.facility.id}`)}>
               <Upload className="h-3 w-3 mr-1" />
               {t('reviews.uploadPdf')}
+            </Button>
+          )}
+          {user?.role === 'admin' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteTarget({ id: row.original.id, contractNumber: row.original.contractNumber })}
+            >
+              <Trash2 className="h-3 w-3" />
             </Button>
           )}
         </div>
@@ -418,6 +467,26 @@ export default function ContractsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.delete')} {deleteTarget?.contractNumber}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('contracts.deleteConfirm')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? t('common.loading') : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* CSV import result dialog */}
       <Dialog open={!!importResult} onOpenChange={(open) => { if (!open) setImportResult(null); }}>

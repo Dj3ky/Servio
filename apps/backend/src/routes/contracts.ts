@@ -10,6 +10,7 @@ import { requireRole } from '../middleware/role';
 import { documentUpload } from '../middleware/upload';
 import { createAuditLog } from '../utils/audit';
 import { format, startOfMonth } from 'date-fns';
+import { shouldCreateReview } from '../services/scheduler';
 
 const router = Router();
 router.use(requireAuth);
@@ -20,7 +21,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const offset = (page - 1) * limit;
   const activeOnly = req.query.activeOnly !== 'false';
 
-  const currentMonth = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const now = new Date();
+  const currentMonth = format(startOfMonth(now), 'yyyy-MM-dd');
+  const currentMonthNumber = now.getMonth() + 1;
 
   const data = await db.query.contracts.findMany({
     where: activeOnly ? (c, { eq }) => eq(c.isActive, true) : undefined,
@@ -47,7 +50,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
           columns: { id: true, status: true },
         }),
       ]);
-      return { ...contract, currentReview: currentReview ?? null, currentInvoice: currentInvoice ?? null };
+      const reviewNeededThisMonth = shouldCreateReview(contract.reviewFrequency, contract.customMonths, currentMonthNumber);
+      return { ...contract, currentReview: currentReview ?? null, currentInvoice: currentInvoice ?? null, reviewNeededThisMonth };
     }),
   );
 
@@ -133,8 +137,33 @@ router.post('/', requireRole('admin', 'manager'), async (req: Request, res: Resp
     customerEmail: parsed.data.customerEmail ?? null,
   }).returning();
 
+  const nowPost = new Date();
+  const scheduledMonth = format(startOfMonth(nowPost), 'yyyy-MM-dd');
+  if (shouldCreateReview(contract.reviewFrequency, contract.customMonths, nowPost.getMonth() + 1)) {
+    await db.insert(reviews).values({
+      contractId: contract.id,
+      facilityId: contract.facilityId,
+      scheduledMonth,
+      status: 'pending',
+      emailSent: false,
+      smbSaved: false,
+    });
+  }
+
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'contract', entityId: contract.id, payload: { contractNumber: contract.contractNumber }, req });
   res.status(201).json(contract);
+});
+
+router.delete('/:id', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  const contract = await db.query.contracts.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
+  if (!contract) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  await db.delete(invoices).where(eq(invoices.contractId, req.params.id));
+  await db.delete(reviews).where(eq(reviews.contractId, req.params.id));
+  await db.delete(contracts).where(eq(contracts.id, req.params.id));
+
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'delete', entityType: 'contract', entityId: req.params.id, payload: { contractNumber: contract.contractNumber }, req });
+  res.json({ success: true });
 });
 
 router.patch('/:id', requireRole('admin', 'manager'), async (req: Request, res: Response): Promise<void> => {
