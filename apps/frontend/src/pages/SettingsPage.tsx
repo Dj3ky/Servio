@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
-  MailOpen, Archive, Lock, Globe, CheckCircle2, XCircle, FileDown,
+  MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,7 +94,6 @@ function SectionHeader({ icon: Icon, title, description }: { icon: React.Compone
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],

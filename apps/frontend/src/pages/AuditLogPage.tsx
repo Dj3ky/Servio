@@ -9,10 +9,9 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   type SortingState,
-  type ColumnVisibilityState,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { Search, SlidersHorizontal, ShieldCheck, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -50,7 +49,7 @@ export default function AuditLogPage() {
   const { t } = useTranslation();
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [globalFilter, setGlobalFilter] = useState('');
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({

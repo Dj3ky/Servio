@@ -126,7 +126,7 @@ function ReviewUpload({
   onSuccess: () => void;
 }) {
   const sendEmail = invoiceDelivery === 'email';
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [emailSubject, setEmailSubject] = useState('');
@@ -844,7 +844,7 @@ export default function FacilityDetailPage() {
           scheduledMonth: accountingInvoice.createdAt.slice(0, 7),
         } : null}
         onClose={() => setAccountingInvoice(null)}
-        invalidateKeys={[['invoices-facility', activeContract?.id]]}
+        invalidateKeys={activeContract ? [['invoices-facility', activeContract.id]] : []}
       />
     </div>
   );

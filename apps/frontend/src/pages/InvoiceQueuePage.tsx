@@ -9,7 +9,7 @@ import {
   useReactTable,
   getSortedRowModel,
   type SortingState,
-  type ColumnVisibilityState,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,7 @@ export default function InvoiceQueuePage() {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [targetStatus, setTargetStatus] = useState<string>('');
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);

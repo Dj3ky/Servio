@@ -14,7 +14,7 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   type SortingState,
-  type ColumnVisibilityState,
+  type VisibilityState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState<UserRow | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 

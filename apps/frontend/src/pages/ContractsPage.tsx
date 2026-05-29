@@ -9,7 +9,7 @@ import {
   useReactTable,
   getSortedRowModel,
   type SortingState,
-  type ColumnVisibilityState,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -78,7 +78,7 @@ export default function ContractsPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     valueWithoutVat: false,
     valueWithoutVatPerYear: false,
   });

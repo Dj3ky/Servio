@@ -16,6 +16,8 @@ interface NotificationItem {
   title: string;
   message: string;
   isRead: boolean;
+  entityType: string | null;
+  entityId: string | null;
   createdAt: string;
 }
 
