@@ -69,13 +69,13 @@ export async function generateMonthlyReportPdf(year: number, month: number): Pro
 </html>`;
 
   const browser = await puppeteer.launch({
+    headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--headless',
     ],
   });
   const page = await browser.newPage();
@@ -184,13 +184,13 @@ export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
 </html>`;
 
   const browser = await puppeteer.launch({
+    headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--headless',
     ],
   });
   const page = await browser.newPage();
