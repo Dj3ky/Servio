@@ -70,6 +70,7 @@ export async function generateMonthlyReportPdf(year: number, month: number): Pro
 
   const browser = await puppeteer.launch({
     headless: true,
+    pipe: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: [
       '--no-sandbox',
@@ -185,6 +186,7 @@ export async function generateYearlyReportPdf(year: number): Promise<Buffer> {
 
   const browser = await puppeteer.launch({
     headless: true,
+    pipe: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: [
       '--no-sandbox',
