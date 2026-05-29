@@ -155,7 +155,7 @@ export default function InvoiceQueuePage() {
     }),
     columnHelper.accessor('createdAt', {
       id: 'createdAt',
-      header: t('invoices.createdAt'),
+      header: t('reviews.reviewDone'),
       cell: (info) => <span className="text-sm text-muted-foreground">{formatDate(info.getValue())}</span>,
     }),
     columnHelper.accessor('completedAt', {
