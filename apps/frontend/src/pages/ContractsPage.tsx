@@ -11,7 +11,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot, Trash2 } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot, Trash2, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -62,6 +63,7 @@ interface ContractRow {
   valueWithoutVat: string | null;
   valueWithoutVatPerYear: string | null;
   smbPath?: string | null;
+  notes?: string | null;
   customer: { name: string; email?: string | null; contactName?: string | null; phone?: string | null };
   facility: { name: string; id: string; address?: string | null; notes?: string | null };
   currentReview?: { id: string; status: string } | null;
@@ -329,7 +331,19 @@ export default function ContractsPage() {
       header: '',
       enableHiding: false,
       cell: ({ row }) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
+          {row.original.notes && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors cursor-default" />
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs whitespace-pre-wrap">
+                  {row.original.notes}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
             <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
               <Upload className="h-3 w-3 mr-1" />

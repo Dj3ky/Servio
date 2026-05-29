@@ -99,6 +99,7 @@
     "valueExclVat": "Value excl. VAT",
     "valueExclVatYear": "Value excl. VAT/year",
     "workOrderNumber": "Work Order (DN)",
+    "notesPlaceholder": "Internal notes about this contract…",
     "contactName": "Contact Name",
     "facilityAddress": "Facility Address"
   },

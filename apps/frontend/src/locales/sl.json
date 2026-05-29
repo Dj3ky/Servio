@@ -99,6 +99,7 @@
     "valueExclVat": "Vrednost brez DDV",
     "valueExclVatYear": "Vrednost brez DDV/leto",
     "workOrderNumber": "Delovni nalog (DN)",
+    "notesPlaceholder": "Interne opombe za to pogodbo…",
     "contactName": "Kontaktna oseba",
     "facilityAddress": "Naslov objekta"
   },

@@ -50,6 +50,7 @@ const formSchema = z.object({
   smbPath: z.string().optional(),
   contactName: z.string().optional(),
   phone: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -81,6 +82,7 @@ interface FacilityEditData {
     isActive: boolean;
     invoiceDelivery?: string;
     workOrderNumber?: string | null;
+    notes?: string | null;
   }>;
 }
 
@@ -133,6 +135,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         facilityNotes: '',
         contractNumber: '',
         workOrderNumber: '',
+        notes: '',
         valueWithoutVat: undefined,
         valueWithoutVatPerYear: undefined,
         smbPath: '',
@@ -161,6 +164,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
       valueWithoutVat: toNumber(contract?.valueWithoutVat),
       valueWithoutVatPerYear: toNumber(contract?.valueWithoutVatPerYear),
       smbPath: contract?.smbPath ?? '',
+      notes: contract?.notes ?? '',
     });
   }, [facilityData]);
 
@@ -203,6 +207,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
         smbPath: data.smbPath || undefined,
         customerEmail: data.customerEmail || undefined,
         invoiceEmail: data.invoiceEmail || undefined,
+        notes: data.notes || undefined,
       });
     },
     onSuccess: () => {
@@ -243,6 +248,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
           smbPath: data.smbPath || undefined,
           customerEmail: data.customerEmail || undefined,
           invoiceEmail: data.invoiceEmail || undefined,
+          notes: data.notes || undefined,
         });
       }
     },
@@ -458,6 +464,16 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
                         </FormItem>
                       )} />
                     </div>
+
+                    <FormField control={form.control} name="notes" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('common.notes')}</FormLabel>
+                        <FormControl>
+                          <Textarea rows={3} placeholder={t('contracts.notesPlaceholder')} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
                     {reviewFrequency === 'custom' && (
                       <div className="space-y-2">

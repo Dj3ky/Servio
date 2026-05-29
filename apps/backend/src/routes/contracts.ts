@@ -76,7 +76,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const header = 'contract_number,customer_name,facility_name,review_frequency,status,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes';
+  const header = 'contract_number,customer_name,facility_name,review_frequency,status,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes,notes';
   const rows = data.map((c) => [
     escape(c.contractNumber),
     escape(c.customer.name),
@@ -96,6 +96,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     escape((c.customer as any).phone),
     escape(c.facility.address),
     escape(c.facility.notes),
+    escape(c.notes),
   ].join(','));
 
   const csv = [header, ...rows].join('\n');
@@ -142,6 +143,7 @@ router.post('/', requireRole('admin', 'manager'), async (req: Request, res: Resp
     valueWithoutVatPerYear: parsed.data.valueWithoutVatPerYear?.toString() ?? null,
     customerEmail: parsed.data.customerEmail ?? null,
     workOrderNumber: parsed.data.workOrderNumber ?? null,
+    notes: parsed.data.notes ?? null,
   }).returning();
 
   const nowPost = new Date();
@@ -321,6 +323,7 @@ router.post('/import', requireRole('admin', 'manager'), documentUpload.single('f
         valueWithoutVatPerYear: row['value_without_vat_per_year'] ? row['value_without_vat_per_year'] : null,
         workOrderNumber: row['work_order_number'] || null,
         smbPath: row['smb_path'] || null,
+        notes: row['notes'] || null,
       }).returning();
 
       created.push(contract.contractNumber);

@@ -25,6 +25,7 @@ export const contracts = pgTable('contracts', {
   invoiceEmail: text('invoice_email'),
   invoiceDelivery: invoiceDeliveryEnum('invoice_delivery').notNull().default('email'),
   workOrderNumber: text('work_order_number'),
+  notes: text('notes'),
   contractDocuments: jsonb('contract_documents').$type<Array<{ filename: string; url: string }>>(),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),

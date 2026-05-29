@@ -26,6 +26,7 @@ export const createContractSchema = z.object({
   ).nullable().optional(),
   invoiceDelivery: invoiceDeliverySchema.optional(),
   workOrderNumber: z.string().max(200).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
 });
 
 export const updateContractSchema = createContractSchema.partial().extend({
@@ -50,6 +51,7 @@ export const contractSchema = z.object({
   invoiceEmail: z.string().nullable(),
   invoiceDelivery: invoiceDeliverySchema,
   workOrderNumber: z.string().nullable(),
+  notes: z.string().nullable(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
