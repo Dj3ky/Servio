@@ -355,7 +355,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
                     )} />
                     <FormField control={form.control} name="facilityNotes" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('common.notes')}</FormLabel>
+                        <FormLabel>{t('facility.facilityNotes')}</FormLabel>
                         <FormControl>
                           <Textarea rows={2} placeholder="Additional notes about the facility…" {...field} />
                         </FormControl>
@@ -467,7 +467,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
 
                     <FormField control={form.control} name="notes" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('common.notes')}</FormLabel>
+                        <FormLabel>{t('contracts.contractNotes')}</FormLabel>
                         <FormControl>
                           <Textarea rows={3} placeholder={t('contracts.notesPlaceholder')} {...field} />
                         </FormControl>

@@ -100,6 +100,7 @@
     "valueExclVatYear": "Vrednost brez DDV/leto",
     "workOrderNumber": "Delovni nalog (DN)",
     "notesPlaceholder": "Interne opombe za to pogodbo…",
+    "contractNotes": "Opombe pogodbe",
     "contactName": "Kontaktna oseba",
     "facilityAddress": "Naslov objekta"
   },
@@ -293,6 +294,7 @@
     "contractInfoDesc": "Pogoji pogodbe, nastavitve fakturiranja in urnik pregledov",
     "schedule": "Urnik vzdrževanja",
     "emailSettings": "Nastavitve e-pošte",
+    "facilityNotes": "Opombe objekta",
     "smbPath": "SMB pot",
     "smbPathDesc": "Nadomestna pot za shranjevanje dokumentov te pogodbe",
     "smbPathHint": "Pustite prazno za privzeto SMB pot iz Nastavitev",

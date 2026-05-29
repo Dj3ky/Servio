@@ -100,6 +100,7 @@
     "valueExclVatYear": "Value excl. VAT/year",
     "workOrderNumber": "Work Order (DN)",
     "notesPlaceholder": "Internal notes about this contract…",
+    "contractNotes": "Contract Notes",
     "contactName": "Contact Name",
     "facilityAddress": "Facility Address"
   },
@@ -293,6 +294,7 @@
     "contractInfoDesc": "Contract terms, billing settings and review schedule",
     "schedule": "Maintenance Schedule",
     "emailSettings": "Email Settings",
+    "facilityNotes": "Facility Notes",
     "smbPath": "SMB Path",
     "smbPathDesc": "Override the default network storage path for this contract's documents",
     "smbPathHint": "Leave empty to use the default SMB base path configured in Settings",

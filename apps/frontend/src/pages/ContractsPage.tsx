@@ -207,6 +207,16 @@ export default function ContractsPage() {
     columnHelper.accessor('facility.name', {
       id: 'facility',
       header: t('contracts.facility'),
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1">
+          {row.original.facility.name}
+          {!!row.original.facility.notes && (
+            <span title={row.original.facility.notes} className="cursor-default shrink-0">
+              <Info className="h-3.5 w-3.5 text-blue-500" />
+            </span>
+          )}
+        </span>
+      ),
     }),
     columnHelper.accessor('contractNumber', {
       id: 'contractNumber',
