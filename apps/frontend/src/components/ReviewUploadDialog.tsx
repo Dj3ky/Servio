@@ -128,7 +128,6 @@ export function ReviewUploadDialog({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxFiles: 1,
-    accept: { 'application/pdf': ['.pdf'] },
     disabled: uploading || !!file,
   });
 
@@ -209,7 +208,7 @@ export function ReviewUploadDialog({
                 <input {...getInputProps()} />
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">{t('reviews.dropOrClick')}</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">PDF</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">PDF, Word, Excel, JPG, PNG…</p>
               </div>
               {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
             </div>
@@ -232,13 +231,15 @@ export function ReviewUploadDialog({
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                 </div>
-                <Button
-                  variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
-                  onClick={() => setShowPreview((v) => !v)}
-                >
-                  {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
-                </Button>
+                {file?.type === 'application/pdf' && (
+                  <Button
+                    variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
+                    onClick={() => setShowPreview((v) => !v)}
+                  >
+                    {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
+                  </Button>
+                )}
                 <Button
                   variant="ghost" size="icon" className="h-7 w-7 shrink-0"
                   onClick={() => { setFile(null); setError(null); setShowPreview(false); }}
