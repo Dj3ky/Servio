@@ -27,7 +27,7 @@ async function seed() {
     console.log('Created default admin: admin@servio.local / admin123');
   }
 
-  const existingSettings = await db.query.settings.findFirst();
+  const [existingSettings] = await db.select({ id: schema.settings.id }).from(schema.settings).limit(1);
   if (!existingSettings) {
     await db.insert(schema.settings).values({
       id: 1,
