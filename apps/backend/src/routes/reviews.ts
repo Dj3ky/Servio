@@ -223,6 +223,7 @@ router.post(
       .where(eq(reviews.id, review.id))
       .returning();
 
+    await db.delete(invoices).where(eq(invoices.reviewId, review.id));
     const [invoice] = await db
       .insert(invoices)
       .values({ reviewId: review.id, contractId: review.contractId, status: 'pending' })
