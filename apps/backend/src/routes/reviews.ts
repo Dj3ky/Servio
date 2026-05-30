@@ -256,12 +256,7 @@ router.post(
     if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
     if (review.status !== 'completed') { res.status(409).json({ error: 'errors.validation' }); return; }
 
-    const pendingInvoice = await db.query.invoices.findFirst({
-      where: (inv, { eq, and }) => and(eq(inv.reviewId, req.params.id), eq(inv.status, 'pending')),
-    });
-    if (pendingInvoice) {
-      await db.delete(invoices).where(eq(invoices.id, pendingInvoice.id));
-    }
+    await db.delete(invoices).where(eq(invoices.reviewId, req.params.id));
 
     const [updated] = await db
       .update(reviews)
