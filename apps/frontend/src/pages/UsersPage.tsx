@@ -46,6 +46,7 @@ interface UserRow {
 const resetPasswordSchema = z.object({ password: z.string().min(8) });
 
 const editUserFormSchema = z.object({
+  email: z.string().email(),
   name: z.string().min(1).max(100),
   role: z.enum(['admin', 'manager', 'accountant', 'technician']),
   languagePreference: z.enum(['sl', 'en']),
@@ -82,7 +83,7 @@ export default function UsersPage() {
 
   const editForm = useForm<z.infer<typeof editUserFormSchema>>({
     resolver: zodResolver(editUserFormSchema),
-    defaultValues: { name: '', role: 'technician', languagePreference: 'sl' },
+    defaultValues: { email: '', name: '', role: 'technician', languagePreference: 'sl' },
   });
 
   const resetForm = useForm({ resolver: zodResolver(resetPasswordSchema), defaultValues: { password: '' } });
@@ -194,6 +195,7 @@ export default function UsersPage() {
                   className="h-8 w-8 p-0"
                   onClick={() => {
                     editForm.reset({
+                      email: row.original.email,
                       name: row.original.name,
                       role: row.original.role as z.infer<typeof editUserFormSchema>['role'],
                       languagePreference: row.original.languagePreference as z.infer<typeof editUserFormSchema>['languagePreference'],
@@ -403,16 +405,20 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('users.editUser')}</DialogTitle>
-            {editOpen && <p className="text-sm text-muted-foreground">{editOpen.email}</p>}
           </DialogHeader>
           <Form {...editForm}>
             <form
               onSubmit={editForm.handleSubmit((d) => editOpen && editMutation.mutate({ id: editOpen.id, data: d }))}
               className="space-y-4"
             >
-              <FormField control={editForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>{t('common.name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={editForm.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>{t('common.name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="email" render={({ field }) => (
+                  <FormItem><FormLabel>{t('common.email')}</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={editForm.control} name="role" render={({ field }) => (
                   <FormItem><FormLabel>{t('users.role')}</FormLabel>

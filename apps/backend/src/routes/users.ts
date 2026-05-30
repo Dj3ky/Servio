@@ -91,6 +91,17 @@ router.patch('/:id', requireRole('admin'), async (req: Request, res: Response): 
   const { id } = req.params;
   const updates: Partial<typeof users.$inferInsert> = {};
 
+  if (parsed.data.email !== undefined) {
+    const normalized = parsed.data.email.toLowerCase();
+    const existing = await db.query.users.findFirst({
+      where: (u, { and, eq, ne }) => and(eq(u.email, normalized), ne(u.id, id)),
+    });
+    if (existing) {
+      res.status(409).json({ error: 'errors.email_taken' });
+      return;
+    }
+    updates.email = normalized;
+  }
   if (parsed.data.name !== undefined) updates.name = parsed.data.name;
   if (parsed.data.role !== undefined) updates.role = parsed.data.role;
   if (parsed.data.languagePreference !== undefined) updates.languagePreference = parsed.data.languagePreference;
