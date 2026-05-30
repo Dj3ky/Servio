@@ -198,6 +198,7 @@ router.patch('/:id', requireRole('admin', 'manager'), async (req: Request, res: 
     });
 
     if (!needed && existingReview?.status === 'pending') {
+      await db.delete(invoices).where(eq(invoices.reviewId, existingReview.id));
       await db.delete(reviews).where(eq(reviews.id, existingReview.id));
     } else if (needed && !existingReview) {
       await db.insert(reviews).values({
