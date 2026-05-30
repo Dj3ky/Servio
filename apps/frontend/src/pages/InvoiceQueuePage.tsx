@@ -25,6 +25,7 @@ import { queryClient } from '@/lib/queryClient';
 import { formatDate, formatScheduledMonth } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
+import { useFilterStore } from '@/stores/filterStore';
 
 interface InvoiceQueueItem {
   id: string;
@@ -64,13 +65,16 @@ const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
 export default function InvoiceQueuePage() {
   const { t, i18n } = useTranslation();
+  const { getFilter, setFilter } = useFilterStore();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceQueueItem | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [targetStatus, setTargetStatus] = useState<string>('');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('in_progress');
+  const [search, setSearch] = useState(() => getFilter('invoices', 'search') ?? '');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    () => (getFilter('invoices', 'status') as StatusFilter) ?? 'in_progress',
+  );
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
   const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<InvoiceQueueItem | null>(null);
 
@@ -325,11 +329,11 @@ export default function InvoiceQueuePage() {
             placeholder={t('common.search')}
             className="pl-9"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setFilter('invoices', 'search', e.target.value); }}
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatusFilter)}>
+        <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val as StatusFilter); setFilter('invoices', 'status', val); }}>
           <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>

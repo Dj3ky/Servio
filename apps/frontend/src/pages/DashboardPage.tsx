@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, ClipboardCheck, Receipt, Activity, ArrowRight, TrendingUp } from 'lucide-react';
+import { FileText, AlertTriangle, Receipt, Activity, ArrowRight, TrendingUp, Upload, Plus, Inbox } from 'lucide-react';
 import {
   AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,18 +13,29 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
+import { FacilityFormDialog } from '@/components/FacilityFormDialog';
+import { queryClient } from '@/lib/queryClient';
 
 interface DashboardData {
   activeContracts: number;
-  pendingReviews: number;
-  completedThisMonth: number;
+  overdueReviews: number;
+  openReviewsThisMonth: number;
   pendingInvoices: number;
   monthlyTrend: Array<{ month: string; completed: number }>;
   revenueTrend: Array<{ month: string; revenue: number; invoiceCount: number }>;
   pendingReviewsList: Array<{
     id: string;
     scheduledMonth: string;
-    contract: { contractNumber: string; facility: { name: string; id?: string }; customer: { name: string } };
+    status: string;
+    contract: {
+      contractNumber: string;
+      invoiceDelivery: 'email' | 'post' | 'e_invoice';
+      emailTemplateId?: string | null;
+      customerEmail?: string | null;
+      facility: { name: string; id?: string };
+      customer: { name: string };
+    };
   }>;
   pendingInvoicesList: Array<{
     id: string;
@@ -45,12 +57,13 @@ interface StatCardProps {
   icon: React.ComponentType<{ className?: string }>;
   loading: boolean;
   color: keyof typeof STAT_COLORS;
+  urgent?: boolean;
 }
 
-function StatCard({ title, value, icon: Icon, loading, color }: StatCardProps) {
+function StatCard({ title, value, icon: Icon, loading, color, urgent }: StatCardProps) {
   const c = STAT_COLORS[color];
   return (
-    <Card className="relative overflow-hidden">
+    <Card className={`relative overflow-hidden ${urgent && value > 0 ? 'ring-1 ring-rose-400/50' : ''}`}>
       <div className={`absolute inset-y-0 left-0 w-1 ${c.bar}`} />
       <CardHeader className="flex flex-row items-center justify-between pb-2 pl-5">
         <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -61,7 +74,7 @@ function StatCard({ title, value, icon: Icon, loading, color }: StatCardProps) {
       <CardContent className="pl-5">
         {loading
           ? <Skeleton className="h-9 w-16" />
-          : <div className="text-3xl font-bold tracking-tight">{value}</div>
+          : <div className={`text-3xl font-bold tracking-tight ${urgent && value > 0 ? 'text-rose-600 dark:text-rose-400' : ''}`}>{value}</div>
         }
       </CardContent>
     </Card>
@@ -87,6 +100,9 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const [quickUploadReview, setQuickUploadReview] = useState<DashboardData['pendingReviewsList'][0] | null>(null);
+  const [newFacilityOpen, setNewFacilityOpen] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.get<DashboardData>('/dashboard'),
@@ -95,12 +111,15 @@ export default function DashboardPage() {
 
   const statCards: StatCardProps[] = [
     { title: t('dashboard.activeContracts'), value: data?.activeContracts ?? 0, icon: FileText, loading: isLoading, color: 'blue' },
-    { title: t('dashboard.pendingReviews'), value: data?.pendingReviews ?? 0, icon: ClipboardCheck, loading: isLoading, color: 'amber' },
-    { title: t('dashboard.completedThisMonth'), value: data?.completedThisMonth ?? 0, icon: Activity, loading: isLoading, color: 'green' },
-    { title: t('dashboard.pendingInvoices'), value: data?.pendingInvoices ?? 0, icon: Receipt, loading: isLoading, color: 'rose' },
+    { title: t('dashboard.overdueReviews'), value: data?.overdueReviews ?? 0, icon: AlertTriangle, loading: isLoading, color: 'rose', urgent: true },
+    { title: t('dashboard.openReviewsThisMonth'), value: data?.openReviewsThisMonth ?? 0, icon: Activity, loading: isLoading, color: 'amber' },
+    { title: t('dashboard.pendingInvoices'), value: data?.pendingInvoices ?? 0, icon: Receipt, loading: isLoading, color: 'green' },
   ];
 
   const totalRevenue = (data?.revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
+
+  // First pending review for quick upload
+  const firstPendingReview = data?.pendingReviewsList.find((r) => r.status === 'pending');
 
   return (
     <div className="space-y-6">
@@ -114,6 +133,38 @@ export default function DashboardPage() {
         {statCards.map((card) => (
           <StatCard key={card.title} {...card} />
         ))}
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2"
+          disabled={!firstPendingReview}
+          onClick={() => firstPendingReview && setQuickUploadReview(firstPendingReview)}
+        >
+          <Upload className="h-4 w-4" />
+          {t('dashboard.quickUploadReview')}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2"
+          onClick={() => navigate('/invoices')}
+        >
+          <Inbox className="h-4 w-4" />
+          {t('dashboard.quickInvoiceQueue')}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2"
+          onClick={() => setNewFacilityOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          {t('dashboard.quickNewFacility')}
+        </Button>
       </div>
 
       {/* Charts row */}
@@ -160,7 +211,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Revenue bar chart */}
+        {/* Revenue area chart */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -290,6 +341,28 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick upload dialog */}
+      {quickUploadReview && (
+        <ReviewUploadDialog
+          open={!!quickUploadReview}
+          onClose={() => setQuickUploadReview(null)}
+          reviewId={quickUploadReview.id}
+          hasEmail={!!quickUploadReview.contract.customerEmail}
+          invoiceDelivery={quickUploadReview.contract.invoiceDelivery}
+          contractEmailTemplateId={quickUploadReview.contract.emailTemplateId}
+          scheduledMonth={quickUploadReview.scheduledMonth}
+          onSuccess={() => {
+            setQuickUploadReview(null);
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          }}
+        />
+      )}
+
+      <FacilityFormDialog
+        open={newFacilityOpen}
+        onClose={() => setNewFacilityOpen(false)}
+      />
     </div>
   );
 }

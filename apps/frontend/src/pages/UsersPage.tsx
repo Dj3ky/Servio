@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users, Activity } from 'lucide-react';
 import {
   createColumnHelper,
   flexRender,
@@ -39,6 +39,8 @@ interface UserRow {
   languagePreference: string;
   isActive: boolean;
   createdAt: string;
+  lastLoginAt: string | null;
+  actionCount: number;
 }
 
 const resetPasswordSchema = z.object({ password: z.string().min(8) });
@@ -132,6 +134,27 @@ export default function UsersPage() {
         <Badge variant={info.getValue() ? 'success' : 'secondary'}>
           {info.getValue() ? t('common.active') : t('common.inactive')}
         </Badge>
+      ),
+    }),
+    columnHelper.accessor('lastLoginAt', {
+      id: 'lastLogin',
+      header: t('users.lastLogin'),
+      cell: (info) => {
+        const v = info.getValue();
+        return v
+          ? <span className="text-xs text-muted-foreground">{new Date(v).toLocaleDateString()}</span>
+          : <span className="text-xs text-muted-foreground/40">—</span>;
+      },
+    }),
+    columnHelper.accessor('actionCount', {
+      id: 'actionCount',
+      header: () => (
+        <span className="flex items-center gap-1">
+          <Activity className="h-3.5 w-3.5" />{t('users.actions')}
+        </span>
+      ),
+      cell: (info) => (
+        <span className="text-xs font-mono text-muted-foreground">{info.getValue()}</span>
       ),
     }),
     columnHelper.display({

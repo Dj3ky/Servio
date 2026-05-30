@@ -1,4 +1,6 @@
-import { pgTable, text, timestamp, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+
+export const digestFrequencyEnum = pgEnum('digest_frequency', ['daily', 'weekly']);
 
 export const settings = pgTable('settings', {
   id: integer('id').primaryKey().default(1),
@@ -20,6 +22,11 @@ export const settings = pgTable('settings', {
   backupSchedule: text('backup_schedule').default('0 2 * * *'),
   backupPath: text('backup_path'),
   accountingEmail: text('accounting_email'),
+  digestEnabled: boolean('digest_enabled').notNull().default(false),
+  digestFrequency: digestFrequencyEnum('digest_frequency').notNull().default('daily'),
+  digestEmail: text('digest_email'),
+  escalationEnabled: boolean('escalation_enabled').notNull().default(false),
+  escalationDays: integer('escalation_days').notNull().default(3),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

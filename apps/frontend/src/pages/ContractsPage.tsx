@@ -26,6 +26,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
+import { useFilterStore } from '@/stores/filterStore';
 
 interface ImportResult {
   created: string[];
@@ -102,7 +103,8 @@ export default function ContractsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [search, setSearch] = useState('');
+  const { getFilter, setFilter } = useFilterStore();
+  const [search, setSearch] = useState(() => getFilter('contracts', 'search') ?? '');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     valueWithoutVat: false,
@@ -118,7 +120,9 @@ export default function ContractsPage() {
     facilityNotes: false,
     smbPath: false,
   });
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    () => (getFilter('contracts', 'status') as StatusFilter) ?? 'all',
+  );
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
 
@@ -432,7 +436,7 @@ export default function ContractsPage() {
             placeholder={t('common.search')}
             className="pl-9"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => { setSearch(e.target.value); setFilter('contracts', 'search', e.target.value); setPage(1); }}
           />
         </div>
 
@@ -441,7 +445,7 @@ export default function ContractsPage() {
           {statusFilters.map((f) => (
             <button
               key={f.value}
-              onClick={() => setStatusFilter(f.value)}
+              onClick={() => { setStatusFilter(f.value); setFilter('contracts', 'status', f.value); }}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 statusFilter === f.value
                   ? 'bg-background shadow-sm text-foreground'

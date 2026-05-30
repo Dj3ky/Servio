@@ -13,6 +13,7 @@ import auditLogRoutes from './auditLogs';
 import reportRoutes from './reports';
 import smbRoutes from './smb';
 import schedulerRoutes from './scheduler';
+import searchRoutes from './search';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/audit-logs', auditLogRoutes);
 router.use('/reports', reportRoutes);
 router.use('/smb', smbRoutes);
 router.use('/scheduler', schedulerRoutes);
+router.use('/search', searchRoutes);
 
 export default router;

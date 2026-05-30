@@ -3,6 +3,7 @@ import { db } from '../db';
 import { reviews } from '../db/schema';
 import { format, startOfMonth } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
+import { sendDigestEmail, sendEscalationAlerts } from './email';
 
 const BIANNUAL_MONTHS = [1, 7];
 const QUADANNUAL_MONTHS = [1, 4, 7, 10];
@@ -69,6 +70,7 @@ export async function createPendingReviews(targetDate?: Date): Promise<number> {
 }
 
 export function startScheduler(): void {
+  // Monthly review creation — 1st of each month at 06:00
   cron.schedule('0 6 1 * *', async () => {
     console.log('[scheduler] Creating pending reviews for current month...');
     try {
@@ -79,5 +81,32 @@ export function startScheduler(): void {
     }
   });
 
+  // Digest email — daily at 07:00
+  cron.schedule('0 7 * * *', async () => {
+    try {
+      const s = await db.query.settings.findFirst();
+      if (!s?.digestEnabled) return;
+      if (s.digestFrequency === 'weekly') {
+        // Only send on Mondays (day 1)
+        if (new Date().getDay() !== 1) return;
+      }
+      await sendDigestEmail();
+      console.log('[scheduler] Digest email sent.');
+    } catch (err) {
+      console.error('[scheduler] Digest email failed:', err);
+    }
+  });
+
+  // Escalation check — daily at 08:00
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      await sendEscalationAlerts();
+    } catch (err) {
+      console.error('[scheduler] Escalation check failed:', err);
+    }
+  });
+
   console.log('[scheduler] Review scheduler started (runs on the 1st of each month at 06:00).');
+  console.log('[scheduler] Digest email: daily at 07:00 (weekly on Mondays when set to weekly).');
+  console.log('[scheduler] Escalation check: daily at 08:00.');
 }

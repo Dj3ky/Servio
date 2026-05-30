@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -101,6 +101,7 @@ export default function FacilityDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
+  const [reviewsView, setReviewsView] = useState<'table' | 'timeline'>('table');
   const [invoiceDialog, setInvoiceDialog] = useState<Invoice | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
@@ -388,8 +389,25 @@ export default function FacilityDetailPage() {
           )}
 
           <Card>
-            <CardContent className="pt-6">
-              {reviewsLoading ? <Skeleton className="h-48 w-full" /> : (
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div />
+              <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+                <button
+                  onClick={() => setReviewsView('table')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${reviewsView === 'table' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <List className="h-3.5 w-3.5" />{t('reviews.viewTable')}
+                </button>
+                <button
+                  onClick={() => setReviewsView('timeline')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${reviewsView === 'timeline' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <GitCommit className="h-3.5 w-3.5" />{t('reviews.viewTimeline')}
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {reviewsLoading ? <Skeleton className="h-48 w-full" /> : reviewsView === 'table' ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -439,6 +457,48 @@ export default function FacilityDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+              ) : (
+                /* Timeline view */
+                reviews.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-8">{t('common.noData')}</p>
+                ) : (
+                  <div className="relative pl-6">
+                    <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
+                    {reviews.map((r, idx) => {
+                      const inv = invoiceByReviewId[r.id];
+                      const dotColor = r.status === 'completed' ? 'bg-green-500' : r.status === 'pending' ? 'bg-amber-500' : 'bg-rose-500';
+                      return (
+                        <div key={r.id} className={`relative ${idx !== reviews.length - 1 ? 'pb-5' : ''}`}>
+                          <div className={`absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background ${dotColor}`} />
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{formatScheduledMonth(r.scheduledMonth, i18n.language)}</span>
+                                <Badge variant={r.status === 'completed' ? 'success' : r.status === 'pending' ? 'warning' : 'destructive'} className="text-xs">
+                                  {t(`reviews.${r.status}` as any)}
+                                </Badge>
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                {r.completedAt && <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt)}</span>}
+                                {r.completedBy && <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>}
+                                {r.emailSent && <span className="flex items-center gap-0.5"><CheckCircle className="h-3 w-3 text-green-500" /> {t('reviews.emailSent')}</span>}
+                                {r.smbSaved && <span className="flex items-center gap-0.5"><CheckCircle className="h-3 w-3 text-green-500" /> {t('reviews.smbSaved')}</span>}
+                                {inv?.invoiceNumber && <span>{t('reviews.invoiceNo')}: {inv.invoiceNumber}</span>}
+                                {inv?.completedAt && <span>{t('reviews.invoiceSent')}: {formatDate(inv.completedAt)}</span>}
+                              </div>
+                            </div>
+                            {user?.role === 'admin' && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
+                              <Button size="sm" variant="outline" className="shrink-0" onClick={() => setResetTarget(r.id)}>
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                {t('reviews.resetReview')}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
               )}
             </CardContent>
           </Card>

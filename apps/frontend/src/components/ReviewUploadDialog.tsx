@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
 interface EmailTemplate {
@@ -30,6 +31,16 @@ function formatFileSize(bytes: number) {
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
+}
+
+function monthsAgo(scheduledMonth: string): number {
+  const now = new Date();
+  const scheduled = new Date(scheduledMonth + 'T00:00:00');
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const schYear = scheduled.getFullYear();
+  const schMonth = scheduled.getMonth();
+  return (nowYear - schYear) * 12 + (nowMonth - schMonth);
 }
 
 interface ReviewUploadDialogProps {
@@ -57,17 +68,47 @@ export function ReviewUploadDialog({
   const sendEmail = invoiceDelivery === 'email';
 
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const prevUrlRef = useRef<string | null>(null);
+
   const { data: templates = [] } = useQuery({
     queryKey: ['email-templates'],
     queryFn: () => api.get<EmailTemplate[]>('/settings/templates'),
     enabled: open,
   });
+
+  // Revoke old object URL when file changes or dialog closes
+  useEffect(() => {
+    if (prevUrlRef.current) {
+      URL.revokeObjectURL(prevUrlRef.current);
+      prevUrlRef.current = null;
+    }
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      prevUrlRef.current = url;
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [file]);
+
+  useEffect(() => {
+    if (!open) {
+      if (prevUrlRef.current) {
+        URL.revokeObjectURL(prevUrlRef.current);
+        prevUrlRef.current = null;
+      }
+      setPreviewUrl(null);
+      setShowPreview(false);
+    }
+  }, [open]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const f = acceptedFiles[0];
@@ -87,6 +128,7 @@ export function ReviewUploadDialog({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxFiles: 1,
+    accept: { 'application/pdf': ['.pdf'] },
     disabled: uploading || !!file,
   });
 
@@ -103,6 +145,7 @@ export function ReviewUploadDialog({
     setSelectedTemplateId('');
     setEmailSubject('');
     setEmailBody('');
+    setShowPreview(false);
     onClose();
   }
 
@@ -139,9 +182,12 @@ export function ReviewUploadDialog({
     ? new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' }).format(new Date(scheduledMonth + 'T00:00:00'))
     : null;
 
+  const ageMonths = scheduledMonth ? monthsAgo(scheduledMonth) : 0;
+  const isOldReview = ageMonths >= 2;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <DialogTitle className="flex items-center gap-2">
             {t('reviews.uploadPdf')}
@@ -163,11 +209,23 @@ export function ReviewUploadDialog({
                 <input {...getInputProps()} />
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">{t('reviews.dropOrClick')}</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">PDF</p>
               </div>
               {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
             </div>
           ) : (
             <>
+              {/* Age warning */}
+              {isOldReview && (
+                <Alert variant="warning">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {t('reviews.oldReviewWarning', { months: ageMonths })}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* File info + preview toggle */}
               <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
                 <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -175,13 +233,32 @@ export function ReviewUploadDialog({
                   <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                 </div>
                 <Button
+                  variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
+                  onClick={() => setShowPreview((v) => !v)}
+                >
+                  {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
+                </Button>
+                <Button
                   variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-                  onClick={() => { setFile(null); setError(null); }}
+                  onClick={() => { setFile(null); setError(null); setShowPreview(false); }}
                   disabled={uploading}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
+
+              {/* Inline PDF preview */}
+              {showPreview && previewUrl && (
+                <div className="rounded-lg border overflow-hidden">
+                  <iframe
+                    src={previewUrl}
+                    className="w-full"
+                    style={{ height: '400px' }}
+                    title="PDF Preview"
+                  />
+                </div>
+              )}
 
               {!sendEmail && (
                 <p className="text-sm text-muted-foreground">{t(`invoiceDelivery.saveOnly.${invoiceDelivery}`)}</p>
@@ -218,8 +295,6 @@ export function ReviewUploadDialog({
                   <Separator />
                 </>
               )}
-
-              {!sendEmail || !hasEmail ? null : null}
 
               {sendEmail && !hasEmail && (
                 <p className="text-sm text-muted-foreground">{t('reviews.noEmailConfigured')}</p>

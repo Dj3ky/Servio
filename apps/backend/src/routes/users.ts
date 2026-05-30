@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { createUserSchema, updateUserSchema, resetPasswordSchema } from '@servio/shared';
 import { db } from '../db';
-import { users } from '../db/schema';
+import { users, auditLogs } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
@@ -13,9 +13,23 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Response): Promise<void> => {
-  const result = await db.query.users.findMany({
-    orderBy: (u, { asc }) => [asc(u.name)],
-  });
+  const result = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      languagePreference: users.languagePreference,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+      lastLoginAt: sql<string | null>`MAX(CASE WHEN ${auditLogs.action} = 'login' THEN ${auditLogs.createdAt} END)`,
+      actionCount: sql<number>`COUNT(${auditLogs.id})`,
+    })
+    .from(users)
+    .leftJoin(auditLogs, eq(auditLogs.userId, users.id))
+    .groupBy(users.id)
+    .orderBy(users.name);
 
   res.json(result.map((u) => ({
     id: u.id,
@@ -26,6 +40,8 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
     isActive: u.isActive,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
+    lastLoginAt: u.lastLoginAt ?? null,
+    actionCount: Number(u.actionCount),
   })));
 });
 

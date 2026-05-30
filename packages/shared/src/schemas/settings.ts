@@ -35,6 +35,14 @@ export const updateBackupSettingsSchema = z.object({
   backupPath: z.string().min(1),
 });
 
+export const updateAlertsSettingsSchema = z.object({
+  digestEnabled: z.boolean(),
+  digestFrequency: z.enum(['daily', 'weekly']),
+  digestEmail: z.string().email().optional().or(z.literal('')),
+  escalationEnabled: z.boolean(),
+  escalationDays: z.number().int().min(1).max(365),
+});
+
 export const settingsSchema = z.object({
   appName: z.string(),
   logoUrl: z.string().nullable(),
@@ -65,4 +73,5 @@ export type UpdateGeneralSettings = z.infer<typeof updateGeneralSettingsSchema>;
 export type UpdateSmtpSettings = z.infer<typeof updateSmtpSettingsSchema>;
 export type UpdateSmbSettings = z.infer<typeof updateSmbSettingsSchema>;
 export type UpdateBackupSettings = z.infer<typeof updateBackupSettingsSchema>;
+export type UpdateAlertsSettings = z.infer<typeof updateAlertsSettingsSchema>;
 export type TestSmtpRequest = z.infer<typeof testSmtpSchema>;

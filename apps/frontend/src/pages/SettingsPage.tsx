@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
-  MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown,
+  MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,9 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   updateGeneralSettingsSchema, updateSmtpSettingsSchema, updateSmbSettingsSchema,
-  updateBackupSettingsSchema,
+  updateBackupSettingsSchema, updateAlertsSettingsSchema,
   type UpdateGeneralSettings, type UpdateSmtpSettings, type UpdateSmbSettings,
-  type UpdateBackupSettings,
+  type UpdateBackupSettings, type UpdateAlertsSettings,
   testSmtpSchema, type TestSmtpRequest,
   createEmailTemplateSchema, type CreateEmailTemplateRequest,
 } from '@servio/shared';
@@ -48,6 +48,11 @@ interface FullSettings {
   backupSchedule: string | null;
   backupPath: string | null;
   accountingEmail: string | null;
+  digestEnabled: boolean;
+  digestFrequency: 'daily' | 'weekly';
+  digestEmail: string | null;
+  escalationEnabled: boolean;
+  escalationDays: number;
 }
 
 interface EmailTemplate {
@@ -259,6 +264,26 @@ export default function SettingsPage() {
     onError: () => toast.error(t('errors.internal')),
   });
 
+  // ── Alerts ───────────────────────────────────────────────────────────────────
+  const alertsForm = useForm<UpdateAlertsSettings>({
+    resolver: zodResolver(updateAlertsSettingsSchema),
+    values: {
+      digestEnabled: settings?.digestEnabled ?? false,
+      digestFrequency: settings?.digestFrequency ?? 'daily',
+      digestEmail: settings?.digestEmail ?? '',
+      escalationEnabled: settings?.escalationEnabled ?? false,
+      escalationDays: settings?.escalationDays ?? 3,
+    },
+  });
+
+  const saveAlerts = useMutation({
+    mutationFn: (d: UpdateAlertsSettings) => api.patch('/settings/alerts', d),
+    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+  });
+
+  const digestEnabled = alertsForm.watch('digestEnabled');
+  const escalationEnabled = alertsForm.watch('escalationEnabled');
+
   const backupEnabled = backupForm.watch('backupEnabled');
 
   return (
@@ -284,6 +309,9 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="backup" className="gap-1.5">
             <Archive className="h-3.5 w-3.5" />{t('settings.backup')}
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="gap-1.5">
+            <Bell className="h-3.5 w-3.5" />{t('settings.alerts')}
           </TabsTrigger>
         </TabsList>
 
@@ -723,6 +751,105 @@ export default function SettingsPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── ALERTS ──────────────────────────────────────────────────────── */}
+        <TabsContent value="alerts" className="space-y-4 mt-4">
+          <Card>
+            <SectionHeader
+              icon={Bell}
+              title={t('settings.alerts')}
+              description={t('settings.alertsDesc')}
+            />
+            <CardContent>
+              <Form {...alertsForm}>
+                <form onSubmit={alertsForm.handleSubmit((d) => saveAlerts.mutate(d))} className="space-y-6">
+
+                  {/* Digest section */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.digestSection')}</p>
+
+                    <FormField control={alertsForm.control} name="digestEnabled" render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                        <div>
+                          <FormLabel className="mb-0">{t('settings.digestEnabled')}</FormLabel>
+                          <FormDescription className="mt-0.5">{t('settings.digestEnabledHint')}</FormDescription>
+                        </div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      </FormItem>
+                    )} />
+
+                    <div className={`space-y-4 transition-opacity ${digestEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={alertsForm.control} name="digestFrequency" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('settings.digestFrequency')}</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="daily">{t('settings.digestDaily')}</SelectItem>
+                                <SelectItem value="weekly">{t('settings.digestWeekly')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={alertsForm.control} name="digestEmail" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('settings.digestEmail')}</FormLabel>
+                            <FormControl><Input type="email" placeholder={t('settings.digestEmailHint')} {...field} value={field.value ?? ''} /></FormControl>
+                            <FormDescription>{t('settings.digestEmailFallback')}</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Escalation section */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.escalationSection')}</p>
+
+                    <FormField control={alertsForm.control} name="escalationEnabled" render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                        <div>
+                          <FormLabel className="mb-0">{t('settings.escalationEnabled')}</FormLabel>
+                          <FormDescription className="mt-0.5">{t('settings.escalationEnabledHint')}</FormDescription>
+                        </div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      </FormItem>
+                    )} />
+
+                    <div className={`transition-opacity ${escalationEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                      <FormField control={alertsForm.control} name="escalationDays" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('settings.escalationDays')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              className="w-32"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>{t('settings.escalationDaysHint')}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <Button type="submit" disabled={saveAlerts.isPending}>{t('common.save')}</Button>
+                  </div>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>

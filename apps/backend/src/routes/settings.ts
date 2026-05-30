@@ -7,6 +7,7 @@ import {
   updateSmtpSettingsSchema,
   updateSmbSettingsSchema,
   updateBackupSettingsSchema,
+  updateAlertsSettingsSchema,
   testSmtpSchema,
   createEmailTemplateSchema,
   updateEmailTemplateSchema,
@@ -55,6 +56,11 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
     backupSchedule: s.backupSchedule,
     backupPath: s.backupPath,
     accountingEmail: s.accountingEmail,
+    digestEnabled: s.digestEnabled,
+    digestFrequency: s.digestFrequency,
+    digestEmail: s.digestEmail,
+    escalationEnabled: s.escalationEnabled,
+    escalationDays: s.escalationDays,
     updatedAt: s.updatedAt.toISOString(),
   });
 });
@@ -131,6 +137,22 @@ router.patch('/backup', requireRole('admin'), async (req: Request, res: Response
 
   await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, updatedAt: new Date() }).where(eq(settings.id, 1));
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'backup' }, req });
+  res.json({ success: true });
+});
+
+router.patch('/alerts', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = updateAlertsSettingsSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  await db.update(settings).set({
+    digestEnabled: parsed.data.digestEnabled,
+    digestFrequency: parsed.data.digestFrequency,
+    digestEmail: parsed.data.digestEmail || null,
+    escalationEnabled: parsed.data.escalationEnabled,
+    escalationDays: parsed.data.escalationDays,
+    updatedAt: new Date(),
+  }).where(eq(settings.id, 1));
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'alerts' }, req });
   res.json({ success: true });
 });
 

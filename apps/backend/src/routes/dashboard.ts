@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql, and, gte, lte, isNotNull } from 'drizzle-orm';
+import { eq, sql, and, gte, lte, lt, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
 import { contracts, reviews, invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -15,20 +15,31 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
   const [
     [{ activeContracts }],
-    [{ pendingReviews }],
-    [{ completedThisMonth }],
+    [{ overdueReviews }],
+    [{ openReviewsThisMonth }],
     [{ pendingInvoices }],
     pendingReviewsList,
     pendingInvoicesList,
   ] = await Promise.all([
     db.select({ activeContracts: sql<number>`count(*)` }).from(contracts).where(eq(contracts.isActive, true)),
-    db.select({ pendingReviews: sql<number>`count(*)` }).from(reviews).where(eq(reviews.status, 'pending')),
-    db.select({ completedThisMonth: sql<number>`count(*)` }).from(reviews).where(
-      and(eq(reviews.status, 'completed'), gte(reviews.scheduledMonth, monthStart), lte(reviews.scheduledMonth, monthEnd)),
+    // Reviews from past months still pending/in_progress
+    db.select({ overdueReviews: sql<number>`count(*)` }).from(reviews).where(
+      and(
+        inArray(reviews.status, ['pending', 'in_progress']),
+        lt(reviews.scheduledMonth, monthStart),
+      ),
+    ),
+    // Reviews for current month that are pending/in_progress
+    db.select({ openReviewsThisMonth: sql<number>`count(*)` }).from(reviews).where(
+      and(
+        inArray(reviews.status, ['pending', 'in_progress']),
+        gte(reviews.scheduledMonth, monthStart),
+        lte(reviews.scheduledMonth, monthEnd),
+      ),
     ),
     db.select({ pendingInvoices: sql<number>`count(*)` }).from(invoices).where(eq(invoices.status, 'pending')),
     db.query.reviews.findMany({
-      where: (r, { eq }) => eq(r.status, 'pending'),
+      where: (r, { inArray: inA }) => inA(r.status, ['pending', 'in_progress']),
       with: { contract: { with: { facility: true, customer: true } } },
       limit: 10,
       orderBy: (r, { asc }) => [asc(r.scheduledMonth)],
@@ -89,8 +100,8 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 
   res.json({
     activeContracts: Number(activeContracts),
-    pendingReviews: Number(pendingReviews),
-    completedThisMonth: Number(completedThisMonth),
+    overdueReviews: Number(overdueReviews),
+    openReviewsThisMonth: Number(openReviewsThisMonth),
     pendingInvoices: Number(pendingInvoices),
     monthlyTrend: trendMonths,
     revenueTrend,
