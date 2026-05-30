@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users, Activity } from 'lucide-react';
+import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users, Activity, Pencil } from 'lucide-react';
 import {
   createColumnHelper,
   flexRender,
@@ -27,7 +27,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { createUserSchema } from '@servio/shared';
+import { createUserSchema, updateUserSchema } from '@servio/shared';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 
@@ -45,6 +45,12 @@ interface UserRow {
 
 const resetPasswordSchema = z.object({ password: z.string().min(8) });
 
+const editUserFormSchema = z.object({
+  name: z.string().min(1).max(100),
+  role: z.enum(['admin', 'manager', 'accountant', 'technician']),
+  languagePreference: z.enum(['sl', 'en']),
+});
+
 const columnHelper = createColumnHelper<UserRow>();
 
 const ROLE_COLORS: Record<string, string> = {
@@ -57,6 +63,7 @@ const ROLE_COLORS: Record<string, string> = {
 export default function UsersPage() {
   const { t } = useTranslation();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<UserRow | null>(null);
   const [resetOpen, setResetOpen] = useState<UserRow | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -73,6 +80,11 @@ export default function UsersPage() {
     defaultValues: { email: '', name: '', password: '', role: 'technician' as const, languagePreference: 'sl' as const },
   });
 
+  const editForm = useForm<z.infer<typeof editUserFormSchema>>({
+    resolver: zodResolver(editUserFormSchema),
+    defaultValues: { name: '', role: 'technician', languagePreference: 'sl' },
+  });
+
   const resetForm = useForm({ resolver: zodResolver(resetPasswordSchema), defaultValues: { password: '' } });
 
   const createMutation = useMutation({
@@ -82,6 +94,16 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setCreateOpen(false);
       createForm.reset();
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: z.infer<typeof updateUserSchema> }) =>
+      api.patch(`/users/${id}`, data),
+    onSuccess: () => {
+      toast.success(t('common.save'));
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setEditOpen(null);
     },
   });
 
@@ -164,6 +186,26 @@ export default function UsersPage() {
       cell: ({ row }) => (
         <TooltipProvider>
           <div className="flex gap-1 justify-end">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={() => {
+                    editForm.reset({
+                      name: row.original.name,
+                      role: row.original.role as z.infer<typeof editUserFormSchema>['role'],
+                      languagePreference: row.original.languagePreference as z.infer<typeof editUserFormSchema>['languagePreference'],
+                    });
+                    setEditOpen(row.original);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('users.editUser')}</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setResetOpen(row.original)}>
@@ -350,6 +392,57 @@ export default function UsersPage() {
               <DialogFooter>
                 <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={createMutation.isPending}>{t('common.create')}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit user dialog */}
+      <Dialog open={!!editOpen} onOpenChange={(open) => { if (!open) setEditOpen(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('users.editUser')}</DialogTitle>
+            {editOpen && <p className="text-sm text-muted-foreground">{editOpen.email}</p>}
+          </DialogHeader>
+          <Form {...editForm}>
+            <form
+              onSubmit={editForm.handleSubmit((d) => editOpen && editMutation.mutate({ id: editOpen.id, data: d }))}
+              className="space-y-4"
+            >
+              <FormField control={editForm.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>{t('common.name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={editForm.control} name="role" render={({ field }) => (
+                  <FormItem><FormLabel>{t('users.role')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {(['admin', 'manager', 'accountant', 'technician'] as const).map((r) => (
+                          <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="languagePreference" render={({ field }) => (
+                  <FormItem><FormLabel>{t('users.language')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="sl">Slovenščina</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setEditOpen(null)}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={editMutation.isPending}>{t('common.save')}</Button>
               </DialogFooter>
             </form>
           </Form>
