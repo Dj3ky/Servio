@@ -10,10 +10,10 @@ echo "==> Pulling latest changes..."
 git pull origin main
 
 echo "==> Installing dependencies..."
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 NODE_ENV=development npm ci
 
 echo "==> Building..."
-npm run build
+NODE_ENV=development npm run build
 
 echo "==> Running migrations..."
 npm run db:migrate
