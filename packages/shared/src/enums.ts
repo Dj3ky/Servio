@@ -59,6 +59,7 @@ export const AuditAction = {
   send_accounting: 'send_accounting',
   send_invoice_email: 'send_invoice_email',
   reset: 'reset',
+  restart_services: 'restart_services',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
