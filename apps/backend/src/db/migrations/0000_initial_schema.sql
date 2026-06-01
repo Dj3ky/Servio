@@ -3,7 +3,7 @@ CREATE TYPE "user_role" AS ENUM('admin', 'manager', 'accountant', 'technician');
 CREATE TYPE "review_frequency" AS ENUM('monthly', 'biannual', 'quadannual', 'custom');
 CREATE TYPE "invoice_delivery" AS ENUM('email', 'post', 'e_invoice');
 CREATE TYPE "review_status" AS ENUM('pending', 'in_progress', 'completed', 'failed');
-CREATE TYPE "invoice_status" AS ENUM('pending', 'sent_email', 'sent_post', 'completed');
+CREATE TYPE "invoice_status" AS ENUM('pending', 'sent_email', 'sent_post', 'completed', 'e_invoice_created');
 CREATE TYPE "notification_type" AS ENUM('smb_failed', 'email_failed', 'backup_failed', 'review_overdue', 'invoice_waiting', 'review_completed');
 
 --> statement-breakpoint
@@ -52,7 +52,13 @@ CREATE TABLE "settings" (
   "backup_enabled" boolean NOT NULL DEFAULT false,
   "backup_schedule" text DEFAULT '0 2 * * *',
   "backup_path" text,
+  "backup_to_nas" boolean NOT NULL DEFAULT false,
   "accounting_email" text,
+  "digest_enabled" boolean NOT NULL DEFAULT false,
+  "digest_frequency" text NOT NULL DEFAULT 'daily',
+  "digest_email" text,
+  "escalation_enabled" boolean NOT NULL DEFAULT false,
+  "escalation_days" integer NOT NULL DEFAULT 3,
   "updated_at" timestamp NOT NULL DEFAULT now()
 );
 
@@ -122,8 +128,11 @@ CREATE TABLE "contracts" (
   "value_without_vat" numeric(12, 2),
   "value_without_vat_per_year" numeric(12, 2),
   "customer_email" text,
+  "invoice_email" text,
   "invoice_delivery" "invoice_delivery" NOT NULL DEFAULT 'email',
   "contract_documents" jsonb,
+  "work_order_number" text,
+  "notes" text,
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" timestamp NOT NULL DEFAULT now(),
   "updated_at" timestamp NOT NULL DEFAULT now()
