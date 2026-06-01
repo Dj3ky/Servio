@@ -54,6 +54,12 @@ if ! command -v pm2 &>/dev/null; then
   sudo npm install -g pm2
 fi
 
+# Nginx (serves frontend on port 3000, proxies /api and /ws to backend on 3001)
+if ! command -v nginx &>/dev/null; then
+  echo "==> Installing nginx..."
+  sudo apt-get install -y nginx
+fi
+
 # Create directories
 echo "==> Creating directories..."
 sudo mkdir -p "$INSTALL_DIR" "$LOG_DIR" "$UPLOADS_DIR" "$BACKUPS_DIR"
@@ -67,6 +73,14 @@ fi
 sudo rsync -a --exclude='.git' --exclude='node_modules' --exclude='.env' . "$INSTALL_DIR/"
 sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
+
+# Deploy nginx config (frontend on :3000, proxying /api + /ws to backend on :3001)
+echo "==> Configuring nginx..."
+sudo cp nginx-install.conf /etc/nginx/sites-available/servio
+sudo ln -sf /etc/nginx/sites-available/servio /etc/nginx/sites-enabled/servio
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx || sudo systemctl start nginx
+sudo systemctl enable nginx
 
 # Environment configuration
 if [ ! -f .env ]; then
