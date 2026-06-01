@@ -62,11 +62,11 @@ fi
 # Create directories
 echo "==> Creating directories..."
 sudo mkdir -p "$INSTALL_DIR" "$LOG_DIR" "$UPLOADS_DIR" "$BACKUPS_DIR"
-sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 
-# Copy application files
+# Copy application files (sudo handles any root-owned files from a previous run)
 echo "==> Copying application files..."
-cp -r . "$INSTALL_DIR/"
+sudo cp -r . "$INSTALL_DIR/"
+sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
 # Environment configuration
