@@ -64,7 +64,7 @@ echo "==> Copying application files..."
 if ! command -v rsync &>/dev/null; then
   sudo apt-get install -y rsync
 fi
-sudo rsync -a --exclude='.git' --exclude='node_modules' . "$INSTALL_DIR/"
+sudo rsync -a --exclude='.git' --exclude='node_modules' --exclude='.env' . "$INSTALL_DIR/"
 sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
