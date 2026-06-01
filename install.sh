@@ -35,6 +35,9 @@ fi
 if ! command -v google-chrome-stable &>/dev/null && ! command -v chromium &>/dev/null; then
   echo "==> Installing Google Chrome for PDF generation..."
   curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/google-chrome.deb
+  # Ubuntu 24.04+ renamed libasound2 and others to *t64 (ABI transition).
+  # Pre-install t64 shims so Chrome's .deb dependency check passes.
+  sudo apt-get install -y libasound2t64 libcurl4 2>/dev/null || true
   sudo apt-get install -y /tmp/google-chrome.deb
   rm -f /tmp/google-chrome.deb
 fi
