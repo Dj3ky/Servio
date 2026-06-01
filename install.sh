@@ -119,7 +119,7 @@ npm run build --workspace=apps/frontend
 
 # PM2 configuration
 echo "==> Configuring PM2..."
-pm2 start ecosystem.config.js
+pm2 startOrRestart ecosystem.config.js
 
 # Register PM2 as a systemd service so it survives reboots.
 # pm2 startup prints the command to run; grep for the sudo line and execute it.
