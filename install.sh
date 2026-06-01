@@ -92,9 +92,14 @@ if [ -n "$CHROME_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
 fi
 
 # PostgreSQL setup
-DB_PASS=$(grep DATABASE_URL .env | sed 's/.*:\(.*\)@.*/\1/')
-DB_NAME=$(grep DATABASE_URL .env | sed 's/.*\/\([^?]*\).*/\1/')
-DB_USER=$(grep DATABASE_URL .env | sed 's/.*:\/\/\([^:]*\):.*/\1/')
+DB_LINE=$(grep DATABASE_URL .env || true)
+if [ -z "$DB_LINE" ]; then
+  echo "ERROR: DATABASE_URL not found in .env — delete /opt/servio/.env and re-run to regenerate it"
+  exit 1
+fi
+DB_PASS=$(echo "$DB_LINE" | sed 's/.*:\(.*\)@.*/\1/')
+DB_NAME=$(echo "$DB_LINE" | sed 's/.*\/\([^?]*\).*/\1/')
+DB_USER=$(echo "$DB_LINE" | sed 's/.*:\/\/\([^:]*\):.*/\1/')
 
 echo "==> Setting up PostgreSQL..."
 sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" 2>/dev/null || true
