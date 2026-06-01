@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
+import os from 'os';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { eq } from 'drizzle-orm';
+
+const execFileAsync = promisify(execFile);
 import {
   updateGeneralSettingsSchema,
   updateSmtpSettingsSchema,
@@ -17,7 +22,7 @@ import { db } from '../db';
 import { settings, emailTemplates } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { imageUpload } from '../middleware/upload';
+import { imageUpload, sqlUpload } from '../middleware/upload';
 import { encrypt, decrypt } from '../utils/crypto';
 import { testSmtpConnection } from '../services/email';
 import { createAuditLog } from '../utils/audit';
@@ -55,6 +60,7 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
     backupEnabled: s.backupEnabled,
     backupSchedule: s.backupSchedule,
     backupPath: s.backupPath,
+    backupToNas: s.backupToNas,
     accountingEmail: s.accountingEmail,
     digestEnabled: s.digestEnabled,
     digestFrequency: s.digestFrequency,
@@ -135,7 +141,7 @@ router.patch('/backup', requireRole('admin'), async (req: Request, res: Response
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, updatedAt: new Date() }).where(eq(settings.id, 1));
+  await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, updatedAt: new Date() }).where(eq(settings.id, 1));
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'backup' }, req });
   res.json({ success: true });
 });
@@ -229,6 +235,61 @@ router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Resp
   } catch {
     res.json([]);
   }
+});
+
+router.get('/backup/download/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  const { filename } = req.params;
+  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+
+  const s = await db.query.settings.findFirst();
+  const backupPath = s?.backupPath ?? './backups';
+  const filePath = path.join(backupPath, filename);
+
+  try {
+    await fs.access(filePath);
+    res.download(filePath, filename);
+  } catch {
+    res.status(404).json({ error: 'errors.not_found' });
+  }
+});
+
+router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
+
+  const tmpFile = path.join(os.tmpdir(), `servio-restore-${Date.now()}.sql`);
+  try {
+    await fs.writeFile(tmpFile, req.file.buffer);
+
+    const dbUrl = new URL(process.env.DATABASE_URL!);
+    const host = dbUrl.hostname;
+    const port = dbUrl.port || '5432';
+    const database = dbUrl.pathname.slice(1);
+    const username = dbUrl.username;
+
+    const env = { ...process.env, PGPASSWORD: dbUrl.password };
+    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '-f', tmpFile], { env });
+
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'errors.internal', message: err instanceof Error ? err.message : 'Restore failed' });
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {});
+  }
+});
+
+router.post('/backup/restart', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restart_services', payload: {}, req });
+  res.json({ success: true });
+  // Delay restart so the response is delivered first
+  setTimeout(() => {
+    execFile('pm2', ['reload', 'servio-backend'], (err) => {
+      if (err) console.error('[restart] pm2 reload failed:', err.message);
+    });
+  }, 500);
 });
 
 export default router;

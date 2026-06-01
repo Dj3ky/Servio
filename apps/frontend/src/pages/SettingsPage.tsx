@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
-  GitBranch, AlertCircle,
+  GitBranch, AlertCircle, Download, RotateCcw, Power,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,6 +48,7 @@ interface FullSettings {
   backupEnabled: boolean;
   backupSchedule: string | null;
   backupPath: string | null;
+  backupToNas: boolean;
   accountingEmail: string | null;
   digestEnabled: boolean;
   digestFrequency: 'daily' | 'weekly';
@@ -395,8 +396,48 @@ export default function SettingsPage() {
       backupEnabled: settings?.backupEnabled ?? false,
       backupSchedule: settings?.backupSchedule ?? '0 2 * * *',
       backupPath: settings?.backupPath ?? './backups',
+      backupToNas: settings?.backupToNas ?? false,
     },
   });
+
+  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
+  const restartMutation = useMutation({
+    mutationFn: () => api.post('/settings/backup/restart', {}),
+    onSuccess: () => { setRestartConfirmOpen(false); toast.success(t('settings.restartSuccess')); },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  async function handleRestoreConfirm() {
+    if (!restoreFile) return;
+    setRestoring(true);
+    const formData = new FormData();
+    formData.append('backup', restoreFile);
+    try {
+      const r = await fetch('/api/settings/backup/restore', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      if (!r.ok) throw new Error();
+      toast.success(t('settings.restoreSuccess'));
+      setRestoreConfirmOpen(false);
+      setRestoreFile(null);
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  function handleRestoreFileChange(file: File) {
+    setRestoreFile(file);
+    setRestoreConfirmOpen(true);
+  }
 
   const saveBackup = useMutation({
     mutationFn: (d: UpdateBackupSettings) => api.patch('/settings/backup', d),
@@ -898,6 +939,16 @@ export default function SettingsPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
+
+                    <FormField control={backupForm.control} name="backupToNas" render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
+                        <div>
+                          <FormLabel className="mb-0">{t('settings.backupToNas')}</FormLabel>
+                          <FormDescription className="mt-0.5">{t('settings.backupToNasHint')}</FormDescription>
+                        </div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      </FormItem>
+                    )} />
                   </div>
 
                   <div className="flex gap-2 pt-1">
@@ -940,10 +991,62 @@ export default function SettingsPage() {
                       <span className="flex-1 text-xs font-mono truncate">{f.filename}</span>
                       <span className="text-xs text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
                       <span className="text-xs text-muted-foreground/60 shrink-0 hidden sm:block">{formatDateTime(f.createdAt)}</span>
+                      <a
+                        href={`/api/settings/backup/download/${encodeURIComponent(f.filename)}`}
+                        download={f.filename}
+                        onClick={(e) => { e.stopPropagation(); }}
+                        className="shrink-0"
+                      >
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title={t('common.download')}>
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </a>
                     </div>
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Restore */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('settings.restoreBackupTitle')}</CardTitle>
+              </div>
+              <CardDescription>{t('settings.restoreBackupDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept=".sql"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRestoreFileChange(f); e.target.value = ''; }}
+              />
+              <Button variant="outline" onClick={() => restoreInputRef.current?.click()} disabled={restoring}>
+                <Upload className="h-4 w-4 mr-2" />
+                {restoring ? t('common.loading') : t('settings.restoreBackup')}
+              </Button>
+              <p className="text-xs text-muted-foreground">{t('settings.restoreUploadHint')}</p>
+            </CardContent>
+          </Card>
+
+          {/* Restart services */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Power className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('settings.restartServices')}</CardTitle>
+              </div>
+              <CardDescription>{t('settings.restartServicesDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={() => setRestartConfirmOpen(true)} disabled={restartMutation.isPending}>
+                <Power className="h-4 w-4 mr-2" />
+                {restartMutation.isPending ? t('common.loading') : t('settings.restartServices')}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1143,6 +1246,41 @@ export default function SettingsPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore confirmation */}
+      <Dialog open={restoreConfirmOpen} onOpenChange={(open) => { if (!open) { setRestoreConfirmOpen(false); setRestoreFile(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.restoreConfirmTitle')}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('settings.restoreConfirmDesc')}</p>
+          </DialogHeader>
+          {restoreFile && (
+            <p className="text-xs font-mono bg-muted rounded px-2 py-1">{restoreFile.name}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRestoreConfirmOpen(false); setRestoreFile(null); }}>{t('common.cancel')}</Button>
+            <Button variant="destructive" onClick={handleRestoreConfirm} disabled={restoring}>
+              {restoring ? t('common.loading') : t('settings.restoreBackup')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restart confirmation */}
+      <Dialog open={restartConfirmOpen} onOpenChange={setRestartConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.restartConfirmTitle')}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('settings.restartConfirmDesc')}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestartConfirmOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={() => restartMutation.mutate()} disabled={restartMutation.isPending}>
+              {restartMutation.isPending ? t('common.loading') : t('settings.restartServices')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

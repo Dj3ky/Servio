@@ -8,6 +8,7 @@ import { db } from '../db';
 import { createAuditLog } from '../utils/audit';
 import { notifications } from '../db/schema';
 import { broadcast } from '../ws';
+import { saveToSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
 
@@ -33,6 +34,18 @@ export async function createBackup(): Promise<string> {
   });
 
   await createAuditLog({ action: 'create_backup', payload: { filename } });
+
+  if (s?.backupToNas) {
+    try {
+      const buffer = await fs.readFile(filePath);
+      const basePath = s.smbBasePath || '';
+      const remotePath = [basePath, 'Backups', filename].filter(Boolean).join('/');
+      await saveToSmb(remotePath, buffer);
+      console.log('[backup] Backup copied to NAS:', remotePath);
+    } catch (err) {
+      console.error('[backup] Failed to copy backup to NAS:', err);
+    }
+  }
 
   return filePath;
 }
