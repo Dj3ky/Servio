@@ -27,7 +27,7 @@ async function ensureSettingsColumns() {
 
 async function start() {
   console.log('[server] Applying pending migrations...');
-  await migrate(db, { migrationsFolder: path.join(__dirname, 'db/migrations') });
+  await migrate(db, { migrationsFolder: path.join(__dirname, '../src/db/migrations') });
   await ensureSettingsColumns();
   console.log('[server] Database up to date.');
 
