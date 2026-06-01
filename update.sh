@@ -10,7 +10,7 @@ echo "==> Pulling latest changes..."
 git pull origin main
 
 echo "==> Installing dependencies..."
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci
 
 echo "==> Building..."
 npm run build
