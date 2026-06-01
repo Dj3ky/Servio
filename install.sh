@@ -30,19 +30,25 @@ if ! command -v smbclient &>/dev/null; then
   sudo apt-get install -y samba-client
 fi
 
-# Chrome (required for Puppeteer PDF generation)
-# chromium-browser on Ubuntu 22.04+ is a snap stub — install Google Chrome .deb instead
-if ! command -v google-chrome-stable &>/dev/null && ! command -v chromium &>/dev/null; then
-  echo "==> Installing Google Chrome for PDF generation..."
-  curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/google-chrome.deb
-  # Ubuntu 24.04+ renamed libasound2 and others to *t64 (ABI transition).
-  # Pre-install t64 shims so Chrome's .deb dependency check passes.
-  sudo apt-get install -y libasound2t64 libcurl4 2>/dev/null || true
-  sudo apt-get install -y /tmp/google-chrome.deb
-  rm -f /tmp/google-chrome.deb
+# Chrome/Chromium (required for Puppeteer PDF generation)
+# Google Chrome only ships amd64 binaries — ARM devices (Raspberry Pi) must use Chromium.
+ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
+if ! command -v google-chrome-stable &>/dev/null && ! command -v chromium &>/dev/null && ! command -v chromium-browser &>/dev/null; then
+  if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "x86_64" ]; then
+    echo "==> Installing Google Chrome for PDF generation..."
+    curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/google-chrome.deb
+    # Ubuntu 24.04+ renamed libasound2 and others to *t64 (ABI transition).
+    # Pre-install t64 shims so Chrome's .deb dependency check passes.
+    sudo apt-get install -y libasound2t64 libcurl4 2>/dev/null || true
+    sudo apt-get install -y /tmp/google-chrome.deb
+    rm -f /tmp/google-chrome.deb
+  else
+    echo "==> Installing Chromium for PDF generation (ARM architecture: $ARCH)..."
+    sudo apt-get install -y chromium-browser 2>/dev/null || sudo apt-get install -y chromium
+  fi
 fi
 
-CHROME_PATH=$(command -v google-chrome-stable 2>/dev/null || command -v chromium 2>/dev/null || true)
+CHROME_PATH=$(command -v google-chrome-stable 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || true)
 if [ -n "$CHROME_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
   echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> .env
 fi
@@ -92,7 +98,8 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 
 # Install dependencies
 echo "==> Installing dependencies..."
-npm ci
+# Skip Puppeteer's bundled Chromium download — we use the system browser instead
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci
 
 # Build
 echo "==> Building application..."
