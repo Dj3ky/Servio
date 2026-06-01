@@ -58,9 +58,13 @@ fi
 echo "==> Creating directories..."
 sudo mkdir -p "$INSTALL_DIR" "$LOG_DIR" "$UPLOADS_DIR" "$BACKUPS_DIR"
 
-# Copy application files (sudo handles any root-owned files from a previous run)
+# Copy application files
+# rsync handles re-runs cleanly; .git and node_modules are not needed in the install dir
 echo "==> Copying application files..."
-sudo cp -r . "$INSTALL_DIR/"
+if ! command -v rsync &>/dev/null; then
+  sudo apt-get install -y rsync
+fi
+sudo rsync -a --exclude='.git' --exclude='node_modules' . "$INSTALL_DIR/"
 sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
