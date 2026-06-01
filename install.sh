@@ -48,11 +48,6 @@ if ! command -v google-chrome-stable &>/dev/null && ! command -v chromium &>/dev
   fi
 fi
 
-CHROME_PATH=$(command -v google-chrome-stable 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || true)
-if [ -n "$CHROME_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
-  echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> .env
-fi
-
 # PM2
 if ! command -v pm2 &>/dev/null; then
   echo "==> Installing PM2..."
@@ -86,6 +81,12 @@ if [ ! -f .env ]; then
   echo "==> Generated secure credentials in .env"
 fi
 
+# Write Chromium path into .env (now that we are in $INSTALL_DIR and .env is guaranteed to exist)
+CHROME_PATH=$(command -v google-chrome-stable 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || true)
+if [ -n "$CHROME_PATH" ] && ! grep -q "PUPPETEER_EXECUTABLE_PATH" .env; then
+  echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> .env
+fi
+
 # PostgreSQL setup
 DB_PASS=$(grep DATABASE_URL .env | sed 's/.*:\(.*\)@.*/\1/')
 DB_NAME=$(grep DATABASE_URL .env | sed 's/.*\/\([^?]*\).*/\1/')
@@ -109,9 +110,9 @@ npm run build
 echo "==> Running database migrations..."
 npm run db:migrate
 
-# Seed database
+# Seed database (skip silently on re-runs — unique constraint will reject duplicates)
 echo "==> Seeding database..."
-npm run db:seed
+npm run db:seed || true
 
 # Build frontend
 echo "==> Building frontend..."
@@ -121,8 +122,7 @@ npm run build --workspace=apps/frontend
 echo "==> Configuring PM2..."
 pm2 startOrRestart ecosystem.config.js
 
-# Register PM2 as a systemd service so it survives reboots.
-# pm2 startup prints the command to run; grep for the sudo line and execute it.
+# Register PM2 as a systemd service so it survives reboots (idempotent — safe to re-run).
 PM2_STARTUP_CMD=$(pm2 startup 2>&1 | grep -o 'sudo .*$' | head -1)
 if [ -n "$PM2_STARTUP_CMD" ]; then
   echo "==> Running: $PM2_STARTUP_CMD"
