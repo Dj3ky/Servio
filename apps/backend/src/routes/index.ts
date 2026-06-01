@@ -14,6 +14,7 @@ import reportRoutes from './reports';
 import smbRoutes from './smb';
 import schedulerRoutes from './scheduler';
 import searchRoutes from './search';
+import updateRoutes from './update';
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/reports', reportRoutes);
 router.use('/smb', smbRoutes);
 router.use('/scheduler', schedulerRoutes);
 router.use('/search', searchRoutes);
+router.use('/update', updateRoutes);
 
 export default router;

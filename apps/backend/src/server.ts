@@ -8,6 +8,7 @@ import { db } from './db';
 import { initWebSocket } from './ws';
 import { startScheduler } from './services/scheduler';
 import { startBackupScheduler } from './services/backup';
+import { checkForUpdates } from './services/update';
 
 const server = createServer(app);
 
@@ -33,6 +34,11 @@ async function start() {
   initWebSocket(server);
   startScheduler();
   startBackupScheduler();
+
+  // Initial update check on startup, then daily at 06:00
+  checkForUpdates().catch(() => {});
+  const cron = await import('node-cron');
+  cron.default.schedule('0 6 * * *', () => { checkForUpdates().catch(() => {}); });
 
   server.listen(config.port, () => {
     console.log(`[server] Servio backend running on port ${config.port} (${config.nodeEnv})`);

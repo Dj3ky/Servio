@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
-  MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell,
+  MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
+  GitBranch, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -81,6 +82,195 @@ function formatBytes(bytes: number) {
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
+}
+
+interface UpdateStatus {
+  currentCommit: string;
+  remoteCommit: string | null;
+  updateAvailable: boolean;
+  lastChecked: string | null;
+  checking: boolean;
+  applying: boolean;
+  lastError: string | null;
+}
+
+interface UpdateLog {
+  lines: string[];
+  done: boolean;
+  success: boolean;
+}
+
+function UpdatesTab() {
+  const { t } = useTranslation();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [updateDone, setUpdateDone] = useState(false);
+  const [updateSucceeded, setUpdateSucceeded] = useState(false);
+  const logRef = useRef<HTMLPreElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { data: status } = useQuery<UpdateStatus>({
+    queryKey: ['update-status'],
+    queryFn: () => api.get<UpdateStatus>('/update/status'),
+    refetchInterval: isUpdating ? false : 60_000,
+  });
+
+  const check = useMutation({
+    mutationFn: () => api.post<UpdateStatus>('/update/check'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['update-status'] }),
+    onError: () => toast.error(t('settings.checkFailed')),
+  });
+
+
+  function startLogPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const log = await api.get<UpdateLog>('/update/log');
+        setLogLines(log.lines);
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+
+        if (log.done) {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setUpdateDone(true);
+          setUpdateSucceeded(log.success);
+
+          if (log.success) {
+            // Wait for the server to restart, then reload the page
+            setTimeout(() => waitForServerAndReload(), 3000);
+          }
+        }
+      } catch {
+        // Server is restarting — keep polling silently
+      }
+    }, 1000);
+  }
+
+  function waitForServerAndReload() {
+    const poll = setInterval(async () => {
+      try {
+        await fetch('/api/health');
+        clearInterval(poll);
+        window.location.reload();
+      } catch {
+        // not back yet
+      }
+    }, 2000);
+  }
+
+  const apply = useMutation({
+    mutationFn: () => api.post('/update/apply'),
+    onSuccess: () => {
+      setConfirmOpen(false);
+      setIsUpdating(true);
+      setLogLines([]);
+      setUpdateDone(false);
+      setUpdateSucceeded(false);
+      startLogPolling();
+    },
+    onError: () => toast.error(t('settings.updateFailed')),
+  });
+
+  const busy = status?.checking || status?.applying || check.isPending || isUpdating;
+
+  return (
+    <TabsContent value="updates" className="space-y-4 mt-4">
+      <Card>
+        <SectionHeader icon={GitBranch} title={t('settings.updates')} description={t('settings.updatesDesc')} />
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('settings.currentVersion')}</p>
+              <p className="text-sm font-mono">{status?.currentCommit || t('settings.unknown')}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('settings.remoteVersion')}</p>
+              <p className="text-sm font-mono">{status?.remoteCommit || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('settings.lastChecked')}</p>
+              <p className="text-sm">{status?.lastChecked ? formatDateTime(status.lastChecked) : t('settings.neverChecked')}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('common.status')}</p>
+              {status?.updateAvailable ? (
+                <Badge variant="destructive" className="gap-1">
+                  <AlertCircle className="h-3 w-3" />{t('settings.updateAvailable')}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" />{t('settings.upToDate')}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {status?.lastError && !isUpdating && (
+            <p className="text-sm text-destructive">{status.lastError}</p>
+          )}
+
+          <Separator />
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => check.mutate()} disabled={busy}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${check.isPending || status?.checking ? 'animate-spin' : ''}`} />
+              {t('settings.checkNow')}
+            </Button>
+            {status?.updateAvailable && !isUpdating && (
+              <Button onClick={() => setConfirmOpen(true)} disabled={busy}>
+                {t('settings.applyUpdate')}
+              </Button>
+            )}
+          </div>
+
+          {/* Terminal output */}
+          {isUpdating && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                {!updateDone && <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                {updateDone && updateSucceeded && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                {updateDone && !updateSucceeded && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                <p className="text-xs font-medium text-muted-foreground">
+                  {!updateDone
+                    ? t('settings.applying')
+                    : updateSucceeded
+                    ? t('settings.updateSuccess')
+                    : t('settings.updateFailed')}
+                </p>
+                {updateDone && updateSucceeded && (
+                  <p className="text-xs text-muted-foreground">{t('settings.reloading')}</p>
+                )}
+              </div>
+              <pre
+                ref={logRef}
+                className="bg-black text-green-400 text-xs font-mono rounded-md p-3 h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed"
+              >
+                {logLines.join('\n')}
+                {!updateDone && <span className="animate-pulse">█</span>}
+              </pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.applyConfirmTitle')}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('settings.applyConfirmDesc')}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={() => apply.mutate()} disabled={apply.isPending}>
+              {apply.isPending ? t('settings.applying') : t('settings.applyUpdate')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </TabsContent>
+  );
 }
 
 function SectionHeader({ icon: Icon, title, description }: { icon: React.ComponentType<{ className?: string }>; title: string; description: string }) {
@@ -312,6 +502,9 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="alerts" className="gap-1.5">
             <Bell className="h-3.5 w-3.5" />{t('settings.alerts')}
+          </TabsTrigger>
+          <TabsTrigger value="updates" className="gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" />{t('settings.updates')}
           </TabsTrigger>
         </TabsList>
 
@@ -853,6 +1046,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── UPDATES ─────────────────────────────────────────────────────── */}
+        <UpdatesTab />
       </Tabs>
 
       {/* Template dialog */}
