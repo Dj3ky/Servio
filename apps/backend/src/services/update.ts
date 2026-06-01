@@ -83,7 +83,7 @@ export function startUpdate(): void {
   cachedStatus.applying = true;
   updateLog = { lines: [], done: false, success: false };
 
-  const scriptPath = path.resolve(process.cwd(), '../../update.sh');
+  const scriptPath = path.resolve(process.cwd(), 'update.sh');
 
   const child = spawn('bash', [scriptPath], {
     detached: false,
