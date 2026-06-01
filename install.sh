@@ -120,8 +120,19 @@ npm run build --workspace=apps/frontend
 # PM2 configuration
 echo "==> Configuring PM2..."
 pm2 start ecosystem.config.js
+
+# Register PM2 as a systemd service so it survives reboots.
+# pm2 startup prints the command to run; grep for the sudo line and execute it.
+PM2_STARTUP_CMD=$(pm2 startup 2>&1 | grep -o 'sudo .*$' | head -1)
+if [ -n "$PM2_STARTUP_CMD" ]; then
+  echo "==> Running: $PM2_STARTUP_CMD"
+  eval "$PM2_STARTUP_CMD"
+else
+  echo "WARNING: Could not detect PM2 startup command — run 'pm2 startup' manually after install."
+fi
+
+# Save AFTER the startup hook is registered so systemd picks up the current process list
 pm2 save
-pm2 startup | tail -1 | sudo bash
 
 echo ""
 echo "=========================================="
