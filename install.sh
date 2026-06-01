@@ -109,7 +109,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 # Install dependencies
 echo "==> Installing dependencies..."
 # Skip Puppeteer's bundled Chromium download — we use the system browser instead
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 
 # Build
 echo "==> Building application..."
