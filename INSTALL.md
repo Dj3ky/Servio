@@ -95,7 +95,7 @@ The `install.sh` script performs a fully automated production installation on Ub
 
 ```bash
 # Clone the repository to your server
-git clone https://github.com/your-org/servio.git /tmp/servio
+git clone https://github.com/dj3ky/servio.git /tmp/servio
 cd /tmp/servio
 
 # Make the script executable and run it
@@ -331,7 +331,7 @@ sudo certbot --nginx -d your-domain.com
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/your-org/servio.git
+git clone https://github.com/dj3ky/servio.git
 cd servio
 cp .env.example .env
 ```
