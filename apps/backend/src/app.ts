@@ -8,7 +8,11 @@ import apiRoutes from './routes';
 
 const app = express();
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  strictTransportSecurity: false,
+  contentSecurityPolicy: false,
+}));
 app.use(cors({
   origin: config.frontendUrl,
   credentials: true,
