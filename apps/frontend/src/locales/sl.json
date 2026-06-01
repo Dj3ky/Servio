@@ -141,7 +141,7 @@
     "noTemplate": "— brez predloge —",
     "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen.",
     "resetReview": "Ponastavi pregled",
-    "resetConfirm": "Ponastaviti dokončan pregled? Čakajoča faktura bo izbrisana in dovoliti bo novo nalaganje.",
+    "resetConfirm": "Ponastaviti dokončan pregled? Povezana faktura bo prav tako ponastavljena na čakanje in novo nalaganje bo dovoljeno.",
     "resetSuccess": "Pregled je bil ponastavljen."
   },
   "invoices": {
@@ -168,7 +168,10 @@
     "eInvoiceCreated": "E-račun ustvarjen",
     "markEInvoiceCreated": "E-račun ustvarjen",
     "sentByEmail": "Faktura poslana po e-pošti.",
-    "noInvoiceEmail": "Ni konfiguriran e-poštni naslov za fakture — dodajte ga v podatke pogodbe."
+    "noInvoiceEmail": "Ni konfiguriran e-poštni naslov za fakture — dodajte ga v podatke pogodbe.",
+    "resetInvoice": "Ponastavi fakturo",
+    "resetInvoiceConfirm": "Ponastaviti fakturo na čakanje? Številka fakture in podatki o dokončanju bodo izbrisani.",
+    "resetInvoiceSuccess": "Faktura je bila ponastavljena."
   },
   "frequency": {
     "monthly": "Mesečno",

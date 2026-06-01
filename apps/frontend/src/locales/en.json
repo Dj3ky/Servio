@@ -141,7 +141,7 @@
     "noTemplate": "— no template —",
     "noEmailConfigured": "No email address configured — document will only be saved.",
     "resetReview": "Reset Review",
-    "resetConfirm": "Reset this completed review? The pending invoice will be deleted and a new upload will be allowed.",
+    "resetConfirm": "Reset this completed review? The linked invoice will also be reset to pending and a new upload will be allowed.",
     "resetSuccess": "Review has been reset."
   },
   "invoices": {
@@ -168,7 +168,10 @@
     "eInvoiceCreated": "E-Invoice Created",
     "markEInvoiceCreated": "E-Invoice Created",
     "sentByEmail": "Invoice sent by email.",
-    "noInvoiceEmail": "No invoice email configured — please add an invoice email address to the contract."
+    "noInvoiceEmail": "No invoice email configured — please add an invoice email address to the contract.",
+    "resetInvoice": "Reset Invoice",
+    "resetInvoiceConfirm": "Reset this invoice back to pending? Invoice number and completion data will be cleared.",
+    "resetInvoiceSuccess": "Invoice has been reset."
   },
   "frequency": {
     "monthly": "Monthly",

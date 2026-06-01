@@ -108,6 +108,7 @@ export default function FacilityDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<string | null>(null);
+  const [resetInvoiceTarget, setResetInvoiceTarget] = useState<string | null>(null);
   const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<Invoice | null>(null);
 
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -218,6 +219,18 @@ export default function FacilityDetailPage() {
       refetchInvoices();
       toast.success(t('reviews.resetSuccess'));
       setResetTarget(null);
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  const resetInvoiceMutation = useMutation({
+    mutationFn: (invoiceId: string) => api.post(`/invoices/${invoiceId}/reset`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices-facility', activeContract?.id] });
+      refetchInvoices();
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success(t('invoices.resetInvoiceSuccess'));
+      setResetInvoiceTarget(null);
     },
     onError: () => toast.error(t('errors.internal')),
   });
@@ -541,12 +554,20 @@ export default function FacilityDetailPage() {
                         <TableCell>{formatDate(inv.createdAt)}</TableCell>
                         <TableCell>{inv.completedAt ? formatDate(inv.completedAt) : '-'}</TableCell>
                         {canManageInvoices && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            {activeContract?.invoiceDelivery === 'e_invoice' && (
-                              <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
-                                {t('invoices.sendToAccounting')}
-                              </Button>
-                            )}
+                          <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {activeContract?.invoiceDelivery === 'e_invoice' && (
+                                <Button size="sm" variant="secondary" onClick={() => setAccountingInvoice(inv)}>
+                                  {t('invoices.sendToAccounting')}
+                                </Button>
+                              )}
+                              {user?.role === 'admin' && inv.status !== 'pending' && (
+                                <Button size="sm" variant="outline" onClick={() => setResetInvoiceTarget(inv.id)}>
+                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                  {t('invoices.resetInvoice')}
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -701,18 +722,13 @@ export default function FacilityDetailPage() {
               </Button>
             )}
             {invoiceDialog?.status === 'pending' && activeContract?.invoiceDelivery === 'post' && (
-              <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'sent_post', num: invoiceNumber })}>
-                {t('invoices.markSentPost')}
+              <Button disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'completed', num: invoiceNumber })}>
+                {updateInvoiceMutation.isPending ? t('common.loading') : t('invoices.markSentPost')}
               </Button>
             )}
             {invoiceDialog?.status === 'pending' && activeContract?.invoiceDelivery === 'e_invoice' && (
-              <Button variant="outline" disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'e_invoice_created', num: invoiceNumber })}>
-                {t('invoices.markEInvoiceCreated')}
-              </Button>
-            )}
-            {invoiceDialog?.status !== 'completed' && (
               <Button disabled={updateInvoiceMutation.isPending} onClick={() => invoiceDialog && updateInvoiceMutation.mutate({ invoiceId: invoiceDialog.id, status: 'completed', num: invoiceNumber })}>
-                {updateInvoiceMutation.isPending ? t('common.loading') : t('invoices.markCompleted')}
+                {updateInvoiceMutation.isPending ? t('common.loading') : t('invoices.markEInvoiceCreated')}
               </Button>
             )}
           </DialogFooter>
@@ -733,6 +749,25 @@ export default function FacilityDetailPage() {
               onClick={() => resetTarget && resetReviewMutation.mutate(resetTarget)}
             >
               {resetReviewMutation.isPending ? t('common.loading') : t('reviews.resetReview')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetInvoiceTarget} onOpenChange={(open) => { if (!open) setResetInvoiceTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('invoices.resetInvoice')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('invoices.resetInvoiceConfirm')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetInvoiceTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={resetInvoiceMutation.isPending}
+              onClick={() => resetInvoiceTarget && resetInvoiceMutation.mutate(resetInvoiceTarget)}
+            >
+              {resetInvoiceMutation.isPending ? t('common.loading') : t('invoices.resetInvoice')}
             </Button>
           </DialogFooter>
         </DialogContent>

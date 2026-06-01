@@ -257,7 +257,10 @@ router.post(
     if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
     if (review.status !== 'completed') { res.status(409).json({ error: 'errors.validation' }); return; }
 
-    await db.delete(invoices).where(eq(invoices.reviewId, req.params.id));
+    await db
+      .update(invoices)
+      .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null })
+      .where(eq(invoices.reviewId, req.params.id));
 
     const [updated] = await db
       .update(reviews)

@@ -226,14 +226,10 @@ export default function InvoiceQueuePage() {
       enableHiding: false,
       cell: ({ row }) => {
         const inv = row.original;
-        const hasPrimaryAction =
-          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'email') ||
-          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post') ||
-          (inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice');
-        const canComplete = inv.status !== 'completed';
+        const hasPrimaryAction = inv.status === 'pending';
         const canSendAccounting = inv.review.contract.invoiceDelivery === 'e_invoice';
 
-        if (!hasPrimaryAction && !canComplete && !canSendAccounting) return null;
+        if (!hasPrimaryAction && !canSendAccounting) return null;
 
         return (
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -250,26 +246,18 @@ export default function InvoiceQueuePage() {
                   </DropdownMenuItem>
                 )}
                 {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'post' && (
-                  <DropdownMenuItem onClick={() => handleAction(inv, 'sent_post')}>
+                  <DropdownMenuItem onClick={() => handleAction(inv, 'completed')}>
                     {t('invoices.markSentPost')}
                   </DropdownMenuItem>
                 )}
                 {inv.status === 'pending' && inv.review.contract.invoiceDelivery === 'e_invoice' && (
-                  <DropdownMenuItem onClick={() => handleAction(inv, 'e_invoice_created')}>
+                  <DropdownMenuItem onClick={() => handleAction(inv, 'completed')}>
                     {t('invoices.markEInvoiceCreated')}
                   </DropdownMenuItem>
                 )}
                 {canSendAccounting && (
                   <DropdownMenuItem onClick={() => setAccountingInvoice(inv)}>
                     {t('invoices.sendToAccounting')}
-                  </DropdownMenuItem>
-                )}
-                {(hasPrimaryAction || canSendAccounting) && canComplete && (
-                  <DropdownMenuSeparator />
-                )}
-                {canComplete && (
-                  <DropdownMenuItem onClick={() => handleAction(inv, 'completed')}>
-                    {t('invoices.markCompleted')}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -435,12 +423,7 @@ export default function InvoiceQueuePage() {
       <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {targetStatus === 'completed' ? t('invoices.markCompleted') :
-               targetStatus === 'sent_email' ? t('invoices.markSentEmail') :
-               targetStatus === 'e_invoice_created' ? t('invoices.markEInvoiceCreated') :
-               t('invoices.markSentPost')}
-            </DialogTitle>
+            <DialogTitle>{t('invoices.markCompleted')}</DialogTitle>
             {selectedInvoice && (
               <p className="text-sm text-muted-foreground">
                 {selectedInvoice.review.contract.customer.name} · {selectedInvoice.review.contract.contractNumber}

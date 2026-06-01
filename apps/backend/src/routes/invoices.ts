@@ -117,7 +117,7 @@ router.post('/:id/send-email', documentUpload.single('file'), async (req: Reques
     await fs.unlink(tmpFile).catch(() => {});
   }
 
-  const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'sent_email' };
+  const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'completed', completedAt: new Date(), completedById: req.auth!.userId };
   if (invoiceNumberInput) statusUpdate.invoiceNumber = invoiceNumberInput;
   await db.update(invoices).set(statusUpdate).where(eq(invoices.id, invoice.id));
 
@@ -234,6 +234,35 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_invoice', entityType: 'invoice', entityId: req.params.id, payload: { status: parsed.data.status }, req });
 
   broadcast('invoice_updated', { invoiceId: updated.id, contractId: updated.contractId, status: updated.status });
+  broadcast('dashboard_refresh', {});
+
+  res.json(updated);
+});
+
+router.post('/:id/reset', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  const invoice = await db.query.invoices.findFirst({
+    where: (inv, { eq }) => eq(inv.id, req.params.id),
+  });
+  if (!invoice) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (invoice.status === 'pending') { res.status(409).json({ error: 'errors.validation' }); return; }
+
+  const [updated] = await db
+    .update(invoices)
+    .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null })
+    .where(eq(invoices.id, req.params.id))
+    .returning();
+
+  await createAuditLog({
+    userId: req.auth!.userId,
+    userEmail: req.auth!.email,
+    action: 'reset',
+    entityType: 'invoice',
+    entityId: invoice.id,
+    payload: { previousStatus: invoice.status },
+    req,
+  });
+
+  broadcast('invoice_updated', { invoiceId: updated.id, contractId: updated.contractId, status: 'pending' });
   broadcast('dashboard_refresh', {});
 
   res.json(updated);
