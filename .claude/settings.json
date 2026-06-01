@@ -20,7 +20,11 @@
       "Bash(Select-Object -First 20)",
       "Bash(xargs grep -l \"contract\" -i)",
       "PowerShell(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\" -Force | Select-Object Name, @{N=\"Type\"; E={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Format-Table -AutoSize)",
-      "PowerShell(npx tsc --noEmit -p apps/backend/tsconfig.json 2>&1)"
+      "PowerShell(npx tsc --noEmit -p apps/backend/tsconfig.json 2>&1)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git rm *)"
     ]
   }
 }
