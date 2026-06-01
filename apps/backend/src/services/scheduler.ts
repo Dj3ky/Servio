@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { db } from '../db';
-import { reviews } from '../db/schema';
+import { reviews, invoices } from '../db/schema';
 import { format, startOfMonth } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
@@ -46,13 +46,19 @@ export async function createPendingReviews(targetDate?: Date): Promise<number> {
 
     if (existing) continue;
 
-    await db.insert(reviews).values({
+    const [review] = await db.insert(reviews).values({
       contractId: contract.id,
       facilityId: contract.facilityId,
       scheduledMonth,
       status: 'pending',
       emailSent: false,
       smbSaved: false,
+    }).returning();
+
+    await db.insert(invoices).values({
+      reviewId: review.id,
+      contractId: contract.id,
+      status: 'pending',
     });
 
     created++;
