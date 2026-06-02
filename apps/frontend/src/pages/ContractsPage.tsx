@@ -352,7 +352,7 @@ export default function ContractsPage() {
             </Button>
           )}
           {!!row.original.notes && (
-            <span title={row.original.notes} className="cursor-default">
+            <span title={row.original.notes} className="cursor-default inline-flex h-8 w-8 items-center justify-center">
               <Info className="h-4 w-4 text-blue-500" />
             </span>
           )}
