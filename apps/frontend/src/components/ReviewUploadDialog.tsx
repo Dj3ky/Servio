@@ -65,8 +65,6 @@ export function ReviewUploadDialog({
   onSuccess,
 }: ReviewUploadDialogProps) {
   const { t, i18n } = useTranslation();
-  const sendEmail = hasEmail;
-
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
