@@ -101,7 +101,7 @@ export default function FacilityDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const [reviewsView, setReviewsView] = useState<'table' | 'timeline'>('table');
+  const [reviewsView, setReviewsView] = useState<'table' | 'timeline'>('timeline');
   const [invoiceDialog, setInvoiceDialog] = useState<Invoice | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);

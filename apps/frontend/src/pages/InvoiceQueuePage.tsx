@@ -11,7 +11,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatScheduledMonth } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
@@ -65,6 +66,7 @@ const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
 export default function InvoiceQueuePage() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuthStore();
   const { getFilter, setFilter } = useFilterStore();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceQueueItem | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -77,6 +79,7 @@ export default function InvoiceQueuePage() {
   );
   const [accountingInvoice, setAccountingInvoice] = useState<InvoiceQueueItem | null>(null);
   const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<InvoiceQueueItem | null>(null);
+  const [resetInvoiceTarget, setResetInvoiceTarget] = useState<string | null>(null);
 
   // Always fetch pending so we have counts for all non-completed statuses
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
@@ -139,6 +142,17 @@ export default function InvoiceQueuePage() {
       setSelectedInvoice(null);
       setInvoiceNumber('');
     },
+  });
+
+  const resetInvoiceMutation = useMutation({
+    mutationFn: (invoiceId: string) => api.post(`/invoices/${invoiceId}/reset`, {}),
+    onSuccess: () => {
+      toast.success(t('invoices.resetInvoiceSuccess'));
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setResetInvoiceTarget(null);
+    },
+    onError: () => toast.error(t('errors.internal')),
   });
 
   const handleAction = (invoice: InvoiceQueueItem, status: string) => {
@@ -228,8 +242,9 @@ export default function InvoiceQueuePage() {
         const inv = row.original;
         const hasPrimaryAction = inv.status === 'pending';
         const canSendAccounting = inv.review.contract.invoiceDelivery === 'e_invoice';
+        const canReset = user?.role === 'admin' && inv.status !== 'pending';
 
-        if (!hasPrimaryAction && !canSendAccounting) return null;
+        if (!hasPrimaryAction && !canSendAccounting && !canReset) return null;
 
         return (
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -260,6 +275,15 @@ export default function InvoiceQueuePage() {
                     {t('invoices.sendToAccounting')}
                   </DropdownMenuItem>
                 )}
+                {canReset && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setResetInvoiceTarget(inv.id)}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    {t('invoices.resetInvoice')}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -267,7 +291,7 @@ export default function InvoiceQueuePage() {
       },
     }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [t]);
+  ], [t, user]);
 
   const table = useReactTable({
     data: filteredData,
@@ -482,6 +506,25 @@ export default function InvoiceQueuePage() {
           }}
         />
       )}
+
+      <Dialog open={!!resetInvoiceTarget} onOpenChange={(open) => { if (!open) setResetInvoiceTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('invoices.resetInvoice')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('invoices.resetInvoiceConfirm')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetInvoiceTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={resetInvoiceMutation.isPending}
+              onClick={() => resetInvoiceTarget && resetInvoiceMutation.mutate(resetInvoiceTarget)}
+            >
+              {resetInvoiceMutation.isPending ? t('common.loading') : t('invoices.resetInvoice')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -142,6 +142,8 @@ router.post('/', requireRole('admin', 'manager'), async (req: Request, res: Resp
     valueWithoutVat: parsed.data.valueWithoutVat?.toString() ?? null,
     valueWithoutVatPerYear: parsed.data.valueWithoutVatPerYear?.toString() ?? null,
     customerEmail: parsed.data.customerEmail ?? null,
+    invoiceEmail: parsed.data.invoiceEmail ?? null,
+    invoiceDelivery: parsed.data.invoiceDelivery ?? 'email',
     workOrderNumber: parsed.data.workOrderNumber ?? null,
     notes: parsed.data.notes ?? null,
   }).returning();

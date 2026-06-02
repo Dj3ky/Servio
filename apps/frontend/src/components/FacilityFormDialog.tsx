@@ -225,7 +225,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
       await Promise.all([
         api.patch(`/customers/${facilityData!.customer.id}`, {
           name: data.customerName,
-          email: data.customerEmail || undefined,
+          email: data.customerEmail || null,
           contactName: data.contactName || undefined,
           phone: data.phone || undefined,
         }),
@@ -246,8 +246,8 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
           valueWithoutVat: data.valueWithoutVat ?? undefined,
           valueWithoutVatPerYear: data.valueWithoutVatPerYear ?? undefined,
           smbPath: data.smbPath || undefined,
-          customerEmail: data.customerEmail || undefined,
-          invoiceEmail: data.invoiceEmail || undefined,
+          customerEmail: data.customerEmail || null,
+          invoiceEmail: data.invoiceEmail || null,
           notes: data.notes?.trim() || null,
         });
       }
