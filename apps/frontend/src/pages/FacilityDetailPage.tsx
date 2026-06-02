@@ -798,7 +798,6 @@ export default function FacilityDetailPage() {
           onClose={() => setUploadDialogOpen(false)}
           reviewId={pendingReview.id}
           hasEmail={hasEmail}
-          invoiceDelivery={activeContract?.invoiceDelivery ?? 'email'}
           contractEmailTemplateId={activeContract?.emailTemplateId}
           scheduledMonth={pendingReview.scheduledMonth}
           onSuccess={handleUploadSuccess}

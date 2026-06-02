@@ -48,7 +48,6 @@ interface ReviewUploadDialogProps {
   onClose: () => void;
   reviewId: string;
   hasEmail: boolean;
-  invoiceDelivery: 'email' | 'post' | 'e_invoice';
   contractEmailTemplateId?: string | null;
   scheduledMonth?: string;
   onSuccess: () => void;
@@ -59,7 +58,6 @@ export function ReviewUploadDialog({
   onClose,
   reviewId,
   hasEmail,
-  invoiceDelivery,
   contractEmailTemplateId,
   scheduledMonth,
   onSuccess,

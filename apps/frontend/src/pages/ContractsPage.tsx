@@ -564,7 +564,6 @@ export default function ContractsPage() {
           onClose={() => setUploadTarget(null)}
           reviewId={uploadTarget.currentReview.id}
           hasEmail={!!(uploadTarget.customerEmail || uploadTarget.customer.email)}
-          invoiceDelivery={(uploadTarget.invoiceDelivery as 'email' | 'post' | 'e_invoice') ?? 'email'}
           contractEmailTemplateId={uploadTarget.emailTemplateId}
           onSuccess={() => { setUploadTarget(null); queryClient.invalidateQueries({ queryKey: ['contracts'] }); }}
         />
