@@ -131,7 +131,7 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
     ],
   });
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.setContent(html, { waitUntil: 'load' });
   const pdfBuffer = await page.pdf({ format: 'A4', margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } });
   await browser.close();
 
@@ -265,7 +265,7 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
     ],
   });
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.setContent(html, { waitUntil: 'load' });
   const pdfBuffer = await page.pdf({ format: 'A4', margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } });
   await browser.close();
 
