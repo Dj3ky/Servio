@@ -349,7 +349,6 @@ export default function DashboardPage() {
           onClose={() => setQuickUploadReview(null)}
           reviewId={quickUploadReview.id}
           hasEmail={!!quickUploadReview.contract.customerEmail}
-          invoiceDelivery={quickUploadReview.contract.invoiceDelivery}
           contractEmailTemplateId={quickUploadReview.contract.emailTemplateId}
           scheduledMonth={quickUploadReview.scheduledMonth}
           onSuccess={() => {
