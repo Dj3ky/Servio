@@ -20,6 +20,7 @@ npm run db:migrate
 
 echo "==> Restarting services..."
 pm2 reload servio-backend
+pm2 save
 
 echo "==> Update complete!"
 pm2 status
