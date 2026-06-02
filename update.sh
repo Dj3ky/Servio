@@ -7,7 +7,8 @@ echo "==> Updating Servio..."
 cd "$INSTALL_DIR"
 
 echo "==> Pulling latest changes..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 echo "==> Installing dependencies..."
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 NODE_ENV=development npm ci
