@@ -345,16 +345,16 @@ export default function ContractsPage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
-          {!!row.original.notes && (
-            <span title={row.original.notes} className="cursor-default">
-              <Info className="h-4 w-4 text-blue-500" />
-            </span>
-          )}
           {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
             <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
               <Upload className="h-3 w-3 mr-1" />
               {t('reviews.uploadPdf')}
             </Button>
+          )}
+          {!!row.original.notes && (
+            <span title={row.original.notes} className="cursor-default">
+              <Info className="h-4 w-4 text-blue-500" />
+            </span>
           )}
           {user?.role === 'admin' && (
             <Button
@@ -563,7 +563,7 @@ export default function ContractsPage() {
           open={!!uploadTarget}
           onClose={() => setUploadTarget(null)}
           reviewId={uploadTarget.currentReview.id}
-          hasEmail={!!uploadTarget.customerEmail}
+          hasEmail={!!(uploadTarget.customerEmail || uploadTarget.customer.email)}
           invoiceDelivery={(uploadTarget.invoiceDelivery as 'email' | 'post' | 'e_invoice') ?? 'email'}
           contractEmailTemplateId={uploadTarget.emailTemplateId}
           onSuccess={() => { setUploadTarget(null); queryClient.invalidateQueries({ queryKey: ['contracts'] }); }}

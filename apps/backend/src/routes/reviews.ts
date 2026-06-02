@@ -260,7 +260,7 @@ router.post(
     await db
       .update(invoices)
       .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null })
-      .where(eq(invoices.reviewId, req.params.id));
+      .where(and(eq(invoices.reviewId, req.params.id), eq(invoices.status, 'pending')));
 
     const [updated] = await db
       .update(reviews)

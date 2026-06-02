@@ -52,10 +52,15 @@ export function SendAccountingDialog({ invoice, onClose, invalidateKeys = [] }: 
 
   const templates = allTemplates.filter((t) => t.templateType === 'accounting');
 
-  // Pre-fill defaults when the dialog opens
+  // Pre-fill invoice number only when the invoice changes (not when templates load)
   useEffect(() => {
     if (!invoice) return;
     setInvoiceNumber(invoice.invoiceNumber ?? '');
+  }, [invoice]);
+
+  // Pre-fill template defaults when invoice opens or templates become available
+  useEffect(() => {
+    if (!invoice) return;
     const def = templates.find((t) => t.isDefault) ?? templates[0];
     if (def) {
       setSelectedTemplateId(def.id);

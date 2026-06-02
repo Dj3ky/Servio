@@ -92,7 +92,6 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
         <th>${t.completedAt}</th>
         <th>${t.invoiceNo}</th>
         <th>${t.invoiceCreated}</th>
-        <th>${t.invoiceCompleted}</th>
       </tr>
     </thead>
     <tbody>
@@ -107,7 +106,6 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
           <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
           <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
           <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
-          <td>${(r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-'}</td>
         </tr>`,
         )
         .join('')}
@@ -224,7 +222,6 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
         <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
         <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
         <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
-        <td>${(r as any).invoice?.completedAt ? format(new Date((r as any).invoice.completedAt), 'dd.MM.yyyy') : '-'}</td>
       </tr>`).join(''))
     .join('');
 
@@ -246,7 +243,7 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
   <h1>${appName}</h1>
   <h2>${t.yearlyReport} – ${year}</h2>
   <table>
-    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th><th>${t.invoiceNo}</th><th>${t.invoiceCreated}</th><th>${t.invoiceCompleted}</th></tr></thead>
+    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th><th>${t.invoiceNo}</th><th>${t.invoiceCreated}</th></tr></thead>
     <tbody>${monthRows}</tbody>
   </table>
   <div class="footer"><p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p></div>

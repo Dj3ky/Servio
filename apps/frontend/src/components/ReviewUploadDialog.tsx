@@ -65,7 +65,7 @@ export function ReviewUploadDialog({
   onSuccess,
 }: ReviewUploadDialogProps) {
   const { t, i18n } = useTranslation();
-  const sendEmail = invoiceDelivery === 'email';
+  const sendEmail = hasEmail;
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -261,11 +261,11 @@ export function ReviewUploadDialog({
                 </div>
               )}
 
-              {!sendEmail && (
+              {invoiceDelivery !== 'email' && (
                 <p className="text-sm text-muted-foreground">{t(`invoiceDelivery.saveOnly.${invoiceDelivery}`)}</p>
               )}
 
-              {sendEmail && hasEmail && (
+              {hasEmail && (
                 <>
                   <Separator />
                   {templates.length > 0 && (
@@ -297,7 +297,7 @@ export function ReviewUploadDialog({
                 </>
               )}
 
-              {sendEmail && !hasEmail && (
+              {!hasEmail && (
                 <p className="text-sm text-muted-foreground">{t('reviews.noEmailConfigured')}</p>
               )}
 
