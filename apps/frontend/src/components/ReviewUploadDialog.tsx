@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, X, Eye, EyeOff, AlertTriangle, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -259,8 +259,11 @@ export function ReviewUploadDialog({
                 </div>
               )}
 
-              {invoiceDelivery !== 'email' && (
-                <p className="text-sm text-muted-foreground">{t(`invoiceDelivery.saveOnly.${invoiceDelivery}`)}</p>
+              {hasEmail && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>{t('reviews.emailWillBeSent')}</AlertDescription>
+                </Alert>
               )}
 
               {hasEmail && (
@@ -296,7 +299,10 @@ export function ReviewUploadDialog({
               )}
 
               {!hasEmail && (
-                <p className="text-sm text-muted-foreground">{t('reviews.noEmailConfigured')}</p>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>{t('reviews.noEmailConfigured')}</AlertDescription>
+                </Alert>
               )}
 
               {error && <p className="text-sm text-destructive">{error}</p>}

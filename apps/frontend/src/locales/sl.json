@@ -139,7 +139,8 @@
     "emailSubject": "Zadeva e-pošte",
     "emailBody": "Vsebina e-pošte",
     "noTemplate": "— brez predloge —",
-    "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen.",
+    "noEmailConfigured": "E-poštni naslov ni konfiguriran — dokument bo samo shranjen na strežnik.",
+    "emailWillBeSent": "Pregledni dokument bo stranki poslan po e-pošti in shranjen na strežnik.",
     "resetReview": "Ponastavi pregled",
     "resetConfirm": "Ponastaviti dokončan pregled? Povezana faktura bo prav tako ponastavljena na čakanje in novo nalaganje bo dovoljeno.",
     "resetSuccess": "Pregled je bil ponastavljen."
