@@ -45,6 +45,7 @@
   "nav": {
     "dashboard": "Nadzorna plošča",
     "contracts": "Pogodbe",
+    "contractTimeline": "Terminska preglednica",
     "invoices": "Fakture",
     "reports": "Poročila",
     "settings": "Nastavitve",
@@ -371,6 +372,17 @@
     "customerEmailHint": "Za pošiljanje PDF poročil o pregledih. Ločite več naslovov z vejicami.",
     "invoiceEmailHint": "Za pošiljanje faktur. Če je prazno, se uporabi e-pošta za preglede. Ločite več naslovov z vejicami.",
     "required": "* Obvezno polje"
+  },
+  "contractTimeline": {
+    "title": "Terminska preglednica pogodb",
+    "subtitle": "Mesečni pregled vseh pregledov pogodb za zadnjih 12 mesecev",
+    "last6Months": "Zadnjih 6 mesecev",
+    "last12Months": "Zadnjih 12 mesecev",
+    "last24Months": "Zadnjih 24 mesecev",
+    "currentMonth": "Trenutni mesec",
+    "notDone": "nedokončano",
+    "noReviews": "Ni pregledov ta mesec",
+    "pendingAction": "Zahteva ukrepanje"
   },
   "reports": {
     "title": "Poročila",

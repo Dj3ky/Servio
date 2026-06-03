@@ -8,7 +8,7 @@ import { createAuditLog } from '../utils/audit';
 import { saveToSmb, buildSmbPath } from '../services/smb';
 import { sendMail, renderTemplate } from '../services/email';
 import { broadcast } from '../ws';
-import { format } from 'date-fns';
+import { format, subMonths, startOfMonth } from 'date-fns';
 import { documentUpload } from '../middleware/upload';
 
 const router = Router();
@@ -59,6 +59,34 @@ router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
     orderBy: (r, { asc }) => [asc(r.scheduledMonth)],
   });
   res.json(data);
+});
+
+router.get('/monthly-overview', async (req: Request, res: Response): Promise<void> => {
+  const monthsBack = Math.min(24, Math.max(1, parseInt(req.query.months as string ?? '12', 10)));
+  const now = new Date();
+  const startDate = format(subMonths(startOfMonth(now), monthsBack - 1), 'yyyy-MM-dd');
+
+  const data = await db.query.reviews.findMany({
+    where: (r, { gte }) => gte(r.scheduledMonth, startDate),
+    with: {
+      contract: {
+        with: {
+          customer: { columns: { id: true, name: true } },
+          facility: { columns: { id: true, name: true } },
+        },
+      },
+      completedBy: { columns: { id: true, name: true } },
+    },
+    orderBy: (r, { desc, asc }) => [desc(r.scheduledMonth), asc(r.id)],
+  });
+
+  const result: Array<{ month: string; reviews: typeof data }> = [];
+  for (let i = 0; i < monthsBack; i++) {
+    const monthDate = format(subMonths(startOfMonth(now), i), 'yyyy-MM-dd');
+    result.push({ month: monthDate, reviews: data.filter((r) => r.scheduledMonth === monthDate) });
+  }
+
+  res.json(result);
 });
 
 router.post(

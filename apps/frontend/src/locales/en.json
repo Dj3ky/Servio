@@ -45,6 +45,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "contracts": "Contracts",
+    "contractTimeline": "Contract Timeline",
     "invoices": "Invoices",
     "reports": "Reports",
     "settings": "Settings",
@@ -371,6 +372,17 @@
     "customerEmailHint": "For sending review PDF reports. Separate multiple addresses with commas.",
     "invoiceEmailHint": "For sending invoice PDFs. Falls back to review email if empty. Separate multiple addresses with commas.",
     "required": "* Required field"
+  },
+  "contractTimeline": {
+    "title": "Contract Timeline",
+    "subtitle": "Monthly overview of all contract reviews for the last 12 months",
+    "last6Months": "Last 6 months",
+    "last12Months": "Last 12 months",
+    "last24Months": "Last 24 months",
+    "currentMonth": "Current Month",
+    "notDone": "not done",
+    "noReviews": "No reviews this month",
+    "pendingAction": "Needs action"
   },
   "reports": {
     "title": "Reports",

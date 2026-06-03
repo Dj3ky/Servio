@@ -13,6 +13,7 @@ const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const UsersPage = lazy(() => import('@/pages/UsersPage'));
 const AuditLogPage = lazy(() => import('@/pages/AuditLogPage'));
+const ContractTimelinePage = lazy(() => import('@/pages/ContractTimelinePage'));
 
 function PageLoader() {
   return (
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'contracts', element: withSuspense(<ContractsPage />) },
+      { path: 'contract-timeline', element: withSuspense(<ContractTimelinePage />) },
       { path: 'facilities/:id', element: withSuspense(<FacilityDetailPage />) },
       {
         path: 'invoices',

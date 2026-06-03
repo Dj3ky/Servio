@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X,
+  LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
@@ -24,6 +24,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
+  { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline' },
   { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', roles: ['admin', 'manager', 'accountant'] },
   { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', roles: ['admin', 'manager', 'accountant'] },
   { labelKey: 'nav.users', icon: Users, path: '/users', roles: ['admin', 'manager'] },
