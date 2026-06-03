@@ -111,6 +111,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 echo "==> Installing dependencies..."
 # Skip Puppeteer's bundled Chromium download — we use the system browser instead
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci
+npm install -D vite-plugin-pwa --workspace=apps/frontend
 
 # Build
 echo "==> Building application..."

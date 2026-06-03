@@ -44,7 +44,13 @@
       "Bash([ ! -d \"/d/GitHub/Servio/node_modules/$pkg\" ])",
       "Bash(cp -r /tmp/imap-install/node_modules/__TRACKED_VAR__ /d/GitHub/Servio/node_modules/)",
       "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\src\" -Recurse -Filter \"*.tsx\" -o File)",
-      "Bash(Select-Object -ExpandProperty Name)"
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Read(//usr/local/**)",
+      "Read(//usr/**)",
+      "PowerShell(Get-Command npm -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\npm\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:ProgramFiles\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object Name -First 5)",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" install -D vite-plugin-pwa --workspace=apps/frontend)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend"
