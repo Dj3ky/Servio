@@ -160,9 +160,10 @@ export default function ContractTimelinePage() {
                       <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
                       {sorted.map((r, idx) => {
                         const isNotDone = r.status !== 'completed';
+                        const invoiceNeedsAction = !!r.invoice && r.invoice.status !== 'completed';
                         const dotColor =
                           r.status === 'completed'
-                            ? 'bg-green-500'
+                            ? invoiceNeedsAction ? 'bg-amber-500' : 'bg-green-500'
                             : r.status === 'in_progress'
                               ? 'bg-blue-500'
                               : r.status === 'failed'
@@ -207,8 +208,8 @@ export default function ContractTimelinePage() {
                                     </Badge>
                                   </span>
                                 )}
-                                {isNotDone && isCurrentMonth && (
-                                  <span className="flex items-center gap-0.5 text-xs text-rose-500">
+                                {((isNotDone && isCurrentMonth) || (!isNotDone && invoiceNeedsAction)) && (
+                                  <span className={`flex items-center gap-0.5 text-xs ${!isNotDone && invoiceNeedsAction ? 'text-amber-500' : 'text-rose-500'}`}>
                                     <Clock className="h-3 w-3" />
                                     {t('contractTimeline.pendingAction')}
                                   </span>
