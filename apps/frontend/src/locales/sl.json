@@ -126,6 +126,7 @@
     "uploadPdf": "Naloži datoteko",
     "pdfReport": "PDF poročilo",
     "emailSent": "E-pošta poslana",
+    "emailBounced": "E-pošta vrnjena",
     "smbSaved": "SMB shranjeno",
     "reviewDone": "Pregled dokončan",
     "invoiceNo": "Št. fakture",

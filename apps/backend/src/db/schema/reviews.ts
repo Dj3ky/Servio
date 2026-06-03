@@ -18,6 +18,7 @@ export const reviews = pgTable('reviews', {
   completedById: uuid('completed_by_id').references(() => users.id),
   notes: text('notes'),
   emailSent: boolean('email_sent').notNull().default(false),
+  emailBounced: boolean('email_bounced').notNull().default(false),
   smbSaved: boolean('smb_saved').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

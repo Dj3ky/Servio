@@ -30,6 +30,7 @@ interface Review {
   createdAt: string;
   completedAt: string | null;
   emailSent: boolean;
+  emailBounced: boolean;
   smbSaved: boolean;
   completedBy: { name: string } | null;
 }
@@ -449,7 +450,13 @@ export default function FacilityDetailPage() {
                             {t(`reviews.${r.status}` as any)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{r.emailSent ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                        <TableCell>
+                          {r.emailBounced
+                            ? <XCircle className="h-4 w-4 text-destructive" title={t('reviews.emailBounced')} />
+                            : r.emailSent
+                              ? <CheckCircle className="h-4 w-4 text-green-500" />
+                              : <XCircle className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
                         <TableCell>{r.smbSaved ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.completedAt ? formatDate(r.completedAt) : '-'}</TableCell>
                         <TableCell>{r.completedBy?.name ?? '-'}</TableCell>
@@ -497,7 +504,8 @@ export default function FacilityDetailPage() {
                               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                 {r.completedAt && <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt)}</span>}
                                 {r.completedBy && <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>}
-                                {r.emailSent && <span className="flex items-center gap-0.5"><CheckCircle className="h-3 w-3 text-green-500" /> {t('reviews.emailSent')}</span>}
+                                {r.emailBounced && <span className="flex items-center gap-0.5 text-destructive"><XCircle className="h-3 w-3" /> {t('reviews.emailBounced')}</span>}
+                                {!r.emailBounced && r.emailSent && <span className="flex items-center gap-0.5"><CheckCircle className="h-3 w-3 text-green-500" /> {t('reviews.emailSent')}</span>}
                                 {r.smbSaved && <span className="flex items-center gap-0.5"><CheckCircle className="h-3 w-3 text-green-500" /> {t('reviews.smbSaved')}</span>}
                                 {inv?.invoiceNumber && <span>{t('reviews.invoiceNo')}: {inv.invoiceNumber}</span>}
                                 {inv?.completedAt && <span>{t('reviews.invoiceSent')}: {formatDate(inv.completedAt)}</span>}

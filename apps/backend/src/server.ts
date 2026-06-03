@@ -24,6 +24,10 @@ async function ensureSettingsColumns() {
       ADD COLUMN IF NOT EXISTS escalation_days   integer  NOT NULL DEFAULT 3,
       ADD COLUMN IF NOT EXISTS imap_port         integer
   `);
+  await db.execute(sql`
+    ALTER TABLE reviews
+      ADD COLUMN IF NOT EXISTS email_bounced boolean NOT NULL DEFAULT false
+  `);
 }
 
 async function start() {

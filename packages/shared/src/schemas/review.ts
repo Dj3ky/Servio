@@ -20,6 +20,7 @@ export const reviewSchema = z.object({
   completedById: z.string().uuid().nullable(),
   notes: z.string().nullable(),
   emailSent: z.boolean(),
+  emailBounced: z.boolean(),
   smbSaved: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

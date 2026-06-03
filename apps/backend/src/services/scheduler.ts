@@ -4,7 +4,7 @@ import { reviews, invoices } from '../db/schema';
 import { format, startOfMonth, subMonths } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
-import { getInboxStatus } from './imap';
+import { getInboxStatus, detectAndProcessBounces } from './imap';
 import { broadcast } from '../ws';
 
 const BIANNUAL_MONTHS = [1, 7];
@@ -194,13 +194,23 @@ export function startScheduler(): void {
     }
   });
 
-  // Inbox poll — every 5 minutes
+  // Inbox poll + bounce detection — every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
     try {
       const result = await getInboxStatus();
       if (result) broadcast('inbox_count', { unreadCount: result.unreadCount });
     } catch (err) {
       console.error('[scheduler] Inbox poll failed:', err);
+    }
+
+    try {
+      const bounced = await detectAndProcessBounces();
+      if (bounced.length > 0) {
+        broadcast('dashboard_refresh', {});
+        console.log(`[scheduler] Marked ${bounced.length} review(s) as email bounced: ${bounced.join(', ')}`);
+      }
+    } catch (err) {
+      console.error('[scheduler] Bounce detection failed:', err);
     }
   });
 

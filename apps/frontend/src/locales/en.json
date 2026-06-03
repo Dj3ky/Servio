@@ -126,6 +126,7 @@
     "uploadPdf": "Upload File",
     "pdfReport": "PDF Report",
     "emailSent": "Email Sent",
+    "emailBounced": "Email Returned",
     "smbSaved": "SMB Saved",
     "reviewDone": "Review Done",
     "invoiceNo": "Invoice No.",

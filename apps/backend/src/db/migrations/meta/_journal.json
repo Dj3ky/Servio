@@ -23,5 +23,12 @@
       "tag": "0002_add_imap_port",
       "breakpoints": true
     }
+    ,{
+      "idx": 3,
+      "version": "7",
+      "when": 1780617600000,
+      "tag": "0003_add_email_bounced",
+      "breakpoints": true
+    }
   ]
 }

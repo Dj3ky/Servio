@@ -14,6 +14,7 @@ interface ReviewItem {
   scheduledMonth: string;
   completedAt: string | null;
   emailSent: boolean;
+  emailBounced: boolean;
   smbSaved: boolean;
   completedBy: { id: string; name: string } | null;
   contract: {
@@ -229,7 +230,13 @@ export default function ContractTimelinePage() {
                                   {r.completedBy && (
                                     <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>
                                   )}
-                                  {r.emailSent && (
+                                  {r.emailBounced && (
+                                    <span className="flex items-center gap-0.5 text-destructive">
+                                      <Mail className="h-3 w-3" />
+                                      {t('reviews.emailBounced')}
+                                    </span>
+                                  )}
+                                  {!r.emailBounced && r.emailSent && (
                                     <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
                                       <Mail className="h-3 w-3" />
                                       {t('reviews.emailSent')}

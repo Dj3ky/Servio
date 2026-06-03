@@ -1,6 +1,24 @@
 import { ImapFlow } from 'imapflow';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
+import { reviews } from '../db/schema';
 import { decrypt } from '../utils/crypto';
+
+const BOUNCE_FROM_PATTERNS = [/mailer-daemon/i, /postmaster/i, /mail delivery/i, /mail system/i];
+const BOUNCE_SUBJECT_PATTERNS = [
+  /undeliverable/i, /delivery (status notification|failure|failed)/i,
+  /returned mail/i, /failure notice/i, /mail delivery/i, /undelivered/i,
+];
+
+function isBounceMail(from: string, subject: string): boolean {
+  return BOUNCE_FROM_PATTERNS.some((p) => p.test(from)) ||
+    BOUNCE_SUBJECT_PATTERNS.some((p) => p.test(subject));
+}
+
+function extractEmails(text: string): string[] {
+  const matches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) ?? [];
+  return [...new Set(matches.map((e) => e.toLowerCase()))];
+}
 
 export interface InboxMessage {
   uid: number;
@@ -63,6 +81,68 @@ export async function getInboxStatus(): Promise<{ unreadCount: number; messages:
   } finally {
     await client.logout().catch(() => {});
   }
+}
+
+export async function detectAndProcessBounces(): Promise<string[]> {
+  const client = await createImapClient();
+  if (!client) return [];
+
+  const bouncedEmails: string[] = [];
+
+  try {
+    await client.connect();
+    const status = await client.status('INBOX', { messages: true });
+    const total = status.messages ?? 0;
+    if (total === 0) return [];
+
+    // Gather emails mentioned in bounce messages from the last 50 messages
+    const bouncedAddresses = new Set<string>();
+    const start = Math.max(1, total - 49);
+    await client.mailboxOpen('INBOX');
+
+    for await (const msg of client.fetch(`${start}:*`, { envelope: true, uid: true, bodyParts: ['TEXT'] })) {
+      const env = msg.envelope;
+      const from = (env?.from?.[0]?.name ?? '') + ' ' + (env?.from?.[0]?.address ?? '');
+      const subject = env?.subject ?? '';
+      if (!isBounceMail(from, subject)) continue;
+
+      const bodyBuf = msg.bodyParts?.get('TEXT');
+      const bodyText = bodyBuf ? bodyBuf.toString() : '';
+      for (const email of extractEmails(bodyText + ' ' + subject)) {
+        bouncedAddresses.add(email);
+      }
+    }
+
+    if (bouncedAddresses.size === 0) return [];
+
+    // Load reviews that were sent but not yet bounced, with their contract's email
+    const candidates = await db.query.reviews.findMany({
+      where: (r, { and, eq }) => and(eq(r.emailSent, true), eq(r.emailBounced, false)),
+      columns: { id: true, contractId: true },
+      with: {
+        contract: {
+          columns: { customerEmail: true },
+          with: { customer: { columns: { email: true } } },
+        },
+      },
+    });
+
+    for (const review of candidates) {
+      const recipientEmail = (
+        (review as any).contract?.customerEmail ?? (review as any).contract?.customer?.email ?? ''
+      ).toLowerCase();
+      if (!recipientEmail || !bouncedAddresses.has(recipientEmail)) continue;
+
+      await db.update(reviews).set({ emailBounced: true }).where(eq(reviews.id, review.id));
+      bouncedEmails.push(recipientEmail);
+    }
+  } catch (err) {
+    console.error('[imap] Bounce detection failed:', err);
+  } finally {
+    await client.logout().catch(() => {});
+  }
+
+  return bouncedEmails;
 }
 
 export async function markMessageSeen(uid: number): Promise<void> {
