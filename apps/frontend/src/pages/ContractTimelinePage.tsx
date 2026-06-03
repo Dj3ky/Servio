@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarDays, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatScheduledMonth } from '@/lib/utils';
+import { formatScheduledMonth, formatDate } from '@/lib/utils';
 
 interface ReviewItem {
   id: string;
@@ -22,11 +22,28 @@ interface ReviewItem {
     customer: { id: string; name: string };
     facility: { id: string; name: string };
   };
+  invoice: {
+    id: string;
+    invoiceNumber: string | null;
+    completedAt: string | null;
+    status: string;
+  } | null;
 }
 
 interface MonthGroup {
   month: string;
   reviews: ReviewItem[];
+}
+
+const STATUS_ORDER: Record<ReviewItem['status'], number> = {
+  pending: 0,
+  in_progress: 1,
+  failed: 2,
+  completed: 3,
+};
+
+function sortReviews(reviews: ReviewItem[]): ReviewItem[] {
+  return [...reviews].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
 }
 
 function currentMonthIso(): string {
@@ -80,6 +97,7 @@ export default function ContractTimelinePage() {
         <div className="space-y-4">
           {data.map(({ month, reviews }) => {
             const isCurrentMonth = month === currentMonth;
+            const sorted = sortReviews(reviews);
             const completed = reviews.filter((r) => r.status === 'completed').length;
             const notDone = reviews.filter((r) => r.status !== 'completed').length;
 
@@ -118,11 +136,11 @@ export default function ContractTimelinePage() {
                   </div>
                 </CardHeader>
 
-                {reviews.length > 0 && (
+                {sorted.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="relative pl-6">
                       <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
-                      {reviews.map((r, idx) => {
+                      {sorted.map((r, idx) => {
                         const isNotDone = r.status !== 'completed';
                         const dotColor =
                           r.status === 'completed'
@@ -143,36 +161,60 @@ export default function ContractTimelinePage() {
                               : 'warning';
 
                         return (
-                          <div key={r.id} className={`relative ${idx !== reviews.length - 1 ? 'pb-4' : ''}`}>
+                          <div key={r.id} className={`relative ${idx !== sorted.length - 1 ? 'pb-4' : ''}`}>
                             <div className={`absolute -left-[14px] top-1.5 h-3 w-3 rounded-full border-2 border-background ${dotColor}`} />
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Link
-                                    to={`/facilities/${r.contract.facility.id}`}
-                                    className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
-                                  >
-                                    {r.contract.contractNumber}
-                                  </Link>
-                                  <span className="text-xs text-muted-foreground truncate">
-                                    {r.contract.customer.name} · {r.contract.facility.name}
+                            <div className="min-w-0">
+                              {/* Main row: contract, customer/facility, status */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link
+                                  to={`/facilities/${r.contract.facility.id}`}
+                                  className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
+                                >
+                                  {r.contract.contractNumber}
+                                </Link>
+                                <span className="text-xs text-muted-foreground">
+                                  {r.contract.customer.name} · {r.contract.facility.name}
+                                </span>
+                                <Badge variant={badgeVariant} className="text-xs shrink-0">
+                                  {t(`reviews.${r.status}` as any)}
+                                </Badge>
+                                {isNotDone && isCurrentMonth && (
+                                  <span className="flex items-center gap-0.5 text-xs text-rose-500">
+                                    <Clock className="h-3 w-3" />
+                                    {t('contractTimeline.pendingAction')}
                                   </span>
-                                  <Badge variant={badgeVariant} className="text-xs shrink-0">
-                                    {t(`reviews.${r.status}` as any)}
-                                  </Badge>
-                                  {isNotDone && isCurrentMonth && (
-                                    <span className="flex items-center gap-0.5 text-xs text-rose-500">
-                                      <Clock className="h-3 w-3" />
-                                      {t('contractTimeline.pendingAction')}
-                                    </span>
-                                  )}
-                                </div>
-                                {r.completedAt && r.completedBy && (
-                                  <div className="mt-0.5 text-xs text-muted-foreground">
-                                    {t('reviews.completedBy')}: {r.completedBy.name}
-                                  </div>
                                 )}
                               </div>
+
+                              {/* Detail row: dates, checkmarks, invoice */}
+                              {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber) && (
+                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                  {r.completedAt && (
+                                    <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
+                                  )}
+                                  {r.completedBy && (
+                                    <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>
+                                  )}
+                                  {r.emailSent && (
+                                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                      <Mail className="h-3 w-3" />
+                                      {t('reviews.emailSent')}
+                                    </span>
+                                  )}
+                                  {r.smbSaved && (
+                                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                      <FolderOpen className="h-3 w-3" />
+                                      {t('reviews.smbSaved')}
+                                    </span>
+                                  )}
+                                  {r.invoice?.invoiceNumber && (
+                                    <span>{t('reviews.invoiceNo')}: {r.invoice.invoiceNumber}</span>
+                                  )}
+                                  {r.invoice?.completedAt && (
+                                    <span>{t('reviews.invoiceSent')}: {formatDate(r.invoice.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
