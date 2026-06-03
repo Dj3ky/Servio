@@ -1,24 +1,7 @@
 import nodemailer from 'nodemailer';
-import { resolveMx } from 'dns/promises';
 import { db } from '../db';
 import { decrypt } from '../utils/crypto';
 import { format } from 'date-fns';
-
-async function validateEmailDomain(email: string): Promise<void> {
-  const domain = email.split('@')[1];
-  if (!domain) throw new Error(`Invalid email address: ${email}`);
-  try {
-    await resolveMx(domain);
-  } catch (err: any) {
-    // Only reject when the domain provably doesn't exist.
-    // ENODATA means no MX records but the domain may still receive mail via A-record fallback (RFC 5321).
-    // ESERVFAIL / other errors are transient — let the SMTP server decide.
-    if (err.code === 'ENOTFOUND') {
-      throw new Error(`Domain does not exist: ${domain}`);
-    }
-    // For all other DNS errors, fall through and let SMTP handle it.
-  }
-}
 
 interface MailOptions {
   to: string;
@@ -45,8 +28,6 @@ async function getTransporter() {
 }
 
 export async function sendMail(options: MailOptions): Promise<void> {
-  await validateEmailDomain(options.to);
-
   const s = await db.query.settings.findFirst();
   const transporter = await getTransporter();
 
