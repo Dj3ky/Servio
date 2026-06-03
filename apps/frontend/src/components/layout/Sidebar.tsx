@@ -51,18 +51,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-300 lg:static lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full',
       )}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border min-h-16">
-          <div className="flex flex-col items-start gap-1">
-            {settings.logoUrl ? (
-              <>
-                <img src={settings.logoUrl} alt={settings.appName} className="max-h-9 max-w-[140px] object-contain" />
-                <span className="text-base font-semibold text-sidebar-foreground leading-tight">{settings.appName}</span>
-              </>
-            ) : (
-              <span className="text-lg font-semibold text-sidebar-foreground">{settings.appName}</span>
-            )}
-          </div>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onClose}>
+        <div className="relative flex flex-col items-center justify-center px-4 py-5 border-b border-sidebar-border">
+          {settings.logoUrl ? (
+            <>
+              <img src={settings.logoUrl} alt={settings.appName} className="max-h-12 max-w-[150px] object-contain mb-2" />
+              <span className="text-sm font-semibold tracking-widest uppercase text-sidebar-foreground/70">{settings.appName}</span>
+            </>
+          ) : (
+            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">{settings.appName}</span>
+          )}
+          <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 lg:hidden" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
