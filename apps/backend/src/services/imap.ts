@@ -91,16 +91,17 @@ export async function detectAndProcessBounces(): Promise<string[]> {
 
   try {
     await client.connect();
-    const status = await client.status('INBOX', { messages: true });
-    const total = status.messages ?? 0;
-    if (total === 0) return [];
-
-    // Gather emails mentioned in bounce messages from the last 50 messages
-    const bouncedAddresses = new Set<string>();
-    const start = Math.max(1, total - 49);
     await client.mailboxOpen('INBOX');
 
-    for await (const msg of client.fetch(`${start}:*`, { envelope: true, uid: true, bodyParts: ['TEXT'] })) {
+    // Only look at unread messages — once processed we mark them read so they
+    // are never re-evaluated and cannot poison future successful deliveries.
+    const unreadUids = await client.search({ unseen: true }, { uid: true });
+    if (!unreadUids || unreadUids.length === 0) return [];
+
+    const bouncedAddresses = new Set<string>();
+    const processedBounceUids: number[] = [];
+
+    for await (const msg of client.fetch(unreadUids, { envelope: true, uid: true, bodyParts: ['TEXT'] }, { uid: true })) {
       const env = msg.envelope;
       const from = (env?.from?.[0]?.name ?? '') + ' ' + (env?.from?.[0]?.address ?? '');
       const subject = env?.subject ?? '';
@@ -111,6 +112,12 @@ export async function detectAndProcessBounces(): Promise<string[]> {
       for (const email of extractEmails(bodyText + ' ' + subject)) {
         bouncedAddresses.add(email);
       }
+      processedBounceUids.push(msg.uid);
+    }
+
+    // Mark processed bounce NDRs as read so they are never re-scanned
+    for (const uid of processedBounceUids) {
+      await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
     }
 
     if (bouncedAddresses.size === 0) return [];
