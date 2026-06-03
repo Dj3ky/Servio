@@ -356,8 +356,7 @@
     "email_failed": "Email Error",
     "backup_failed": "Backup Error",
     "review_overdue": "Review Overdue",
-    "invoice_waiting": "Invoice Waiting",
-    "review_completed": "Review Completed"
+    "email_bounced": "Email Bounced"
   },
   "auditLog": {
     "title": "Audit Log",

@@ -5,8 +5,7 @@ export const notificationTypeSchema = z.enum([
   'email_failed',
   'backup_failed',
   'review_overdue',
-  'invoice_waiting',
-  'review_completed',
+  'email_bounced',
 ]);
 
 export const notificationSchema = z.object({

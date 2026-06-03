@@ -272,14 +272,6 @@ router.post(
     broadcast('invoice_created', { invoiceId: invoice.id, contractId: invoice.contractId, facilityName: facility?.name ?? '', contractNumber: contract.contractNumber });
     broadcast('dashboard_refresh', {});
 
-    await db.insert(notifications).values({
-      type: 'review_completed',
-      title: 'Review Completed',
-      message: `Review for ${facility?.name ?? 'unknown'} completed successfully.`,
-      entityType: 'review',
-      entityId: review.id,
-    });
-
     res.json({ review: updatedReview, invoice, emailSent, smbSaved, emailError });
   },
 );

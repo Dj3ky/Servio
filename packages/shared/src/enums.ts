@@ -35,8 +35,7 @@ export const NotificationType = {
   email_failed: 'email_failed',
   backup_failed: 'backup_failed',
   review_overdue: 'review_overdue',
-  invoice_waiting: 'invoice_waiting',
-  review_completed: 'review_completed',
+  email_bounced: 'email_bounced',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 

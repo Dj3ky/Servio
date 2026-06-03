@@ -1,8 +1,9 @@
 import { ImapFlow } from 'imapflow';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
-import { reviews, invoices } from '../db/schema';
+import { reviews, invoices, notifications } from '../db/schema';
 import { decrypt } from '../utils/crypto';
+import { broadcast } from '../ws';
 
 const BOUNCE_FROM_PATTERNS = [/mailer-daemon/i, /postmaster/i, /mail delivery/i, /mail system/i];
 const BOUNCE_SUBJECT_PATTERNS = [
@@ -140,6 +141,17 @@ export async function detectAndProcessBounces(): Promise<string[]> {
       await db.update(reviews).set({ emailBounced: true }).where(eq(reviews.id, review.id));
       bouncedEmails.push(recipientEmail);
 
+      try {
+        const [notif] = await db.insert(notifications).values({
+          type: 'email_bounced',
+          title: 'Email Bounced',
+          message: `Review email to ${recipientEmail} was returned.`,
+          entityType: 'review',
+          entityId: review.id,
+        }).returning();
+        broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
+      } catch {}
+
       for (const uid of bounceUidsByAddress.get(recipientEmail) ?? []) {
         await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
       }
@@ -158,6 +170,17 @@ export async function detectAndProcessBounces(): Promise<string[]> {
 
       await db.update(invoices).set({ emailBounced: true }).where(eq(invoices.id, invoice.id));
       bouncedEmails.push(recipientEmail);
+
+      try {
+        const [notif] = await db.insert(notifications).values({
+          type: 'email_bounced',
+          title: 'Email Bounced',
+          message: `Invoice email to ${recipientEmail} was returned.`,
+          entityType: 'invoice',
+          entityId: invoice.id,
+        }).returning();
+        broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
+      } catch {}
 
       for (const uid of bounceUidsByAddress.get(recipientEmail) ?? []) {
         await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });

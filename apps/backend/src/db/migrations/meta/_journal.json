@@ -44,5 +44,12 @@
       "tag": "0005_add_review_files_json",
       "breakpoints": true
     }
+    ,{
+      "idx": 6,
+      "version": "7",
+      "when": 1748908800000,
+      "tag": "0006_update_notification_type_enum",
+      "breakpoints": true
+    }
   ]
 }
