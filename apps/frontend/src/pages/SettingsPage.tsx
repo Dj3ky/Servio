@@ -40,6 +40,7 @@ interface FullSettings {
   smtpUser: string | null;
   smtpFrom: string | null;
   smtpSecure: boolean;
+  imapPort: number | null;
   smbHost: string | null;
   smbShare: string | null;
   smbUsername: string | null;
@@ -371,6 +372,7 @@ export default function SettingsPage() {
       smtpPass: '',
       smtpFrom: settings?.smtpFrom ?? '',
       smtpSecure: settings?.smtpSecure ?? false,
+      imapPort: settings?.imapPort ?? null,
     },
   });
 
@@ -747,6 +749,28 @@ export default function SettingsPage() {
                       <FormLabel>{t('settings.smtpFrom')}</FormLabel>
                       <FormControl><Input placeholder='Servio <noreply@company.com>' {...field} /></FormControl>
                       <FormDescription>{t('settings.smtpFromHint')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <Separator />
+
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.imapSection')}</p>
+                    <p className="text-xs text-muted-foreground">{t('settings.imapSectionHint')}</p>
+                  </div>
+                  <FormField control={smtpForm.control} name="imapPort" render={({ field }) => (
+                    <FormItem className="max-w-[160px]">
+                      <FormLabel>{t('settings.imapPort')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="993"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormDescription>{t('settings.imapPortHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />

@@ -5,6 +5,7 @@ export const WsEventType = {
   facility_updated: 'facility_updated',
   notification_created: 'notification_created',
   dashboard_refresh: 'dashboard_refresh',
+  inbox_count: 'inbox_count',
 } as const;
 export type WsEventType = (typeof WsEventType)[keyof typeof WsEventType];
 
@@ -51,4 +52,8 @@ export interface DashboardRefreshPayload {
   pendingReviews: number;
   pendingInvoices: number;
   completedThisMonth: number;
+}
+
+export interface InboxCountPayload {
+  unreadCount: number;
 }

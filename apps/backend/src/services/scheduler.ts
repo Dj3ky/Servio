@@ -4,6 +4,8 @@ import { reviews, invoices } from '../db/schema';
 import { format, startOfMonth, subMonths } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
+import { getInboxStatus } from './imap';
+import { broadcast } from '../ws';
 
 const BIANNUAL_MONTHS = [1, 7];
 const QUADANNUAL_MONTHS = [1, 4, 7, 10];
@@ -192,8 +194,19 @@ export function startScheduler(): void {
     }
   });
 
+  // Inbox poll — every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const result = await getInboxStatus();
+      if (result) broadcast('inbox_count', { unreadCount: result.unreadCount });
+    } catch (err) {
+      console.error('[scheduler] Inbox poll failed:', err);
+    }
+  });
+
   console.log('[scheduler] Review scheduler started (runs on the 1st of each month at 06:00).');
   console.log('[scheduler] Backfill check: daily at 06:30.');
   console.log('[scheduler] Digest email: daily at 07:00 (weekly on Mondays when set to weekly).');
   console.log('[scheduler] Escalation check: daily at 08:00.');
+  console.log('[scheduler] Inbox poll: every 5 minutes.');
 }

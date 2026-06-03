@@ -15,6 +15,7 @@ import smbRoutes from './smb';
 import schedulerRoutes from './scheduler';
 import searchRoutes from './search';
 import updateRoutes from './update';
+import inboxRoutes from './inbox';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/smb', smbRoutes);
 router.use('/scheduler', schedulerRoutes);
 router.use('/search', searchRoutes);
 router.use('/update', updateRoutes);
+router.use('/inbox', inboxRoutes);
 
 export default router;

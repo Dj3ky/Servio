@@ -16,5 +16,12 @@
       "tag": "0001_add_missing_columns",
       "breakpoints": true
     }
+    ,{
+      "idx": 2,
+      "version": "7",
+      "when": 1780531200000,
+      "tag": "0002_add_imap_port",
+      "breakpoints": true
+    }
   ]
 }

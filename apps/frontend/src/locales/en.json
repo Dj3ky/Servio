@@ -273,6 +273,10 @@
     "smtpFrom": "From Address",
     "smtpSecure": "SSL/TLS",
     "testSmtp": "Test SMTP",
+    "imapSection": "Inbox (IMAP)",
+    "imapSectionHint": "Enable inbox monitoring to see a live unread count badge in the toolbar. Uses the same account as SMTP.",
+    "imapPort": "IMAP Port",
+    "imapPortHint": "993 = SSL/TLS · 143 = STARTTLS · leave empty to disable",
     "smbHost": "SMB Host",
     "smbShare": "SMB Share",
     "smbUser": "SMB Username",
@@ -334,6 +338,11 @@
       "accountant": "Accountant",
       "technician": "Technician"
     }
+  },
+  "inbox": {
+    "title": "Inbox",
+    "unread": "unread",
+    "empty": "No messages"
   },
   "notifications": {
     "title": "Notifications",

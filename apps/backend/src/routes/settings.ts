@@ -52,6 +52,7 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
     smtpUser: s.smtpUser,
     smtpFrom: s.smtpFrom,
     smtpSecure: s.smtpSecure,
+    imapPort: s.imapPort,
     smbHost: s.smbHost,
     smbShare: s.smbShare,
     smbUsername: s.smbUsername,
@@ -95,6 +96,7 @@ router.patch('/smtp', requireRole('admin'), async (req: Request, res: Response):
     smtpUser: parsed.data.smtpUser,
     smtpFrom: parsed.data.smtpFrom,
     smtpSecure: parsed.data.smtpSecure,
+    imapPort: parsed.data.imapPort ?? null,
     updatedAt: new Date(),
   };
 

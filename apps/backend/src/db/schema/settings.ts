@@ -10,6 +10,7 @@ export const settings = pgTable('settings', {
   smtpPassEncrypted: text('smtp_pass_encrypted'),
   smtpFrom: text('smtp_from'),
   smtpSecure: boolean('smtp_secure').notNull().default(false),
+  imapPort: integer('imap_port'),
   smbHost: text('smb_host'),
   smbShare: text('smb_share'),
   smbUsername: text('smb_username'),

@@ -30,7 +30,19 @@
       "Bash(xargs grep -l \"reset.*review\\\\|resetReview\")",
       "Bash(xargs grep -l \"ReviewUploadDialog\\\\|reviewId\")",
       "Bash(xargs grep -l \"useMutation\")",
-      "Bash(mkdir -p \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\public\")"
+      "Bash(mkdir -p \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\public\")",
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' npm install imapflow --workspace=apps/backend)",
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' npm --version)",
+      "Bash(PATH=\"/c/Program Files/nodejs:$PATH\" cat /c/Users/Dejan/AppData/Local/npm-cache/_logs/2026-06-03T13_02_03_009Z-debug-0.log | tail -30)",
+      "Read(//c/Users/Dejan/AppData/Local/npm-cache/_logs/**)",
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' cd apps/backend)",
+      "Bash(cp -r /tmp/imap-install/node_modules/imapflow /d/GitHub/Servio/node_modules/)",
+      "Bash(cp -r /tmp/imap-install/node_modules/pino /d/GitHub/Servio/node_modules/)",
+      "Bash(cp -r /tmp/imap-install/node_modules/pino-std-serializers /d/GitHub/Servio/node_modules/)",
+      "Bash(ls /tmp/imap-install/node_modules/ | sort)",
+      "Read(//tmp/imap-install/**)",
+      "Bash([ ! -d \"/d/GitHub/Servio/node_modules/$pkg\" ])",
+      "Bash(cp -r /tmp/imap-install/node_modules/__TRACKED_VAR__ /d/GitHub/Servio/node_modules/)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend"

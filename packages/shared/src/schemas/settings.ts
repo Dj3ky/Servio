@@ -19,6 +19,7 @@ export const updateSmtpSettingsSchema = z.object({
   smtpPass: z.string().optional(),
   smtpFrom: z.string().min(1),
   smtpSecure: z.boolean(),
+  imapPort: z.number().int().min(1).max(65535).nullable().optional(),
 });
 
 export const updateSmbSettingsSchema = z.object({
@@ -52,6 +53,7 @@ export const settingsSchema = z.object({
   smtpUser: z.string().nullable(),
   smtpFrom: z.string().nullable(),
   smtpSecure: z.boolean(),
+  imapPort: z.number().nullable(),
   smbHost: z.string().nullable(),
   smbShare: z.string().nullable(),
   smbUsername: z.string().nullable(),

@@ -273,6 +273,10 @@
     "smtpFrom": "Pošiljatelj",
     "smtpSecure": "SSL/TLS",
     "testSmtp": "Preizkusi SMTP",
+    "imapSection": "Prejeta pošta (IMAP)",
+    "imapSectionHint": "Omogoči spremljanje prejetih sporočil in prikaz značke z neprebrano pošto v orodni vrstici. Uporablja isti račun kot SMTP.",
+    "imapPort": "IMAP vrata",
+    "imapPortHint": "993 = SSL/TLS · 143 = STARTTLS · pustite prazno za izklop",
     "smbHost": "SMB strežnik",
     "smbShare": "SMB delitev",
     "smbUser": "SMB uporabnik",
@@ -334,6 +338,11 @@
       "accountant": "Računovodja",
       "technician": "Tehnik"
     }
+  },
+  "inbox": {
+    "title": "Prejeta pošta",
+    "unread": "neprebrano",
+    "empty": "Ni sporočil"
   },
   "notifications": {
     "title": "Obvestila",

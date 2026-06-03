@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useInboxStore } from '@/stores/inboxStore';
 import { queryClient } from '@/lib/queryClient';
 import { WsEvent } from '@servio/shared';
 
 export function useWebSocket() {
   const token = useAuthStore((s) => s.token);
   const addNotification = useNotificationStore((s) => s.addNotification);
+  const setUnreadCount = useInboxStore((s) => s.setUnreadCount);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -66,6 +68,11 @@ export function useWebSocket() {
         case 'dashboard_refresh':
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
+        case 'inbox_count': {
+          const payload = event.payload as { unreadCount: number };
+          setUnreadCount(payload.unreadCount);
+          break;
+        }
       }
     }
 
@@ -75,5 +82,5 @@ export function useWebSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
-  }, [token, addNotification]);
+  }, [token, addNotification, setUnreadCount]);
 }

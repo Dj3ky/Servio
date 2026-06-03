@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NotificationCenter } from './NotificationCenter';
+import { InboxCenter } from './InboxCenter';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -169,6 +170,7 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
+        <InboxCenter />
         <NotificationCenter />
 
         <DropdownMenu>
