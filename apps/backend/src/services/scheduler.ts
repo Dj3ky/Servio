@@ -61,6 +61,7 @@ export async function createPendingReviews(targetDate?: Date): Promise<number> {
       reviewId: review.id,
       contractId: contract.id,
       status: 'pending',
+      emailBounced: false,
     });
 
     created++;

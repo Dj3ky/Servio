@@ -254,7 +254,7 @@ router.post(
     await db.delete(invoices).where(eq(invoices.reviewId, review.id));
     const [invoice] = await db
       .insert(invoices)
-      .values({ reviewId: review.id, contractId: review.contractId, status: 'pending' })
+      .values({ reviewId: review.id, contractId: review.contractId, status: 'pending', emailBounced: false })
       .returning();
 
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_review', entityType: 'review', entityId: review.id, payload: { smbPath, emailSent, emailError }, req });
