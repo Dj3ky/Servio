@@ -138,9 +138,10 @@ router.post(
 router.post(
   '/:id/upload',
   requireRole('admin', 'manager', 'technician'),
-  documentUpload.single('file'),
+  documentUpload.array('files', 10),
   async (req: Request, res: Response): Promise<void> => {
-    if (!req.file) {
+    const uploadedFiles = (req.files as Express.Multer.File[] | undefined) ?? [];
+    if (uploadedFiles.length === 0) {
       res.status(400).json({ error: 'errors.file_required' });
       return;
     }
@@ -165,23 +166,28 @@ router.post(
     const scheduledDate = new Date(review.scheduledMonth);
     const year = scheduledDate.getFullYear();
     const yearMonth = format(scheduledDate, 'yyyy-MM');
-    const filename = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const settings = await db.query.settings.findFirst();
     const basePath = settings?.smbBasePath ?? '';
-    const smbPath = buildSmbPath(basePath, year, contract.contractNumber, yearMonth, filename);
 
+    type FileEntry = { path: string; filename: string; size: number; buffer: Buffer; mimetype: string };
+    const fileEntries: FileEntry[] = [];
     let smbSaved = false;
     let smbError: string | null = null;
 
     try {
-      await saveToSmb(smbPath, req.file.buffer);
+      for (const f of uploadedFiles) {
+        const fn = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const sp = buildSmbPath(basePath, year, contract.contractNumber, yearMonth, fn);
+        await saveToSmb(sp, f.buffer);
+        fileEntries.push({ path: sp, filename: fn, size: f.size, buffer: f.buffer, mimetype: f.mimetype });
+      }
       smbSaved = true;
     } catch (err) {
       smbError = err instanceof Error ? err.message : String(err);
       await db.insert(notifications).values({
         type: 'smb_failed',
         title: 'SMB Save Failed',
-        message: `Failed to save PDF for ${facility?.name ?? 'unknown'}: ${smbError}`,
+        message: `Failed to save file for ${facility?.name ?? 'unknown'}: ${smbError}`,
         entityType: 'review',
         entityId: review.id,
       });
@@ -193,6 +199,8 @@ router.post(
       res.status(500).json({ error: 'errors.smb_failed', details: smbError });
       return;
     }
+
+    const primaryFile = fileEntries[0];
 
     let emailSent = false;
     let emailError: string | null = null;
@@ -218,7 +226,7 @@ router.post(
           to: customerEmail,
           subject,
           html: body.replace(/\n/g, '<br>'),
-          attachments: [{ filename, content: req.file!.buffer, contentType: 'application/pdf' }],
+          attachments: fileEntries.map((fe) => ({ filename: fe.filename, content: fe.buffer, contentType: fe.mimetype || 'application/octet-stream' })),
         });
         emailSent = true;
         await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'send_email', entityType: 'review', entityId: review.id, payload: { to: customerEmail }, req });
@@ -239,9 +247,10 @@ router.post(
       .update(reviews)
       .set({
         status: 'completed',
-        pdfPath: smbPath,
-        pdfFilename: filename,
-        pdfSize: req.file.size,
+        pdfPath: primaryFile.path,
+        pdfFilename: primaryFile.filename,
+        pdfSize: primaryFile.size,
+        filesJson: fileEntries.map((fe) => ({ path: fe.path, filename: fe.filename, size: fe.size })),
         completedAt: new Date(),
         completedById: req.auth!.userId,
         emailSent,
@@ -257,7 +266,7 @@ router.post(
       .values({ reviewId: review.id, contractId: review.contractId, status: 'pending', emailBounced: false })
       .returning();
 
-    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_review', entityType: 'review', entityId: review.id, payload: { smbPath, emailSent, emailError }, req });
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_review', entityType: 'review', entityId: review.id, payload: { smbPath: primaryFile.path, fileCount: fileEntries.length, emailSent, emailError }, req });
 
     broadcast('review_completed', { reviewId: review.id, contractId: review.contractId, facilityId: review.facilityId, facilityName: facility?.name ?? '', contractNumber: contract.contractNumber });
     broadcast('invoice_created', { invoiceId: invoice.id, contractId: invoice.contractId, facilityName: facility?.name ?? '', contractNumber: contract.contractNumber });

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, Eye, EyeOff, AlertTriangle, Info } from 'lucide-react';
+import { Upload, FileText, X, Eye, EyeOff, AlertTriangle, Info, FolderOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,7 @@ export function ReviewUploadDialog({
   onSuccess,
 }: ReviewUploadDialogProps) {
   const { t, i18n } = useTranslation();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -80,20 +80,22 @@ export function ReviewUploadDialog({
     enabled: open,
   });
 
-  // Revoke old object URL when file changes or dialog closes
+  // Revoke old object URL when first file changes or dialog closes
+  const firstFile = files.length > 0 ? files[0] : null;
   useEffect(() => {
     if (prevUrlRef.current) {
       URL.revokeObjectURL(prevUrlRef.current);
       prevUrlRef.current = null;
     }
-    if (file) {
-      const url = URL.createObjectURL(file);
+    if (firstFile) {
+      const url = URL.createObjectURL(firstFile);
       setPreviewUrl(url);
       prevUrlRef.current = url;
     } else {
       setPreviewUrl(null);
+      setShowPreview(false);
     }
-  }, [file]);
+  }, [firstFile]);
 
   useEffect(() => {
     if (!open) {
@@ -107,24 +109,29 @@ export function ReviewUploadDialog({
   }, [open]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const f = acceptedFiles[0];
-    if (!f) return;
-    setFile(f);
+    if (!acceptedFiles.length) return;
+    const currentNames = new Set(files.map((f) => f.name));
+    const newFiles = acceptedFiles.filter((f) => !currentNames.has(f.name));
+    if (!newFiles.length) return;
+    const isFirstAdd = files.length === 0;
+    setFiles((prev) => [...prev, ...newFiles]);
     setError(null);
-    const preferred = templates.find((tpl) => tpl.id === contractEmailTemplateId)
-      ?? templates.find((tpl) => tpl.isDefault)
-      ?? templates[0];
-    if (preferred) {
-      setSelectedTemplateId(preferred.id);
-      setEmailSubject(preferred.subject);
-      setEmailBody(preferred.body);
+    if (isFirstAdd) {
+      const preferred = templates.find((tpl) => tpl.id === contractEmailTemplateId)
+        ?? templates.find((tpl) => tpl.isDefault)
+        ?? templates[0];
+      if (preferred) {
+        setSelectedTemplateId(preferred.id);
+        setEmailSubject(preferred.subject);
+        setEmailBody(preferred.body);
+      }
     }
-  }, [templates, contractEmailTemplateId]);
+  }, [files, templates, contractEmailTemplateId]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
     onDrop,
-    maxFiles: 1,
-    disabled: uploading || !!file,
+    multiple: true,
+    disabled: uploading,
   });
 
   function handleTemplateChange(templateId: string) {
@@ -135,7 +142,7 @@ export function ReviewUploadDialog({
 
   function handleClose() {
     if (uploading) return;
-    setFile(null);
+    setFiles([]);
     setError(null);
     setSelectedTemplateId('');
     setEmailSubject('');
@@ -145,11 +152,11 @@ export function ReviewUploadDialog({
   }
 
   async function handleConfirm() {
-    if (!file) return;
+    if (!files.length) return;
     setUploading(true);
     setError(null);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((f) => formData.append('files', f));
     if (emailSubject) formData.append('emailSubject', emailSubject);
     if (emailBody) formData.append('emailBody', emailBody);
     if (selectedTemplateId) formData.append('emailTemplateId', selectedTemplateId);
@@ -165,7 +172,6 @@ export function ReviewUploadDialog({
       if (!result.ok) throw new Error(data.error ?? 'Upload failed');
 
       if (data.emailError) {
-        // Review saved but email failed — keep dialog open so user sees the error
         setError(`${t('reviews.emailFailed')}: ${data.emailError}`);
         onSuccess();
       } else {
@@ -198,26 +204,36 @@ export function ReviewUploadDialog({
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
-          {!file ? (
-            <div>
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors ${
-                  isDragActive
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-primary/50'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">{t('reviews.dropOrClick')}</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">PDF, Word, Excel, JPG, PNG…</p>
-              </div>
-              {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {/* Dropzone — always visible so files can be added at any time */}
+          <div>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
+                files.length > 0 ? 'p-4' : 'p-8'
+              } ${
+                isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+              } ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+            >
+              <input {...getInputProps()} />
+              <Upload className={`mx-auto text-muted-foreground ${files.length > 0 ? 'h-5 w-5 mb-1' : 'h-8 w-8 mb-2'}`} />
+              <p className="text-sm text-muted-foreground">{t('reviews.dropOrClick')}</p>
+              {files.length === 0 && <p className="text-xs text-muted-foreground/60 mt-1">PDF, Word, Excel, JPG, PNG…</p>}
             </div>
-          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={openFileDialog}
+              disabled={uploading}
+            >
+              <FolderOpen className="h-4 w-4 mr-2" />
+              {t('reviews.browseFiles')}
+            </Button>
+            {error && files.length === 0 && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          </div>
+
+          {files.length > 0 && (
             <>
-              {/* Age warning */}
               {isOldReview && (
                 <Alert variant="warning">
                   <AlertTriangle className="h-4 w-4" />
@@ -227,32 +243,39 @@ export function ReviewUploadDialog({
                 </Alert>
               )}
 
-              {/* File info + preview toggle */}
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                </div>
-                {file?.type === 'application/pdf' && (
-                  <Button
-                    variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
-                    onClick={() => setShowPreview((v) => !v)}
-                  >
-                    {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
-                  </Button>
-                )}
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-                  onClick={() => { setFile(null); setError(null); setShowPreview(false); }}
-                  disabled={uploading}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              {/* Selected file list */}
+              <div className="space-y-2">
+                {files.map((f, i) => (
+                  <div key={f.name} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                    <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{f.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(f.size)}</p>
+                    </div>
+                    {i === 0 && f.type === 'application/pdf' && (
+                      <Button
+                        variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
+                        onClick={() => setShowPreview((v) => !v)}
+                      >
+                        {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        if (i === 0) setShowPreview(false);
+                        setFiles((prev) => prev.filter((x) => x.name !== f.name));
+                      }}
+                      disabled={uploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
 
-              {/* Inline PDF preview */}
+              {/* Inline PDF preview for first file */}
               {showPreview && previewUrl && (
                 <div className="rounded-lg border overflow-hidden">
                   <iframe

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, date, pgEnum, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, integer, date, pgEnum, unique, jsonb } from 'drizzle-orm/pg-core';
 import { contracts } from './contracts';
 import { facilities } from './facilities';
 import { users } from './users';
@@ -20,6 +20,7 @@ export const reviews = pgTable('reviews', {
   emailSent: boolean('email_sent').notNull().default(false),
   emailBounced: boolean('email_bounced').notNull().default(false),
   smbSaved: boolean('smb_saved').notNull().default(false),
+  filesJson: jsonb('files_json').$type<Array<{ path: string; filename: string; size: number }>>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
