@@ -117,7 +117,7 @@ router.post('/:id/send-email', documentUpload.single('file'), async (req: Reques
     await fs.unlink(tmpFile).catch(() => {});
   }
 
-  const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'completed', completedAt: new Date(), completedById: req.auth!.userId };
+  const statusUpdate: Partial<typeof invoices.$inferInsert> = { status: 'completed', completedAt: new Date(), completedById: req.auth!.userId, emailBounced: false };
   if (invoiceNumberInput) statusUpdate.invoiceNumber = invoiceNumberInput;
   await db.update(invoices).set(statusUpdate).where(eq(invoices.id, invoice.id));
 
