@@ -60,6 +60,7 @@ export const AuditAction = {
   send_invoice_email: 'send_invoice_email',
   reset: 'reset',
   restart_services: 'restart_services',
+  backfill: 'backfill',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
