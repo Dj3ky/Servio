@@ -41,15 +41,16 @@ function invoiceBadgeVariant(status: string): 'warning' | 'info' | 'success' | '
   return 'info';
 }
 
-const STATUS_ORDER: Record<ReviewItem['status'], number> = {
-  pending: 0,
-  in_progress: 1,
-  failed: 2,
-  completed: 3,
-};
+function reviewSortKey(r: ReviewItem): number {
+  if (r.status === 'pending') return 0;
+  if (r.status === 'in_progress') return 1;
+  if (r.status === 'failed') return 2;
+  if (r.invoice && r.invoice.status !== 'completed') return 3; // review done, invoice not done
+  return 4; // fully done
+}
 
 function sortReviews(reviews: ReviewItem[]): ReviewItem[] {
-  return [...reviews].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+  return [...reviews].sort((a, b) => reviewSortKey(a) - reviewSortKey(b));
 }
 
 function currentMonthIso(): string {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, AlertTriangle, Receipt, Activity, ArrowRight, TrendingUp, Upload, Plus, Inbox } from 'lucide-react';
+import { FileText, AlertTriangle, Receipt, Activity, TrendingUp, Plus, Inbox, CheckCircle2 } from 'lucide-react';
 import {
   AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,11 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDateTime } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
-import { queryClient } from '@/lib/queryClient';
 
 interface DashboardData {
   activeContracts: number;
@@ -24,23 +22,16 @@ interface DashboardData {
   pendingInvoices: number;
   monthlyTrend: Array<{ month: string; completed: number }>;
   revenueTrend: Array<{ month: string; revenue: number; invoiceCount: number }>;
-  pendingReviewsList: Array<{
+  thisMonthProgress: { total: number; completed: number };
+  invoiceAging: { recent: number; medium: number; old: number };
+  recentActivity: Array<{
+    type: 'review' | 'invoice';
     id: string;
+    date: string;
+    facilityName: string;
+    customerName: string;
+    contractNumber: string;
     scheduledMonth: string;
-    status: string;
-    contract: {
-      contractNumber: string;
-      invoiceDelivery: 'email' | 'post' | 'e_invoice';
-      emailTemplateId?: string | null;
-      customerEmail?: string | null;
-      facility: { name: string; id?: string };
-      customer: { name: string };
-    };
-  }>;
-  pendingInvoicesList: Array<{
-    id: string;
-    createdAt: string;
-    review: { scheduledMonth: string; contract: { contractNumber: string; facility: { name: string }; customer: { name: string } } };
   }>;
 }
 
@@ -100,7 +91,6 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [quickUploadReview, setQuickUploadReview] = useState<DashboardData['pendingReviewsList'][0] | null>(null);
   const [newFacilityOpen, setNewFacilityOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -118,8 +108,15 @@ export default function DashboardPage() {
 
   const totalRevenue = (data?.revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
 
-  // First pending review for quick upload
-  const firstPendingReview = data?.pendingReviewsList.find((r) => r.status === 'pending');
+  const progressTotal = data?.thisMonthProgress.total ?? 0;
+  const progressCompleted = data?.thisMonthProgress.completed ?? 0;
+  const progressPct = progressTotal === 0 ? 0 : Math.round((progressCompleted / progressTotal) * 100);
+
+  const agingRows = [
+    { label: t('dashboard.agingRecent'), value: data?.invoiceAging.recent ?? 0, color: 'bg-green-500' },
+    { label: t('dashboard.agingMedium'), value: data?.invoiceAging.medium ?? 0, color: 'bg-amber-500' },
+    { label: t('dashboard.agingOld'),    value: data?.invoiceAging.old    ?? 0, color: 'bg-rose-500' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -137,16 +134,6 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2"
-          disabled={!firstPendingReview}
-          onClick={() => firstPendingReview && setQuickUploadReview(firstPendingReview)}
-        >
-          <Upload className="h-4 w-4" />
-          {t('dashboard.quickUploadReview')}
-        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -274,89 +261,104 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent lists */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Pending reviews */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">{t('dashboard.recentReviews')}</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => navigate('/contracts')}>
-              {t('common.all')} <ArrowRight className="h-3 w-3" />
-            </Button>
+      {/* Bottom section: activity feed + progress + aging */}
+      <div className="grid gap-6 lg:grid-cols-3">
+
+        {/* Recent activity */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('dashboard.recentActivity')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-0">
             {isLoading ? (
               <div className="space-y-2">
                 {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : (data?.pendingReviewsList.length ?? 0) === 0 ? (
+            ) : (data?.recentActivity.length ?? 0) === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">{t('common.noData')}</p>
             ) : (
-              data?.pendingReviewsList.slice(0, 8).map((r, idx) => (
+              data?.recentActivity.map((item, idx) => (
                 <div
-                  key={r.id}
-                  className={`flex items-center justify-between py-2.5 text-sm ${r.contract.facility.id ? 'cursor-pointer hover:bg-muted/40 rounded-md px-2 -mx-2 transition-colors' : ''} ${idx !== 0 ? 'border-t' : ''}`}
-                  onClick={() => r.contract.facility.id && navigate(`/facilities/${r.contract.facility.id}`)}
+                  key={`${item.type}-${item.id}`}
+                  className={`flex items-center gap-3 py-2.5 text-sm ${idx !== 0 ? 'border-t' : ''}`}
                 >
-                  <div>
-                    <div className="font-medium leading-none">{r.contract.facility.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{r.contract.customer.name} · {r.contract.contractNumber}</div>
+                  <div className={`rounded-lg p-1.5 shrink-0 ${item.type === 'review' ? 'bg-green-100 dark:bg-green-950/50' : 'bg-blue-100 dark:bg-blue-950/50'}`}>
+                    {item.type === 'review'
+                      ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      : <Receipt className="h-4 w-4 text-blue-600" />
+                    }
                   </div>
-                  <Badge variant="warning" className="shrink-0">{r.scheduledMonth.slice(0, 7)}</Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium leading-none truncate">{item.facilityName}</div>
+                    <div className="text-xs text-muted-foreground mt-1 truncate">{item.customerName} · {item.contractNumber}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge variant={item.type === 'review' ? 'success' : 'info'} className="mb-1 block">
+                      {t(item.type === 'review' ? 'dashboard.activityReview' : 'dashboard.activityInvoice')}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">{formatDateTime(item.date)}</div>
+                  </div>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
 
-        {/* Pending invoices */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">{t('dashboard.recentInvoices')}</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => navigate('/invoices')}>
-              {t('common.all')} <ArrowRight className="h-3 w-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-0">
-            {isLoading ? (
-              <div className="space-y-2">
-                {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
-            ) : (data?.pendingInvoicesList.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">{t('common.noData')}</p>
-            ) : (
-              data?.pendingInvoicesList.slice(0, 8).map((inv, idx) => (
-                <div
-                  key={inv.id}
-                  className={`flex items-center justify-between py-2.5 text-sm ${idx !== 0 ? 'border-t' : ''}`}
-                >
-                  <div>
-                    <div className="font-medium leading-none">{inv.review.contract.facility.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{inv.review.contract.customer.name} · {inv.review.contract.contractNumber}</div>
+        {/* Right column */}
+        <div className="flex flex-col gap-6">
+
+          {/* This month's progress */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{t('dashboard.thisMonthProgress')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-end justify-between">
+                    <span className="text-3xl font-bold">{progressCompleted}</span>
+                    <span className="text-sm text-muted-foreground pb-1">/ {progressTotal} {t('dashboard.reviewsCompleted')}</span>
                   </div>
-                  <Badge variant="info" className="shrink-0">{formatDate(inv.createdAt)}</Badge>
+                  <div className="w-full bg-muted rounded-full h-2.5">
+                    <div
+                      className={`h-2.5 rounded-full transition-all ${progressPct === 100 ? 'bg-green-500' : progressPct > 0 ? 'bg-primary' : 'bg-transparent'}`}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{progressPct}%</p>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Invoice aging */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{t('dashboard.invoiceAging')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : (
+                <div className="space-y-3">
+                  {agingRows.map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${color}`} />
+                        <span className="text-muted-foreground">{label}</span>
+                      </div>
+                      <span className="font-semibold tabular-nums">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
       </div>
-
-      {/* Quick upload dialog */}
-      {quickUploadReview && (
-        <ReviewUploadDialog
-          open={!!quickUploadReview}
-          onClose={() => setQuickUploadReview(null)}
-          reviewId={quickUploadReview.id}
-          hasEmail={!!quickUploadReview.contract.customerEmail}
-          contractEmailTemplateId={quickUploadReview.contract.emailTemplateId}
-          scheduledMonth={quickUploadReview.scheduledMonth}
-          onSuccess={() => {
-            setQuickUploadReview(null);
-            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-          }}
-        />
-      )}
 
       <FacilityFormDialog
         open={newFacilityOpen}

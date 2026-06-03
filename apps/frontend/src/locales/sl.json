@@ -75,11 +75,17 @@
     "completedReviews": "Dokončani",
     "revenueEarned": "Prihodki",
     "totalEarned": "Skupaj 12 mesecev",
-    "recentReviews": "Nedavni pregledi",
-    "recentInvoices": "Nedavne fakture",
-    "quickUploadReview": "Naloži pregled",
     "quickInvoiceQueue": "Čakalna vrsta faktur",
-    "quickNewFacility": "Nov objekt"
+    "quickNewFacility": "Nov objekt",
+    "recentActivity": "Nedavna aktivnost",
+    "activityReview": "Pregled",
+    "activityInvoice": "Faktura",
+    "thisMonthProgress": "Ta mesec",
+    "reviewsCompleted": "pregledov dokončanih",
+    "invoiceAging": "Starost faktur",
+    "agingRecent": "< 7 dni",
+    "agingMedium": "7–30 dni",
+    "agingOld": "> 30 dni"
   },
   "contracts": {
     "title": "Pogodbe",

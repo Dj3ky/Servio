@@ -75,11 +75,17 @@
     "completedReviews": "Completed",
     "revenueEarned": "Revenue",
     "totalEarned": "12-month total",
-    "recentReviews": "Recent Reviews",
-    "recentInvoices": "Recent Invoices",
-    "quickUploadReview": "Upload Review",
     "quickInvoiceQueue": "Invoice Queue",
-    "quickNewFacility": "New Facility"
+    "quickNewFacility": "New Facility",
+    "recentActivity": "Recent Activity",
+    "activityReview": "Review",
+    "activityInvoice": "Invoice",
+    "thisMonthProgress": "This Month",
+    "reviewsCompleted": "reviews completed",
+    "invoiceAging": "Invoice Aging",
+    "agingRecent": "< 7 days",
+    "agingMedium": "7–30 days",
+    "agingOld": "> 30 days"
   },
   "contracts": {
     "title": "Contracts",
