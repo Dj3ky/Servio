@@ -11,7 +11,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal, RotateCcw, AlertCircle } from 'lucide-react';
+import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal, RotateCcw, AlertCircle, Mail, MailX, HardDrive } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,9 @@ interface InvoiceQueueItem {
   emailBounced: boolean;
   review: {
     scheduledMonth: string;
+    emailSent: boolean;
+    emailBounced: boolean;
+    smbSaved: boolean;
     contract: {
       contractNumber: string;
       valueWithoutVat: string | null;
@@ -220,7 +223,46 @@ export default function InvoiceQueuePage() {
     columnHelper.accessor('createdAt', {
       id: 'createdAt',
       header: t('reviews.reviewDone'),
-      cell: (info) => <span className="text-sm text-muted-foreground">{formatDate(info.getValue())}</span>,
+      cell: (info) => {
+        const review = info.row.original.review;
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-muted-foreground">{formatDate(info.getValue())}</span>
+            <div className="flex items-center gap-1.5">
+              {review.emailSent && !review.emailBounced && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Mail className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{t('reviews.emailSent')}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {review.emailBounced && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MailX className="h-3.5 w-3.5 text-destructive shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{t('reviews.emailBounced')}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {review.smbSaved && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HardDrive className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{t('reviews.smbSaved')}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+        );
+      },
     }),
     columnHelper.accessor('completedAt', {
       id: 'completedAt',
