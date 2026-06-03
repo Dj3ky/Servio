@@ -31,7 +31,7 @@ export async function sendMail(options: MailOptions): Promise<void> {
   const s = await db.query.settings.findFirst();
   const transporter = await getTransporter();
 
-  const info = await transporter.sendMail({
+  await transporter.sendMail({
     from: s?.smtpFrom ?? options.to,
     to: options.to,
     subject: options.subject,
@@ -43,10 +43,6 @@ export async function sendMail(options: MailOptions): Promise<void> {
       contentType: a.contentType,
     })),
   });
-
-  if (info.rejected && info.rejected.length > 0) {
-    throw new Error(`Email address rejected by server: ${info.rejected.join(', ')}`);
-  }
 }
 
 export async function testSmtpConnection(recipient: string): Promise<{ success: boolean; error?: string }> {
