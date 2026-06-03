@@ -452,7 +452,7 @@ export default function FacilityDetailPage() {
                         </TableCell>
                         <TableCell>
                           {r.emailBounced
-                            ? <XCircle className="h-4 w-4 text-destructive" title={t('reviews.emailBounced')} />
+                            ? <XCircle className="h-4 w-4 text-destructive" />
                             : r.emailSent
                               ? <CheckCircle className="h-4 w-4 text-green-500" />
                               : <XCircle className="h-4 w-4 text-muted-foreground" />}
