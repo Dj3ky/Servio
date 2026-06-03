@@ -29,7 +29,11 @@
       "Bash(Select-Object -First 5)",
       "Bash(xargs grep -l \"reset.*review\\\\|resetReview\")",
       "Bash(xargs grep -l \"ReviewUploadDialog\\\\|reviewId\")",
-      "Bash(xargs grep -l \"useMutation\")"
+      "Bash(xargs grep -l \"useMutation\")",
+      "Bash(mkdir -p \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\public\")"
+    ],
+    "additionalDirectories": [
+      "d:\\GitHub\\Servio\\apps\\frontend"
     ]
   }
 }
