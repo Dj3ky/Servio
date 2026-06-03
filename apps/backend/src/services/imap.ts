@@ -95,7 +95,7 @@ export async function detectAndProcessBounces(): Promise<string[]> {
 
     // Only look at unread messages — once processed we mark them read so they
     // are never re-evaluated and cannot poison future successful deliveries.
-    const unreadUids = await client.search({ unseen: true }, { uid: true });
+    const unreadUids = await client.search({ seen: false }, { uid: true });
     if (!unreadUids || unreadUids.length === 0) return [];
 
     const bouncedAddresses = new Set<string>();
