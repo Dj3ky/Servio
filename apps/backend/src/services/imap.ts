@@ -93,34 +93,30 @@ export async function detectAndProcessBounces(): Promise<string[]> {
     await client.connect();
     await client.mailboxOpen('INBOX');
 
-    // Scan all messages from the last 30 days regardless of read/unread state.
-    // Using date-based search means we don't miss bounces that were read before
-    // the poll ran. Re-scanning the same NDR is safe because the review query
-    // checks emailBounced: false, so nothing gets double-flagged.
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    const uids = await client.search({ since }, { uid: true });
+    // Only check unread messages. Once a bounce is processed it is marked
+    // as read so it is never picked up again.
+    const uids = await client.search({ seen: false }, { uid: true });
     if (!uids || uids.length === 0) return [];
 
     const bouncedAddresses = new Set<string>();
+    const bounceUidsByAddress = new Map<string, number[]>();
 
     for await (const msg of client.fetch(uids, { envelope: true, uid: true, source: true }, { uid: true })) {
       const env = msg.envelope;
       const from = (env?.from?.[0]?.name ?? '') + ' ' + (env?.from?.[0]?.address ?? '');
       const subject = env?.subject ?? '';
-      const isBounce = isBounceMail(from, subject);
-      console.log(`[bounce] uid=${msg.uid} from="${from.trim()}" subject="${subject}" isBounce=${isBounce}`);
-      if (!isBounce) continue;
+      if (!isBounceMail(from, subject)) continue;
 
       const bodyText = msg.source ? msg.source.toString() : '';
       const found = extractEmails(bodyText);
-      console.log(`[bounce] extracted emails: ${found.join(', ')}`);
       for (const email of found) {
         bouncedAddresses.add(email);
+        const existing = bounceUidsByAddress.get(email) ?? [];
+        existing.push(msg.uid);
+        bounceUidsByAddress.set(email, existing);
       }
     }
 
-    console.log(`[bounce] bounced addresses found: ${[...bouncedAddresses].join(', ')}`);
     if (bouncedAddresses.size === 0) return [];
 
     // Load reviews that were sent but not yet bounced, with their contract's email
@@ -143,6 +139,11 @@ export async function detectAndProcessBounces(): Promise<string[]> {
 
       await db.update(reviews).set({ emailBounced: true }).where(eq(reviews.id, review.id));
       bouncedEmails.push(recipientEmail);
+
+      // Mark the NDR message(s) as read in the inbox
+      for (const uid of bounceUidsByAddress.get(recipientEmail) ?? []) {
+        await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
+      }
     }
   } catch (err) {
     console.error('[imap] Bounce detection failed:', err);
