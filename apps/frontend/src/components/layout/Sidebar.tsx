@@ -56,7 +56,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             {settings.logoUrl ? (
               <>
                 <img src={settings.logoUrl} alt={settings.appName} className="max-h-9 max-w-[140px] object-contain" />
-                <span className="text-xs font-medium text-sidebar-foreground/80 leading-tight">{settings.appName}</span>
+                <span className="text-base font-semibold text-sidebar-foreground leading-tight">{settings.appName}</span>
               </>
             ) : (
               <span className="text-lg font-semibold text-sidebar-foreground">{settings.appName}</span>
