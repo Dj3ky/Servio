@@ -11,7 +11,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot, Trash2, Info } from 'lucide-react';
+import { Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown, Upload, FileUp, FileDown, SlidersHorizontal, CircleDot, Trash2, Info, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -66,12 +67,12 @@ interface ContractRow {
   notes?: string | null;
   customer: { name: string; email?: string | null; contactName?: string | null; phone?: string | null };
   facility: { name: string; id: string; address?: string | null; notes?: string | null };
-  currentReview?: { id: string; status: string } | null;
+  currentReview?: { id: string; status: string; emailBounced: boolean } | null;
   customerEmail?: string | null;
   invoiceEmail?: string | null;
   invoiceDelivery?: string;
   emailTemplateId?: string | null;
-  currentInvoice?: { id: string; status: string; invoiceNumber: string | null } | null;
+  currentInvoice?: { id: string; status: string; invoiceNumber: string | null; emailBounced: boolean } | null;
   reviewNeededThisMonth?: boolean;
 }
 
@@ -334,19 +335,52 @@ export default function ContractsPage() {
       id: 'reviewStatus',
       header: t('contracts.reviewStatus'),
       cell: ({ row }) => {
-        const status = row.original.currentReview?.status;
-        if (status) return <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>;
-        if (!row.original.reviewNeededThisMonth) return <Badge variant="outline">{t('reviews.notNeeded')}</Badge>;
-        return <Badge variant="secondary">—</Badge>;
+        const review = row.original.currentReview;
+        const status = review?.status;
+        return (
+          <div className="flex items-center gap-1.5">
+            {status
+              ? <Badge variant={REVIEW_STATUS_VARIANT[status] ?? 'secondary'}>{t(`reviews.${status}` as any)}</Badge>
+              : row.original.reviewNeededThisMonth
+                ? <Badge variant="secondary">—</Badge>
+                : <Badge variant="outline">{t('reviews.notNeeded')}</Badge>}
+            {review?.emailBounced && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>{t('reviews.emailBounced')}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        );
       },
     }),
     columnHelper.accessor('currentInvoice', {
       id: 'invoiceStatus',
       header: t('contracts.invoiceStatus'),
       cell: (info) => {
-        const status = info.getValue()?.status;
-        if (!status) return <Badge variant="secondary">—</Badge>;
-        return <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>;
+        const inv = info.getValue();
+        const status = inv?.status;
+        return (
+          <div className="flex items-center gap-1.5">
+            {status
+              ? <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>
+              : <Badge variant="secondary">—</Badge>}
+            {inv?.emailBounced && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>{t('reviews.emailBounced')}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        );
       },
     }),
     columnHelper.display({

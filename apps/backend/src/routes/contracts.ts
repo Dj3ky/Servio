@@ -41,12 +41,12 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       const [currentReview, currentInvoice] = await Promise.all([
         db.query.reviews.findFirst({
           where: (r, { eq, and }) => and(eq(r.contractId, contract.id), eq(r.scheduledMonth, currentMonth)),
-          columns: { id: true, status: true },
+          columns: { id: true, status: true, emailBounced: true },
         }),
         db.query.invoices.findFirst({
           where: (inv, { eq }) => eq(inv.contractId, contract.id),
           orderBy: (inv, { desc }) => [desc(inv.createdAt)],
-          columns: { id: true, status: true },
+          columns: { id: true, status: true, emailBounced: true },
         }),
       ]);
       const reviewNeededThisMonth = shouldCreateReview(contract.reviewFrequency, contract.customMonths, currentMonthNumber);
