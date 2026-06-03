@@ -170,10 +170,10 @@ export default function ContractTimelinePage() {
                                   to={`/facilities/${r.contract.facility.id}`}
                                   className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
                                 >
-                                  {r.contract.contractNumber}
+                                  {r.contract.facility.name}
                                 </Link>
                                 <span className="text-xs text-muted-foreground">
-                                  {r.contract.customer.name} · {r.contract.facility.name}
+                                  {r.contract.customer.name} · {r.contract.contractNumber}
                                 </span>
                                 <Badge variant={badgeVariant} className="text-xs shrink-0">
                                   {t(`reviews.${r.status}` as any)}
