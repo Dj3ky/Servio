@@ -11,7 +11,8 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { SlidersHorizontal, Receipt, ChevronUp, ChevronDown, ChevronsUpDown, Search, MoreHorizontal, RotateCcw, AlertCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ interface InvoiceQueueItem {
   invoiceNumber: string | null;
   createdAt: string;
   completedAt: string | null;
+  emailBounced: boolean;
   review: {
     scheduledMonth: string;
     contract: {
@@ -229,9 +231,21 @@ export default function InvoiceQueuePage() {
       id: 'status',
       header: t('common.status'),
       cell: (info) => (
-        <Badge variant={STATUS_VARIANT[info.getValue()] ?? 'secondary'}>
-          {t(`invoices.${info.getValue()}` as any)}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={STATUS_VARIANT[info.getValue()] ?? 'secondary'}>
+            {t(`invoices.${info.getValue()}` as any)}
+          </Badge>
+          {info.row.original.emailBounced && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>{t('reviews.emailBounced')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       ),
     }),
     columnHelper.display({
