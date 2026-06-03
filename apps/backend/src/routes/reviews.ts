@@ -196,11 +196,7 @@ router.post(
 
     let emailSent = false;
     let emailError: string | null = null;
-    const customerEmail = contract.invoiceDelivery === 'email'
-      ? (contract.customerEmail ?? customer?.email)
-      : null;
-
-    console.log(`[review upload] invoiceDelivery=${contract.invoiceDelivery} customerEmail=${customerEmail} contractCustomerEmail=${contract.customerEmail} customerFallback=${customer?.email}`);
+    const customerEmail = contract.customerEmail ?? customer?.email ?? null;
 
     if (customerEmail) {
       try {

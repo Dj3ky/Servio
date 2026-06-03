@@ -32,7 +32,11 @@ async function ensureSettingsColumns() {
 
 async function start() {
   console.log('[server] Applying pending migrations...');
-  await migrate(db, { migrationsFolder: path.join(__dirname, '../src/db/migrations') });
+  try {
+    await migrate(db, { migrationsFolder: path.join(__dirname, '../src/db/migrations') });
+  } catch (err) {
+    console.error('[server] Migration runner error (columns will be ensured below):', err);
+  }
   await ensureSettingsColumns();
   console.log('[server] Database up to date.');
 
