@@ -200,6 +200,8 @@ router.post(
       ? (contract.customerEmail ?? customer?.email)
       : null;
 
+    console.log(`[review upload] invoiceDelivery=${contract.invoiceDelivery} customerEmail=${customerEmail} contractCustomerEmail=${contract.customerEmail} customerFallback=${customer?.email}`);
+
     if (customerEmail) {
       try {
         const template = contract.emailTemplate;
