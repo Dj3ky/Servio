@@ -35,6 +35,12 @@ interface MonthGroup {
   reviews: ReviewItem[];
 }
 
+function invoiceBadgeVariant(status: string): 'warning' | 'info' | 'success' | 'secondary' {
+  if (status === 'completed') return 'success';
+  if (status === 'pending') return 'warning';
+  return 'info';
+}
+
 const STATUS_ORDER: Record<ReviewItem['status'], number> = {
   pending: 0,
   in_progress: 1,
@@ -187,9 +193,20 @@ export default function ContractTimelinePage() {
                                 <span className="text-xs text-muted-foreground">
                                   {r.contract.customer.name} · {r.contract.contractNumber}
                                 </span>
-                                <Badge variant={badgeVariant} className="text-xs shrink-0">
-                                  {t(`reviews.${r.status}` as any)}
-                                </Badge>
+                                <span className="flex items-center gap-1 shrink-0">
+                                  <span className="text-xs text-muted-foreground">{t('reviews.title')}:</span>
+                                  <Badge variant={badgeVariant} className="text-xs">
+                                    {t(`reviews.${r.status}` as any)}
+                                  </Badge>
+                                </span>
+                                {r.invoice && (
+                                  <span className="flex items-center gap-1 shrink-0">
+                                    <span className="text-xs text-muted-foreground">{t('invoices.title')}:</span>
+                                    <Badge variant={invoiceBadgeVariant(r.invoice.status)} className="text-xs">
+                                      {t(`invoices.${r.invoice.status}` as any)}
+                                    </Badge>
+                                  </span>
+                                )}
                                 {isNotDone && isCurrentMonth && (
                                   <span className="flex items-center gap-0.5 text-xs text-rose-500">
                                     <Clock className="h-3 w-3" />
