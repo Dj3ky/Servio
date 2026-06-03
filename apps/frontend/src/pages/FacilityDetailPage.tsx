@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,6 +115,7 @@ export default function FacilityDetailPage() {
 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
   const { data: facility, isLoading: facilityLoading, refetch: refetchFacility } = useQuery({
     queryKey: ['facility', id],
@@ -643,26 +644,44 @@ export default function FacilityDetailPage() {
               {contractDocs.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2">{t('common.noData')}</p>
               ) : contractDocs.map((doc) => (
-                <div key={doc.url} className="flex items-center gap-3 rounded border px-3 py-2">
-                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="flex-1 text-sm truncate">{doc.filename}</span>
-                  <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
-                      <a href={doc.url} download={doc.filename} target="_blank" rel="noreferrer">
-                        <FileDown className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    {canManageContracts && activeContract && (
+                <div key={doc.url} className="rounded border overflow-hidden">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-sm truncate">{doc.filename}</span>
+                    <div className="flex gap-1 shrink-0">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => deleteDocMutation.mutate({ contractId: activeContract.id, filename: doc.filename })}
+                        className="h-7 w-7"
+                        onClick={() => setPreviewDoc((prev) => prev === doc.url ? null : doc.url)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        {previewDoc === doc.url ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                       </Button>
-                    )}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
+                        <a href={doc.url} download={doc.filename} target="_blank" rel="noreferrer">
+                          <FileDown className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                      {canManageContracts && activeContract && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => deleteDocMutation.mutate({ contractId: activeContract.id, filename: doc.filename })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  {previewDoc === doc.url && (
+                    <iframe
+                      src={doc.url}
+                      className="w-full border-t"
+                      style={{ height: '500px' }}
+                      title={doc.filename}
+                    />
+                  )}
                 </div>
               ))}
             </CardContent>
