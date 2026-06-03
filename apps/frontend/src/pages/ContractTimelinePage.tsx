@@ -31,6 +31,7 @@ interface ReviewItem {
     invoiceNumber: string | null;
     completedAt: string | null;
     status: string;
+    completedBy: { id: string; name: string } | null;
   } | null;
 }
 
@@ -252,6 +253,9 @@ export default function ContractTimelinePage() {
                                   )}
                                   {r.invoice?.completedAt && (
                                     <span>{t('reviews.invoiceSent')}: {formatDate(r.invoice.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
+                                  )}
+                                  {r.invoice?.completedBy && (
+                                    <span>{t('reviews.completedBy')}: {r.invoice.completedBy.name}</span>
                                   )}
                                   {r.invoice && (r.invoice.status === 'sent_email' || (r.invoice.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
                                     <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
