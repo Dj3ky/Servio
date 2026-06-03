@@ -183,67 +183,27 @@ export default function ContractTimelinePage() {
                         return (
                           <div key={r.id} className={`relative ${idx !== sorted.length - 1 ? 'pb-4' : ''}`}>
                             <div className={`absolute -left-[14px] top-1.5 h-3 w-3 rounded-full border-2 border-background ${dotColor}`} />
-                            <div className="flex items-start gap-4 min-w-0">
-                              {/* Left: name + meta + details */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Link
-                                    to={`/facilities/${r.contract.facility.id}`}
-                                    className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
-                                  >
-                                    {r.contract.facility.name}
-                                  </Link>
-                                  <span className="text-xs text-muted-foreground">
-                                    {r.contract.customer.name} · {r.contract.contractNumber}
+                            <div className="min-w-0">
+                              {/* Line 1: facility + customer + needs action */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link
+                                  to={`/facilities/${r.contract.facility.id}`}
+                                  className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
+                                >
+                                  {r.contract.facility.name}
+                                </Link>
+                                <span className="text-xs text-muted-foreground">
+                                  {r.contract.customer.name} · {r.contract.contractNumber}
+                                </span>
+                                {((isNotDone && isCurrentMonth) || (!isNotDone && invoiceNeedsAction)) && (
+                                  <span className={`flex items-center gap-0.5 text-xs ${!isNotDone && invoiceNeedsAction ? 'text-amber-500' : 'text-rose-500'}`}>
+                                    <Clock className="h-3 w-3" />
+                                    {t('contractTimeline.pendingAction')}
                                   </span>
-                                  {((isNotDone && isCurrentMonth) || (!isNotDone && invoiceNeedsAction)) && (
-                                    <span className={`flex items-center gap-0.5 text-xs ${!isNotDone && invoiceNeedsAction ? 'text-amber-500' : 'text-rose-500'}`}>
-                                      <Clock className="h-3 w-3" />
-                                      {t('contractTimeline.pendingAction')}
-                                    </span>
-                                  )}
-                                </div>
-                                {/* Detail row: dates, checkmarks, invoice */}
-                                {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber) && (
-                                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                                    {r.completedAt && (
-                                      <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
-                                    )}
-                                    {r.completedBy && (
-                                      <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>
-                                    )}
-                                    {r.emailSent && (
-                                      <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                                        <Mail className="h-3 w-3" />
-                                        {t('reviews.emailSent')}
-                                      </span>
-                                    )}
-                                    {r.smbSaved && (
-                                      <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                                        <FolderOpen className="h-3 w-3" />
-                                        {t('reviews.smbSaved')}
-                                      </span>
-                                    )}
-                                    {(r.invoice?.invoiceNumber || r.invoice?.completedAt) && (r.completedAt || r.emailSent || r.smbSaved) && (
-                                      <span className="border-l border-muted-foreground/40 h-3 self-center" />
-                                    )}
-                                    {r.invoice?.invoiceNumber && (
-                                      <span>{t('reviews.invoiceNo')}: {r.invoice.invoiceNumber}</span>
-                                    )}
-                                    {r.invoice?.completedAt && (
-                                      <span>{t('reviews.invoiceSent')}: {formatDate(r.invoice.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
-                                    )}
-                                    {r.invoice?.status === 'sent_email' && (
-                                      <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                                        <Mail className="h-3 w-3" />
-                                        {t('reviews.emailSent')}
-                                      </span>
-                                    )}
-                                  </div>
                                 )}
                               </div>
-                              {/* Right: status badges — always at the same position */}
-                              <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                              {/* Line 2: badges — on their own line so they align across all rows */}
+                              <div className="mt-1 flex items-center gap-3">
                                 <span className="flex items-center gap-1">
                                   <span className="text-xs text-muted-foreground">{t('contractTimeline.review')}:</span>
                                   <Badge variant={badgeVariant} className="text-xs">
@@ -259,6 +219,44 @@ export default function ContractTimelinePage() {
                                   </span>
                                 )}
                               </div>
+                              {/* Line 3: detail row */}
+                              {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email') && (
+                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                  {r.completedAt && (
+                                    <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
+                                  )}
+                                  {r.completedBy && (
+                                    <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>
+                                  )}
+                                  {r.emailSent && (
+                                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                      <Mail className="h-3 w-3" />
+                                      {t('reviews.emailSent')}
+                                    </span>
+                                  )}
+                                  {r.smbSaved && (
+                                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                      <FolderOpen className="h-3 w-3" />
+                                      {t('reviews.smbSaved')}
+                                    </span>
+                                  )}
+                                  {(r.invoice?.invoiceNumber || r.invoice?.completedAt || r.invoice?.status === 'sent_email') && (r.completedAt || r.emailSent || r.smbSaved) && (
+                                    <span className="border-l border-muted-foreground/40 h-3 self-center" />
+                                  )}
+                                  {r.invoice?.invoiceNumber && (
+                                    <span>{t('reviews.invoiceNo')}: {r.invoice.invoiceNumber}</span>
+                                  )}
+                                  {r.invoice?.completedAt && (
+                                    <span>{t('reviews.invoiceSent')}: {formatDate(r.invoice.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
+                                  )}
+                                  {r.invoice?.status === 'sent_email' && (
+                                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                      <Mail className="h-3 w-3" />
+                                      {t('reviews.emailSent')}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
