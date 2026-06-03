@@ -1,7 +1,22 @@
 import nodemailer from 'nodemailer';
+import { resolveMx } from 'dns/promises';
 import { db } from '../db';
 import { decrypt } from '../utils/crypto';
 import { format } from 'date-fns';
+
+async function validateEmailDomain(email: string): Promise<void> {
+  const domain = email.split('@')[1];
+  if (!domain) throw new Error(`Invalid email address: ${email}`);
+  try {
+    const records = await resolveMx(domain);
+    if (!records || records.length === 0) throw new Error(`No mail servers found for domain: ${domain}`);
+  } catch (err: any) {
+    if (err.code === 'ENOTFOUND' || err.code === 'ENODATA' || err.code === 'ESERVFAIL') {
+      throw new Error(`Domain does not exist or has no mail servers: ${domain}`);
+    }
+    throw err;
+  }
+}
 
 interface MailOptions {
   to: string;
@@ -28,10 +43,12 @@ async function getTransporter() {
 }
 
 export async function sendMail(options: MailOptions): Promise<void> {
+  await validateEmailDomain(options.to);
+
   const s = await db.query.settings.findFirst();
   const transporter = await getTransporter();
 
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: s?.smtpFrom ?? options.to,
     to: options.to,
     subject: options.subject,
@@ -43,6 +60,10 @@ export async function sendMail(options: MailOptions): Promise<void> {
       contentType: a.contentType,
     })),
   });
+
+  if (info.rejected && info.rejected.length > 0) {
+    throw new Error(`Email address rejected by server: ${info.rejected.join(', ')}`);
+  }
 }
 
 export async function testSmtpConnection(recipient: string): Promise<{ success: boolean; error?: string }> {
