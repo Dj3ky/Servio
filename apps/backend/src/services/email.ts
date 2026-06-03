@@ -8,13 +8,15 @@ async function validateEmailDomain(email: string): Promise<void> {
   const domain = email.split('@')[1];
   if (!domain) throw new Error(`Invalid email address: ${email}`);
   try {
-    const records = await resolveMx(domain);
-    if (!records || records.length === 0) throw new Error(`No mail servers found for domain: ${domain}`);
+    await resolveMx(domain);
   } catch (err: any) {
-    if (err.code === 'ENOTFOUND' || err.code === 'ENODATA' || err.code === 'ESERVFAIL') {
-      throw new Error(`Domain does not exist or has no mail servers: ${domain}`);
+    // Only reject when the domain provably doesn't exist.
+    // ENODATA means no MX records but the domain may still receive mail via A-record fallback (RFC 5321).
+    // ESERVFAIL / other errors are transient — let the SMTP server decide.
+    if (err.code === 'ENOTFOUND') {
+      throw new Error(`Domain does not exist: ${domain}`);
     }
-    throw err;
+    // For all other DNS errors, fall through and let SMTP handle it.
   }
 }
 
