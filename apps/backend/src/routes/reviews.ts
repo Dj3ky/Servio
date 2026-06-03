@@ -74,6 +74,7 @@ router.get('/monthly-overview', async (req: Request, res: Response): Promise<voi
           customer: { columns: { id: true, name: true } },
           facility: { columns: { id: true, name: true } },
         },
+        columns: { id: true, contractNumber: true, invoiceDelivery: true },
       },
       completedBy: { columns: { id: true, name: true } },
       invoice: { columns: { id: true, invoiceNumber: true, completedAt: true, status: true } },

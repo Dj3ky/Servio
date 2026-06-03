@@ -19,6 +19,7 @@ interface ReviewItem {
   contract: {
     id: string;
     contractNumber: string;
+    invoiceDelivery: string;
     customer: { id: string; name: string };
     facility: { id: string; name: string };
   };
@@ -220,7 +221,7 @@ export default function ContractTimelinePage() {
                                 )}
                               </div>
                               {/* Line 3: detail row */}
-                              {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email') && (
+                              {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email' || (r.invoice?.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
                                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                   {r.completedAt && (
                                     <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
@@ -240,7 +241,7 @@ export default function ContractTimelinePage() {
                                       {t('reviews.smbSaved')}
                                     </span>
                                   )}
-                                  {(r.invoice?.invoiceNumber || r.invoice?.completedAt || r.invoice?.status === 'sent_email') && (r.completedAt || r.emailSent || r.smbSaved) && (
+                                  {r.invoice && (r.invoice.invoiceNumber || r.invoice.completedAt || r.invoice.status === 'sent_email' || (r.invoice.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (r.completedAt || r.emailSent || r.smbSaved) && (
                                     <span className="border-l border-muted-foreground/40 h-3 self-center" />
                                   )}
                                   {r.invoice?.invoiceNumber && (
@@ -249,7 +250,7 @@ export default function ContractTimelinePage() {
                                   {r.invoice?.completedAt && (
                                     <span>{t('reviews.invoiceSent')}: {formatDate(r.invoice.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
                                   )}
-                                  {r.invoice?.status === 'sent_email' && (
+                                  {r.invoice && (r.invoice.status === 'sent_email' || (r.invoice.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
                                     <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
                                       <Mail className="h-3 w-3" />
                                       {t('reviews.emailSent')}
