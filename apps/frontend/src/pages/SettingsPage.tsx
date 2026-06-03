@@ -127,35 +127,47 @@ function UpdatesTab() {
   function startLogPolling() {
     if (pollRef.current) clearInterval(pollRef.current);
     let consecutiveErrors = 0;
+    let maxSeenLines = 0;
+
+    function finishAsSuccess(extraLine?: string) {
+      clearInterval(pollRef.current!);
+      pollRef.current = null;
+      if (extraLine) setLogLines(prev => [...prev, extraLine]);
+      setUpdateDone(true);
+      setUpdateSucceeded(true);
+      waitForServerAndReload();
+    }
 
     pollRef.current = setInterval(async () => {
       try {
         const log = await api.get<UpdateLog>('/update/log');
         consecutiveErrors = 0;
+
         setLogLines(log.lines);
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
 
         if (log.done) {
+          // Script finished cleanly before the process was killed
           clearInterval(pollRef.current!);
           pollRef.current = null;
           setUpdateDone(true);
           setUpdateSucceeded(log.success);
+          if (log.success) setTimeout(() => waitForServerAndReload(), 3000);
+          return;
+        }
 
-          if (log.success) {
-            setTimeout(() => waitForServerAndReload(), 3000);
-          }
+        if (log.lines.length > maxSeenLines) {
+          maxSeenLines = log.lines.length;
+        } else if (maxSeenLines > 0 && log.lines.length === 0) {
+          // pm2 reload swapped to new process — in-memory log reset to empty.
+          // All fallible steps (git pull, build, migrate) already passed.
+          finishAsSuccess('==> Restarting server...');
         }
       } catch {
         consecutiveErrors++;
-        // After 3 consecutive failures the server is down — pm2 is reloading.
-        // All fallible steps (git pull, build, migrate) already passed at this point.
+        // pm2 restart (hard kill) scenario — server fully down for ≥3 s
         if (consecutiveErrors >= 3) {
-          clearInterval(pollRef.current!);
-          pollRef.current = null;
-          setLogLines(prev => [...prev, '==> Restarting server...']);
-          setUpdateDone(true);
-          setUpdateSucceeded(true);
-          waitForServerAndReload();
+          finishAsSuccess('==> Restarting server...');
         }
       }
     }, 1000);
