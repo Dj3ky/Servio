@@ -167,6 +167,7 @@ export default function FacilityDetailPage() {
       }),
     onSuccess: () => {
       refetchReviews();
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('reviews.createReview'));
     },
@@ -214,6 +215,7 @@ export default function FacilityDetailPage() {
     mutationFn: (reviewId: string) => api.post(`/reviews/${reviewId}/reset`, {}),
     onSuccess: () => {
       refetchReviews();
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['invoices-facility', activeContract?.id] });
       refetchInvoices();
@@ -287,6 +289,7 @@ export default function FacilityDetailPage() {
 
   function handleUploadSuccess() {
     refetchReviews();
+    queryClient.invalidateQueries({ queryKey: ['contracts'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['invoices-facility', activeContract?.id] });
     refetchInvoices();

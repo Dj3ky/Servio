@@ -24,7 +24,12 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\\\\apps\\\\frontend\\\\src\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object -First 5)",
+      "Bash(xargs grep -l \"reset.*review\\\\|resetReview\")",
+      "Bash(xargs grep -l \"ReviewUploadDialog\\\\|reviewId\")",
+      "Bash(xargs grep -l \"useMutation\")"
     ]
   }
 }
