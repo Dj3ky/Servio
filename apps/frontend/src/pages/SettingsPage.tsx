@@ -126,9 +126,12 @@ function UpdatesTab() {
 
   function startLogPolling() {
     if (pollRef.current) clearInterval(pollRef.current);
+    let consecutiveErrors = 0;
+
     pollRef.current = setInterval(async () => {
       try {
         const log = await api.get<UpdateLog>('/update/log');
+        consecutiveErrors = 0;
         setLogLines(log.lines);
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
 
@@ -139,12 +142,21 @@ function UpdatesTab() {
           setUpdateSucceeded(log.success);
 
           if (log.success) {
-            // Wait for the server to restart, then reload the page
             setTimeout(() => waitForServerAndReload(), 3000);
           }
         }
       } catch {
-        // Server is restarting — keep polling silently
+        consecutiveErrors++;
+        // After 3 consecutive failures the server is down — pm2 is reloading.
+        // All fallible steps (git pull, build, migrate) already passed at this point.
+        if (consecutiveErrors >= 3) {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setLogLines(prev => [...prev, '==> Restarting server...']);
+          setUpdateDone(true);
+          setUpdateSucceeded(true);
+          waitForServerAndReload();
+        }
       }
     }, 1000);
   }
