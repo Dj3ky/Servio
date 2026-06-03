@@ -68,6 +68,7 @@ export function useWebSocket() {
         case 'dashboard_refresh':
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           queryClient.invalidateQueries({ queryKey: ['reviews'] });
+          queryClient.invalidateQueries({ queryKey: ['reviews-timeline'] });
           queryClient.invalidateQueries({ queryKey: ['contracts'] });
           break;
         case 'inbox_count': {

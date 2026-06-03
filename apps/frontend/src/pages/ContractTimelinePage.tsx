@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -63,11 +65,16 @@ function currentMonthIso(): string {
 export default function ContractTimelinePage() {
   const { t, i18n } = useTranslation();
   const [months, setMonths] = useState(6);
-  const [data, setData] = useState<MonthGroup[]>([]);
-  const [loading, setLoading] = useState(true);
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set([currentMonthIso()]));
 
   const currentMonth = currentMonthIso();
+
+  const { data: rawData, isLoading: loading } = useQuery({
+    queryKey: ['reviews-timeline', months],
+    queryFn: () => api.get<MonthGroup[]>(`/reviews/monthly-overview?months=${months}`),
+  });
+
+  const data = rawData ?? [];
 
   function toggleMonth(month: string) {
     setOpenMonths((prev) => {
@@ -76,17 +83,6 @@ export default function ContractTimelinePage() {
       return next;
     });
   }
-
-  useEffect(() => {
-    const token = JSON.parse(localStorage.getItem('servio-auth') ?? '{}')?.state?.token;
-    setLoading(true);
-    fetch(`/api/reviews/monthly-overview?months=${months}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [months]);
 
   return (
     <div className="space-y-6">

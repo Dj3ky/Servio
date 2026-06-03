@@ -209,6 +209,9 @@ export function startScheduler(): void {
       if (bounced.length > 0) {
         broadcast('dashboard_refresh', {});
         console.log(`[scheduler] Marked ${bounced.length} review(s) as email bounced: ${bounced.join(', ')}`);
+        // Re-fetch inbox count after NDRs are marked as read
+        const updated = await getInboxStatus();
+        if (updated) broadcast('inbox_count', { unreadCount: updated.unreadCount });
       }
     } catch (err) {
       console.error('[scheduler] Bounce detection failed:', err);
