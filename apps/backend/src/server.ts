@@ -28,6 +28,10 @@ async function ensureSettingsColumns() {
     ALTER TABLE reviews
       ADD COLUMN IF NOT EXISTS email_bounced boolean NOT NULL DEFAULT false
   `);
+  await db.execute(sql`
+    ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS email_bounced boolean NOT NULL DEFAULT false
+  `);
 }
 
 async function start() {

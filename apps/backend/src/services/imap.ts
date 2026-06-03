@@ -1,7 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
-import { reviews } from '../db/schema';
+import { reviews, invoices } from '../db/schema';
 import { decrypt } from '../utils/crypto';
 
 const BOUNCE_FROM_PATTERNS = [/mailer-daemon/i, /postmaster/i, /mail delivery/i, /mail system/i];
@@ -140,7 +140,25 @@ export async function detectAndProcessBounces(): Promise<string[]> {
       await db.update(reviews).set({ emailBounced: true }).where(eq(reviews.id, review.id));
       bouncedEmails.push(recipientEmail);
 
-      // Mark the NDR message(s) as read in the inbox
+      for (const uid of bounceUidsByAddress.get(recipientEmail) ?? []) {
+        await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
+      }
+    }
+
+    // Check invoices — recipient is contract.invoiceEmail
+    const invoiceCandidates = await db.query.invoices.findMany({
+      where: (inv, { and, eq }) => and(eq(inv.emailBounced, false), eq(inv.status, 'completed')),
+      columns: { id: true },
+      with: { contract: { columns: { invoiceEmail: true } } },
+    });
+
+    for (const invoice of invoiceCandidates) {
+      const recipientEmail = ((invoice as any).contract?.invoiceEmail ?? '').toLowerCase();
+      if (!recipientEmail || !bouncedAddresses.has(recipientEmail)) continue;
+
+      await db.update(invoices).set({ emailBounced: true }).where(eq(invoices.id, invoice.id));
+      bouncedEmails.push(recipientEmail);
+
       for (const uid of bounceUidsByAddress.get(recipientEmail) ?? []) {
         await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
       }

@@ -15,6 +15,7 @@ export const invoices = pgTable('invoices', {
   completedAt: timestamp('completed_at'),
   completedById: uuid('completed_by_id').references(() => users.id),
   notes: text('notes'),
+  emailBounced: boolean('email_bounced').notNull().default(false),
 });
 
 export type DbInvoice = typeof invoices.$inferSelect;

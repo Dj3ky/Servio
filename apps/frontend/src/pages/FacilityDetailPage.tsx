@@ -42,6 +42,7 @@ interface Invoice {
   invoiceNumber: string | null;
   createdAt: string;
   completedAt: string | null;
+  emailBounced: boolean;
 }
 
 interface ContractDocument {
@@ -387,6 +388,11 @@ export default function FacilityDetailPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Badge variant={invoiceBadgeVariant(inv.status)}>{invoiceStatusLabel(inv.status)}</Badge>
+                      {inv.emailBounced && (
+                        <span className="flex items-center gap-0.5 text-xs text-destructive">
+                          <XCircle className="h-3 w-3" />{t('reviews.emailBounced')}
+                        </span>
+                      )}
                       <span className="text-sm text-muted-foreground">{formatDate(inv.createdAt)}</span>
                       {inv.invoiceNumber && <span className="text-sm font-medium">{inv.invoiceNumber}</span>}
                     </div>

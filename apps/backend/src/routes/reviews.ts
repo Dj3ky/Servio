@@ -300,6 +300,7 @@ router.post(
         completedAt: null,
         completedById: null,
         emailSent: false,
+        emailBounced: false,
         smbSaved: false,
         updatedAt: new Date(),
       })
