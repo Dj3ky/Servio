@@ -136,6 +136,7 @@
     "notNeeded": "Ni potreben",
     "noReviewThisMonth": "Za ta mesec še ni ustvarjenega pregleda.",
     "uploadSuccess": "Pregled shranjen in poslan.",
+    "emailFailed": "Pregled shranjen, vendar e-pošte ni bilo mogoče poslati",
     "dropOrClick": "Povleci in spusti ali klikni za izbiro dokumenta",
     "showPreview": "Predogled",
     "hidePreview": "Skrij predogled",

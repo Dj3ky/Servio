@@ -163,9 +163,16 @@ export function ReviewUploadDialog({
       let data: any = {};
       try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
       if (!result.ok) throw new Error(data.error ?? 'Upload failed');
-      toast.success(t('reviews.uploadSuccess'));
-      handleClose();
-      onSuccess();
+
+      if (data.emailError) {
+        // Review saved but email failed — keep dialog open so user sees the error
+        setError(`${t('reviews.emailFailed')}: ${data.emailError}`);
+        onSuccess();
+      } else {
+        toast.success(t('reviews.uploadSuccess'));
+        handleClose();
+        onSuccess();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -303,7 +310,12 @@ export function ReviewUploadDialog({
                 </Alert>
               )}
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose} disabled={uploading}>{t('common.cancel')}</Button>

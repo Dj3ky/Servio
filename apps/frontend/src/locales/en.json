@@ -136,6 +136,7 @@
     "notNeeded": "Not needed",
     "noReviewThisMonth": "No review created for this month yet.",
     "uploadSuccess": "Review saved and sent.",
+    "emailFailed": "Review saved, but email could not be sent",
     "dropOrClick": "Drag & drop or click to select document",
     "showPreview": "Preview",
     "hidePreview": "Hide preview",
