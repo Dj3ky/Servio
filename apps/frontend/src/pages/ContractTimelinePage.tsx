@@ -195,14 +195,14 @@ export default function ContractTimelinePage() {
                                   {r.contract.customer.name} · {r.contract.contractNumber}
                                 </span>
                                 <span className="flex items-center gap-1 shrink-0">
-                                  <span className="text-xs text-muted-foreground">{t('reviews.title')}:</span>
+                                  <span className="text-xs text-muted-foreground">{t('contractTimeline.review')}:</span>
                                   <Badge variant={badgeVariant} className="text-xs">
                                     {t(`reviews.${r.status}` as any)}
                                   </Badge>
                                 </span>
                                 {r.invoice && (
                                   <span className="flex items-center gap-1 shrink-0">
-                                    <span className="text-xs text-muted-foreground">{t('invoices.title')}:</span>
+                                    <span className="text-xs text-muted-foreground">{t('contractTimeline.invoice')}:</span>
                                     <Badge variant={invoiceBadgeVariant(r.invoice.status)} className="text-xs">
                                       {t(`invoices.${r.invoice.status}` as any)}
                                     </Badge>

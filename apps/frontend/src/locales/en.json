@@ -382,7 +382,9 @@
     "currentMonth": "Current Month",
     "notDone": "not done",
     "noReviews": "No reviews this month",
-    "pendingAction": "Needs action"
+    "pendingAction": "Needs action",
+    "review": "Review",
+    "invoice": "Invoice"
   },
   "reports": {
     "title": "Reports",

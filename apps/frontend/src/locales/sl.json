@@ -382,7 +382,9 @@
     "currentMonth": "Trenutni mesec",
     "notDone": "nedokončano",
     "noReviews": "Ni pregledov ta mesec",
-    "pendingAction": "Zahteva ukrepanje"
+    "pendingAction": "Zahteva ukrepanje",
+    "review": "Pregled",
+    "invoice": "Faktura"
   },
   "reports": {
     "title": "Poročila",
