@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen } from 'lucide-react';
+import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,11 +53,20 @@ function currentMonthIso(): string {
 
 export default function ContractTimelinePage() {
   const { t, i18n } = useTranslation();
-  const [months, setMonths] = useState(12);
+  const [months, setMonths] = useState(6);
   const [data, setData] = useState<MonthGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openMonths, setOpenMonths] = useState<Set<string>>(new Set([currentMonthIso()]));
 
   const currentMonth = currentMonthIso();
+
+  function toggleMonth(month: string) {
+    setOpenMonths((prev) => {
+      const next = new Set(prev);
+      next.has(month) ? next.delete(month) : next.add(month);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const token = JSON.parse(localStorage.getItem('servio-auth') ?? '{}')?.state?.token;
@@ -103,9 +112,12 @@ export default function ContractTimelinePage() {
 
             return (
               <Card key={month} className={isCurrentMonth ? 'border-primary' : ''}>
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 cursor-pointer select-none" onClick={() => toggleMonth(month)}>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
+                      {openMonths.has(month)
+                        ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                       <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
                       <CardTitle className="text-base">
                         {formatScheduledMonth(month, i18n.language)}
@@ -136,7 +148,7 @@ export default function ContractTimelinePage() {
                   </div>
                 </CardHeader>
 
-                {sorted.length > 0 && (
+                {openMonths.has(month) && sorted.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="relative pl-6">
                       <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
