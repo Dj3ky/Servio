@@ -219,6 +219,9 @@ export default function ContractTimelinePage() {
                                       {t('reviews.smbSaved')}
                                     </span>
                                   )}
+                                  {(r.invoice?.invoiceNumber || r.invoice?.completedAt) && (r.completedAt || r.emailSent || r.smbSaved) && (
+                                    <span className="border-l border-muted-foreground/40 h-3 self-center" />
+                                  )}
                                   {r.invoice?.invoiceNumber && (
                                     <span>{t('reviews.invoiceNo')}: {r.invoice.invoiceNumber}</span>
                                   )}
