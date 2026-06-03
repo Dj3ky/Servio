@@ -248,7 +248,7 @@ router.post('/:id/reset', requireRole('admin'), async (req: Request, res: Respon
 
   const [updated] = await db
     .update(invoices)
-    .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null })
+    .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null, emailBounced: false })
     .where(eq(invoices.id, req.params.id))
     .returning();
 
