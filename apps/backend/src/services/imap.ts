@@ -104,7 +104,7 @@ export async function detectAndProcessBounces(): Promise<string[]> {
 
     const bouncedAddresses = new Set<string>();
 
-    for await (const msg of client.fetch(uids, { envelope: true, uid: true, bodyParts: ['TEXT'] }, { uid: true })) {
+    for await (const msg of client.fetch(uids, { envelope: true, uid: true, source: true }, { uid: true })) {
       const env = msg.envelope;
       const from = (env?.from?.[0]?.name ?? '') + ' ' + (env?.from?.[0]?.address ?? '');
       const subject = env?.subject ?? '';
@@ -112,9 +112,8 @@ export async function detectAndProcessBounces(): Promise<string[]> {
       console.log(`[bounce] uid=${msg.uid} from="${from.trim()}" subject="${subject}" isBounce=${isBounce}`);
       if (!isBounce) continue;
 
-      const bodyBuf = msg.bodyParts?.get('TEXT');
-      const bodyText = bodyBuf ? bodyBuf.toString() : '';
-      const found = extractEmails(bodyText + ' ' + subject);
+      const bodyText = msg.source ? msg.source.toString() : '';
+      const found = extractEmails(bodyText);
       console.log(`[bounce] extracted emails: ${found.join(', ')}`);
       for (const email of found) {
         bouncedAddresses.add(email);
