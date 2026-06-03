@@ -51,10 +51,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-300 lg:static lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full',
       )}>
-        <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-          <div className="flex items-center">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border min-h-16">
+          <div className="flex flex-col items-start gap-1">
             {settings.logoUrl ? (
-              <img src={settings.logoUrl} alt={settings.appName} className="max-h-9 max-w-[160px] object-contain" />
+              <>
+                <img src={settings.logoUrl} alt={settings.appName} className="max-h-9 max-w-[140px] object-contain" />
+                <span className="text-xs font-medium text-sidebar-foreground/80 leading-tight">{settings.appName}</span>
+              </>
             ) : (
               <span className="text-lg font-semibold text-sidebar-foreground">{settings.appName}</span>
             )}
