@@ -218,7 +218,7 @@ export default function ContractTimelinePage() {
                                 )}
                               </div>
                               {/* Line 3: detail row */}
-                              {(r.completedAt || r.emailSent || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email' || (r.invoice?.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
+                              {(r.completedAt || r.emailSent || r.emailBounced || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email' || (r.invoice?.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
                                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                   {r.completedAt && (
                                     <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt, i18n.language === 'sl' ? 'sl-SI' : 'en-US')}</span>
