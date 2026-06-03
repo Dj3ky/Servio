@@ -64,8 +64,8 @@ export function ReviewUploadDialog({
 }: ReviewUploadDialogProps) {
   const { t, i18n } = useTranslation();
   const [files, setFiles] = useState<File[]>([]);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -80,22 +80,19 @@ export function ReviewUploadDialog({
     enabled: open,
   });
 
-  // Revoke old object URL when first file changes or dialog closes
-  const firstFile = files.length > 0 ? files[0] : null;
   useEffect(() => {
     if (prevUrlRef.current) {
       URL.revokeObjectURL(prevUrlRef.current);
       prevUrlRef.current = null;
     }
-    if (firstFile) {
-      const url = URL.createObjectURL(firstFile);
+    if (previewFile) {
+      const url = URL.createObjectURL(previewFile);
       setPreviewUrl(url);
       prevUrlRef.current = url;
     } else {
       setPreviewUrl(null);
-      setShowPreview(false);
     }
-  }, [firstFile]);
+  }, [previewFile]);
 
   useEffect(() => {
     if (!open) {
@@ -104,7 +101,7 @@ export function ReviewUploadDialog({
         prevUrlRef.current = null;
       }
       setPreviewUrl(null);
-      setShowPreview(false);
+      setPreviewFile(null);
     }
   }, [open]);
 
@@ -143,11 +140,11 @@ export function ReviewUploadDialog({
   function handleClose() {
     if (uploading) return;
     setFiles([]);
+    setPreviewFile(null);
     setError(null);
     setSelectedTemplateId('');
     setEmailSubject('');
     setEmailBody('');
-    setShowPreview(false);
     onClose();
   }
 
@@ -245,26 +242,26 @@ export function ReviewUploadDialog({
 
               {/* Selected file list */}
               <div className="space-y-2">
-                {files.map((f, i) => (
+                {files.map((f) => (
                   <div key={f.name} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
                     <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{f.name}</p>
                       <p className="text-xs text-muted-foreground">{formatFileSize(f.size)}</p>
                     </div>
-                    {i === 0 && f.type === 'application/pdf' && (
+                    {f.type === 'application/pdf' && (
                       <Button
                         variant="ghost" size="sm" className="h-7 gap-1.5 shrink-0 text-xs"
-                        onClick={() => setShowPreview((v) => !v)}
+                        onClick={() => setPreviewFile((prev) => prev?.name === f.name ? null : f)}
                       >
-                        {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                        {showPreview ? t('reviews.hidePreview') : t('reviews.showPreview')}
+                        {previewFile?.name === f.name ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        {previewFile?.name === f.name ? t('reviews.hidePreview') : t('reviews.showPreview')}
                       </Button>
                     )}
                     <Button
                       variant="ghost" size="icon" className="h-7 w-7 shrink-0"
                       onClick={() => {
-                        if (i === 0) setShowPreview(false);
+                        if (previewFile?.name === f.name) setPreviewFile(null);
                         setFiles((prev) => prev.filter((x) => x.name !== f.name));
                       }}
                       disabled={uploading}
@@ -275,14 +272,13 @@ export function ReviewUploadDialog({
                 ))}
               </div>
 
-              {/* Inline PDF preview for first file */}
-              {showPreview && previewUrl && (
+              {previewFile && previewUrl && (
                 <div className="rounded-lg border overflow-hidden">
                   <iframe
                     src={previewUrl}
                     className="w-full"
                     style={{ height: '400px' }}
-                    title="PDF Preview"
+                    title={previewFile.name}
                   />
                 </div>
               )}
