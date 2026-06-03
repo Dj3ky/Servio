@@ -93,33 +93,35 @@ export async function detectAndProcessBounces(): Promise<string[]> {
     await client.connect();
     await client.mailboxOpen('INBOX');
 
-    // Only look at unread messages — once processed we mark them read so they
-    // are never re-evaluated and cannot poison future successful deliveries.
-    const unreadUids = await client.search({ seen: false }, { uid: true });
-    if (!unreadUids || unreadUids.length === 0) return [];
+    // Scan all messages from the last 30 days regardless of read/unread state.
+    // Using date-based search means we don't miss bounces that were read before
+    // the poll ran. Re-scanning the same NDR is safe because the review query
+    // checks emailBounced: false, so nothing gets double-flagged.
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const uids = await client.search({ since }, { uid: true });
+    if (!uids || uids.length === 0) return [];
 
     const bouncedAddresses = new Set<string>();
-    const processedBounceUids: number[] = [];
 
-    for await (const msg of client.fetch(unreadUids, { envelope: true, uid: true, bodyParts: ['TEXT'] }, { uid: true })) {
+    for await (const msg of client.fetch(uids, { envelope: true, uid: true, bodyParts: ['TEXT'] }, { uid: true })) {
       const env = msg.envelope;
       const from = (env?.from?.[0]?.name ?? '') + ' ' + (env?.from?.[0]?.address ?? '');
       const subject = env?.subject ?? '';
-      if (!isBounceMail(from, subject)) continue;
+      const isBounce = isBounceMail(from, subject);
+      console.log(`[bounce] uid=${msg.uid} from="${from.trim()}" subject="${subject}" isBounce=${isBounce}`);
+      if (!isBounce) continue;
 
       const bodyBuf = msg.bodyParts?.get('TEXT');
       const bodyText = bodyBuf ? bodyBuf.toString() : '';
-      for (const email of extractEmails(bodyText + ' ' + subject)) {
+      const found = extractEmails(bodyText + ' ' + subject);
+      console.log(`[bounce] extracted emails: ${found.join(', ')}`);
+      for (const email of found) {
         bouncedAddresses.add(email);
       }
-      processedBounceUids.push(msg.uid);
     }
 
-    // Mark processed bounce NDRs as read so they are never re-scanned
-    for (const uid of processedBounceUids) {
-      await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
-    }
-
+    console.log(`[bounce] bounced addresses found: ${[...bouncedAddresses].join(', ')}`);
     if (bouncedAddresses.size === 0) return [];
 
     // Load reviews that were sent but not yet bounced, with their contract's email
