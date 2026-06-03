@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -106,20 +106,30 @@ export default function ContractsPage() {
   const { getFilter, setFilter } = useFilterStore();
   const [search, setSearch] = useState(() => getFilter('contracts', 'search') ?? '');
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    valueWithoutVat: false,
-    valueWithoutVatPerYear: false,
-    workOrderNumber: false,
-    startDate: false,
-    customerEmail: false,
-    invoiceEmail: false,
-    invoiceDelivery: false,
-    contactName: false,
-    phone: false,
-    facilityAddress: false,
-    facilityNotes: false,
-    smbPath: false,
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    try {
+      const saved = localStorage.getItem('servio-contracts-columns');
+      if (saved) return JSON.parse(saved) as VisibilityState;
+    } catch {}
+    return {
+      valueWithoutVat: false,
+      valueWithoutVatPerYear: false,
+      workOrderNumber: false,
+      startDate: false,
+      customerEmail: false,
+      invoiceEmail: false,
+      invoiceDelivery: false,
+      contactName: false,
+      phone: false,
+      facilityAddress: false,
+      facilityNotes: false,
+      smbPath: false,
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('servio-contracts-columns', JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     () => (getFilter('contracts', 'status') as StatusFilter) ?? 'all',
   );
