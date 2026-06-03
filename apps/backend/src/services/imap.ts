@@ -50,7 +50,7 @@ export async function getInboxStatus(): Promise<{ unreadCount: number; messages:
           from,
           subject: env?.subject ?? '(no subject)',
           date: (env?.date ?? new Date()).toISOString(),
-          seen: msg.flags.has('\\Seen'),
+          seen: msg.flags?.has('\\Seen') ?? false,
         });
       }
       messages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
