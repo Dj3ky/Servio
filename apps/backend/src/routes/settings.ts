@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
+import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { eq } from 'drizzle-orm';
@@ -28,6 +29,9 @@ import { testSmtpConnection } from '../services/email';
 import { createAuditLog } from '../utils/audit';
 
 const router = Router();
+
+// Short-lived one-time tokens for PWA/browser-navigation downloads (30s TTL)
+const downloadTokens = new Map<string, { filename: string; expires: number }>();
 
 router.get('/public', async (_req: Request, res: Response): Promise<void> => {
   const s = await db.query.settings.findFirst();
@@ -243,6 +247,49 @@ router.get('/backup/download/:filename', requireRole('admin'), async (req: Reque
   const { filename } = req.params;
   if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+
+  const s = await db.query.settings.findFirst();
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
+  const filePath = path.join(backupPath, filename);
+
+  try {
+    await fs.access(filePath);
+    res.download(filePath, filename);
+  } catch {
+    res.status(404).json({ error: 'errors.not_found' });
+  }
+});
+
+// Issues a one-time 30-second token so PWA can open the download via window.open()
+router.post('/backup/download-token/:filename', requireRole('admin'), (req: Request, res: Response): void => {
+  const { filename } = req.params;
+  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+  const token = crypto.randomUUID();
+  downloadTokens.set(token, { filename, expires: Date.now() + 30_000 });
+  res.json({ token });
+});
+
+// Token-authenticated download endpoint — used by PWA window.open() navigation
+router.get('/backup/file/:filename', async (req: Request, res: Response): Promise<void> => {
+  const { filename } = req.params;
+  const { token } = req.query as { token?: string };
+
+  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+
+  if (!token) { res.status(401).json({ error: 'errors.unauthorized' }); return; }
+
+  const entry = downloadTokens.get(token);
+  downloadTokens.delete(token);
+  if (!entry || entry.filename !== filename || entry.expires < Date.now()) {
+    res.status(401).json({ error: 'errors.unauthorized' });
     return;
   }
 

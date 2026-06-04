@@ -65,22 +65,11 @@ async function request<T>(
 }
 
 async function downloadBlob(path: string, filename: string): Promise<void> {
-  const token = useAuthStore.getState().token;
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${BASE_URL}${path}`, { headers });
-  if (!res.ok) throw new ApiError(res.status, 'errors.unknown');
-
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Get a one-time token so the download can be triggered via window.open().
+  // A real browser navigation works in PWA standalone mode; programmatic a.click() on a blob URL does not.
+  const encoded = encodeURIComponent(filename);
+  const { token: dlToken } = await request<{ token: string }>('POST', path.replace('/download/', '/download-token/'));
+  window.open(`${BASE_URL}${path.replace(`/download/${encoded}`, `/file/${encoded}`)}?token=${dlToken}`, '_blank');
 }
 
 export const api = {
