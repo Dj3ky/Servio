@@ -59,12 +59,13 @@ echo "==> Creating directories..."
 sudo mkdir -p "$INSTALL_DIR" "$LOG_DIR" "$UPLOADS_DIR" "$BACKUPS_DIR"
 
 # Copy application files
-# rsync handles re-runs cleanly; .git and node_modules are not needed in the install dir
+# rsync handles re-runs cleanly; node_modules and .env are excluded intentionally.
+# .git must be included so the update service can run git commands in the install dir.
 echo "==> Copying application files..."
 if ! command -v rsync &>/dev/null; then
   sudo apt-get install -y rsync
 fi
-sudo rsync -a --exclude='.git' --exclude='node_modules' --exclude='.env' . "$INSTALL_DIR/"
+sudo rsync -a --exclude='node_modules' --exclude='.env' . "$INSTALL_DIR/"
 sudo chown -R "$USER:$USER" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
