@@ -31,8 +31,19 @@ export async function createBackup(): Promise<string> {
   const username = dbUrl.username;
   const env = { ...process.env, PGPASSWORD: dbUrl.password };
 
-  // Step 1: dump DB to a plain SQL file inside the backup dir
-  await execFileAsync('pg_dump', ['-h', host, '-p', port, '-U', username, '-F', 'p', '-f', sqlFilePath, database], { env });
+  // Step 1: dump DB to a plain SQL file inside the backup dir.
+  // --clean --if-exists: emit DROP TABLE IF EXISTS before each CREATE TABLE so the
+  // SQL can be restored cleanly onto a server that was already seeded.
+  // --no-owner --no-acl: skip ownership and privilege statements that differ
+  // between servers and would cause psql errors on restore.
+  await execFileAsync('pg_dump', [
+    '-h', host, '-p', port, '-U', username,
+    '-F', 'p',
+    '--clean', '--if-exists',
+    '--no-owner', '--no-acl',
+    '-f', sqlFilePath,
+    database,
+  ], { env });
 
   // Step 2: bundle SQL + uploads into a single archive
   const tarArgs = ['-czf', bundleFilePath, '-C', backupPath, sqlFilename];

@@ -348,7 +348,7 @@ router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'),
     const username = dbUrl.username;
     const env = { ...process.env, PGPASSWORD: dbUrl.password };
 
-    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '-f', sqlFilePath], { env });
+    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '--on-error-stop', '-f', sqlFilePath], { env });
 
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
     res.json({ success: true });

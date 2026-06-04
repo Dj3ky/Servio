@@ -76,7 +76,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         db.query.invoices.findFirst({
           where: (inv, { eq }) => eq(inv.contractId, contract.id),
           orderBy: (inv, { desc }) => [desc(inv.createdAt)],
-          columns: { id: true, status: true, emailBounced: true },
+          columns: { id: true, status: true, invoiceNumber: true, emailBounced: true },
         }),
       ]);
       const reviewNeededThisMonth = shouldCreateReview(contract.reviewFrequency, contract.customMonths, currentMonthNumber);
