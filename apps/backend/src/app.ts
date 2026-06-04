@@ -33,13 +33,13 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use('/api', apiRoutes);
 
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const frontendDist = path.join(process.cwd(), 'apps/frontend/dist');
 app.use(express.static(frontendDist));
-app.get('*', (_req, res) => {
+app.get('*', (_req: express.Request, res: express.Response) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
