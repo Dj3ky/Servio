@@ -42,6 +42,38 @@ router.get('/public', async (_req: Request, res: Response): Promise<void> => {
   });
 });
 
+// Token-authenticated download — no Bearer header needed, secured by one-time token.
+// Must be registered BEFORE router.use(requireAuth) so browser navigations work.
+router.get('/backup/file/:filename', async (req: Request, res: Response): Promise<void> => {
+  const { filename } = req.params;
+  const { token } = req.query as { token?: string };
+
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+
+  if (!token) { res.status(401).json({ error: 'errors.unauthorized' }); return; }
+
+  const entry = downloadTokens.get(token);
+  downloadTokens.delete(token);
+  if (!entry || entry.filename !== filename || entry.expires < Date.now()) {
+    res.status(401).json({ error: 'errors.unauthorized' });
+    return;
+  }
+
+  const s = await db.query.settings.findFirst();
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
+  const filePath = path.join(backupPath, filename);
+
+  try {
+    await fs.access(filePath);
+    res.download(filePath, filename);
+  } catch {
+    res.status(404).json({ error: 'errors.not_found' });
+  }
+});
+
 router.use(requireAuth);
 
 router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Response): Promise<void> => {
@@ -272,37 +304,6 @@ router.post('/backup/download-token/:filename', requireRole('admin'), (req: Requ
   const token = crypto.randomUUID();
   downloadTokens.set(token, { filename, expires: Date.now() + 30_000 });
   res.json({ token });
-});
-
-// Token-authenticated download endpoint — used by PWA window.open() navigation
-router.get('/backup/file/:filename', async (req: Request, res: Response): Promise<void> => {
-  const { filename } = req.params;
-  const { token } = req.query as { token?: string };
-
-  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
-    res.status(400).json({ error: 'errors.validation' });
-    return;
-  }
-
-  if (!token) { res.status(401).json({ error: 'errors.unauthorized' }); return; }
-
-  const entry = downloadTokens.get(token);
-  downloadTokens.delete(token);
-  if (!entry || entry.filename !== filename || entry.expires < Date.now()) {
-    res.status(401).json({ error: 'errors.unauthorized' });
-    return;
-  }
-
-  const s = await db.query.settings.findFirst();
-  const backupPath = path.resolve(s?.backupPath ?? './backups');
-  const filePath = path.join(backupPath, filename);
-
-  try {
-    await fs.access(filePath);
-    res.download(filePath, filename);
-  } catch {
-    res.status(404).json({ error: 'errors.not_found' });
-  }
 });
 
 router.delete('/backup/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {

@@ -65,11 +65,23 @@ async function request<T>(
 }
 
 async function downloadBlob(path: string, filename: string): Promise<void> {
-  // Get a one-time token so the download can be triggered via window.open().
-  // A real browser navigation works in PWA standalone mode; programmatic a.click() on a blob URL does not.
-  const encoded = encodeURIComponent(filename);
-  const { token: dlToken } = await request<{ token: string }>('POST', path.replace('/download/', '/download-token/'));
-  window.open(`${BASE_URL}${path.replace(`/download/${encoded}`, `/file/${encoded}`)}?token=${dlToken}`, '_blank');
+  // Open a blank tab synchronously BEFORE any await so the browser treats it as
+  // a direct user-gesture popup (not blocked). We set its URL once the token arrives.
+  const tab = window.open('', '_blank');
+  try {
+    const encoded = encodeURIComponent(filename);
+    const { token: dlToken } = await request<{ token: string }>('POST', path.replace('/download/', '/download-token/'));
+    const fileUrl = `${BASE_URL}${path.replace(`/download/${encoded}`, `/file/${encoded}`)}?token=${dlToken}`;
+    if (tab) {
+      tab.location.href = fileUrl;
+    } else {
+      // Popup was blocked — navigate in current tab as last resort
+      window.location.href = fileUrl;
+    }
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
 }
 
 export const api = {
