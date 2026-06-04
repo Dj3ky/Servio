@@ -11,7 +11,7 @@ git fetch origin main
 git reset --hard origin/main
 
 echo "==> Installing dependencies..."
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 NODE_ENV=development npm ci
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm ci --include=dev
 npm install -D vite-plugin-pwa --workspace=apps/frontend
 
 echo "==> Building..."
