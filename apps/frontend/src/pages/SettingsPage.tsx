@@ -754,13 +754,10 @@ export default function SettingsPage() {
                     )} />
                     <FormField control={smtpForm.control} name="smtpPass" render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center gap-2">
-                          <FormLabel>{t('settings.smtpPass')}</FormLabel>
-                          {settings?.smtpPassSet && <span className="text-xs text-muted-foreground">({t('settings.passAlreadySet')})</span>}
-                        </div>
+                        <FormLabel>{t('settings.smtpPass')}</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showSmtpPass ? 'text' : 'password'} placeholder={t('common.leaveBlank')} className="pr-10" {...field} />
+                            <Input type={showSmtpPass ? 'text' : 'password'} placeholder={settings?.smtpPassSet ? t('common.leaveBlank') : ''} className="pr-10" {...field} />
                             <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmtpPass((v) => !v)}>
                               {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
@@ -891,13 +888,10 @@ export default function SettingsPage() {
                     )} />
                     <FormField control={smbForm.control} name="smbPassword" render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center gap-2">
-                          <FormLabel>{t('settings.smbPass')}</FormLabel>
-                          {settings?.smbPassSet && <span className="text-xs text-muted-foreground">({t('settings.passAlreadySet')})</span>}
-                        </div>
+                        <FormLabel>{t('settings.smbPass')}</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showSmbPass ? 'text' : 'password'} placeholder={t('common.leaveBlank')} className="pr-10" {...field} />
+                            <Input type={showSmbPass ? 'text' : 'password'} placeholder={settings?.smbPassSet ? t('common.leaveBlank') : ''} className="pr-10" {...field} />
                             <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmbPass((v) => !v)}>
                               {showSmbPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>

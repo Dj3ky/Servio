@@ -212,7 +212,6 @@
     "smtpCredentials": "Poverilnice",
     "smtpUserHint": "Ponavadi vaš celoten e-poštni naslov",
     "smtpPassHint": "Shranjeno šifrirano na strežniku",
-    "passAlreadySet": "geslo je nastavljeno",
     "smtpFromHint": "Prikazano v polju 'Od' vsakega odhodnega e-poštnega sporočila",
     "smtpTestTitle": "Preizkus povezave",
     "smtpTestDesc": "Pošljite testno e-pošto za preverjanje nastavitev SMTP",
