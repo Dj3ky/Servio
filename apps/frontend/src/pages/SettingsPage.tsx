@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
-  GitBranch, AlertCircle, Download, RotateCcw, Power,
+  GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,10 +41,12 @@ interface FullSettings {
   smtpFrom: string | null;
   smtpSecure: boolean;
   imapPort: number | null;
+  smtpPassSet: boolean;
   smbHost: string | null;
   smbShare: string | null;
   smbUsername: string | null;
   smbBasePath: string | null;
+  smbPassSet: boolean;
   defaultLanguage: 'sl' | 'en';
   backupEnabled: boolean;
   backupSchedule: string | null;
@@ -426,6 +428,9 @@ export default function SettingsPage() {
     },
   });
 
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [showSmbPass, setShowSmbPass] = useState(false);
+
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -749,8 +754,18 @@ export default function SettingsPage() {
                     )} />
                     <FormField control={smtpForm.control} name="smtpPass" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('settings.smtpPass')}</FormLabel>
-                        <FormControl><Input type="password" placeholder={t('common.leaveBlank')} {...field} /></FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormLabel>{t('settings.smtpPass')}</FormLabel>
+                          {settings?.smtpPassSet && <span className="text-xs text-muted-foreground">({t('settings.passAlreadySet')})</span>}
+                        </div>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type={showSmtpPass ? 'text' : 'password'} placeholder={t('common.leaveBlank')} className="pr-10" {...field} />
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmtpPass((v) => !v)}>
+                              {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
                         <FormDescription>{t('settings.smtpPassHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -876,8 +891,18 @@ export default function SettingsPage() {
                     )} />
                     <FormField control={smbForm.control} name="smbPassword" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('settings.smbPass')}</FormLabel>
-                        <FormControl><Input type="password" placeholder={t('common.leaveBlank')} {...field} /></FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormLabel>{t('settings.smbPass')}</FormLabel>
+                          {settings?.smbPassSet && <span className="text-xs text-muted-foreground">({t('settings.passAlreadySet')})</span>}
+                        </div>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type={showSmbPass ? 'text' : 'password'} placeholder={t('common.leaveBlank')} className="pr-10" {...field} />
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmbPass((v) => !v)}>
+                              {showSmbPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
                         <FormDescription>{t('settings.smbPassHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>

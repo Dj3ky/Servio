@@ -212,6 +212,7 @@
     "smtpCredentials": "Credentials",
     "smtpUserHint": "Usually your full email address",
     "smtpPassHint": "Stored encrypted on the server",
+    "passAlreadySet": "password is set",
     "smtpFromHint": "Appears in the \"From\" field of every outgoing email",
     "smtpTestTitle": "Connection test",
     "smtpTestDesc": "Send a test email to verify your SMTP settings are working",
