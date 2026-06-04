@@ -50,7 +50,11 @@
       "PowerShell(Get-Command npm -ErrorAction SilentlyContinue)",
       "PowerShell($env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })",
       "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\npm\\\\npm.cmd\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:ProgramFiles\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object Name -First 5)",
-      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" install -D vite-plugin-pwa --workspace=apps/frontend)"
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" install -D vite-plugin-pwa --workspace=apps/frontend)",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)",
+      "PowerShell(node -e \"const d = require\\('./package-lock.json'\\); const p = d.packages['node_modules/vite-plugin-pwa']; console.log\\('dev:', p.dev\\); console.log\\('keys:', Object.keys\\(p\\).join\\(', '\\)\\)\")",
+      "PowerShell($d = Get-Content \"d:\\\\GitHub\\\\Servio\\\\package-lock.json\" | ConvertFrom-Json; $p = $d.packages.'node_modules/vite-plugin-pwa'; Write-Host \"dev flag: $\\($p.dev\\)\"; Write-Host \"version: $\\($p.version\\)\")"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend"
