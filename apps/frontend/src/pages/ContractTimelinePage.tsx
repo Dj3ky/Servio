@@ -91,7 +91,7 @@ export default function ContractTimelinePage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{t('contractTimeline.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t('contractTimeline.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-1">{t('contractTimeline.subtitle', { months })}</p>
         </div>
         <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
           <SelectTrigger className="w-44">

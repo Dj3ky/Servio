@@ -393,7 +393,7 @@
   },
   "contractTimeline": {
     "title": "Terminska preglednica pogodb",
-    "subtitle": "Mesečni pregled vseh pregledov pogodb za zadnjih 12 mesecev",
+    "subtitle": "Mesečni pregled vseh pregledov pogodb za zadnjih {{months}} mesecev",
     "last6Months": "Zadnjih 6 mesecev",
     "last12Months": "Zadnjih 12 mesecev",
     "last24Months": "Zadnjih 24 mesecev",

@@ -393,7 +393,7 @@
   },
   "contractTimeline": {
     "title": "Contract Timeline",
-    "subtitle": "Monthly overview of all contract reviews for the last 12 months",
+    "subtitle": "Monthly overview of all contract reviews for the last {{months}} months",
     "last6Months": "Last 6 months",
     "last12Months": "Last 12 months",
     "last24Months": "Last 24 months",
