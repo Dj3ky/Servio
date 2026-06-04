@@ -265,7 +265,13 @@ router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Resp
         .filter((f) => f.endsWith('.sql') || f.endsWith('.tar.gz'))
         .map(async (filename) => {
           const stat = await fs.stat(path.join(backupPath, filename));
-          return { filename, size: stat.size, createdAt: stat.mtime.toISOString() };
+          // Parse timestamp from filename (backup_YYYY-MM-DD_HH-mm-ss.*) so the
+          // displayed time always matches the name, regardless of server timezone.
+          const m = filename.match(/(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+          const createdAt = m
+            ? new Date(Number(m[1].slice(0,4)), Number(m[1].slice(5,7))-1, Number(m[1].slice(8,10)), Number(m[2]), Number(m[3]), Number(m[4])).toISOString()
+            : stat.mtime.toISOString();
+          return { filename, size: stat.size, createdAt };
         }),
     );
     backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

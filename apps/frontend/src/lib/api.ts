@@ -65,19 +65,37 @@ async function request<T>(
 }
 
 async function downloadBlob(path: string, filename: string): Promise<void> {
-  // Open a blank tab synchronously BEFORE any await so the browser treats it as
-  // a direct user-gesture popup (not blocked). We set its URL once the token arrives.
+  const isPwa = window.matchMedia('(display-mode: standalone)').matches;
+
+  if (!isPwa) {
+    // Regular browser: fetch with auth header, trigger silent download (no new tab).
+    const token = useAuthStore.getState().token;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}${path}`, { headers });
+    if (!res.ok) throw new ApiError(res.status, 'errors.unknown');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return;
+  }
+
+  // PWA standalone: a.click() on a blob URL is suppressed by the OS shell.
+  // Open a blank tab synchronously (before any await, so popup blocker allows it),
+  // then navigate it to the token-authenticated file URL.
   const tab = window.open('', '_blank');
   try {
     const encoded = encodeURIComponent(filename);
     const { token: dlToken } = await request<{ token: string }>('POST', path.replace('/download/', '/download-token/'));
     const fileUrl = `${BASE_URL}${path.replace(`/download/${encoded}`, `/file/${encoded}`)}?token=${dlToken}`;
-    if (tab) {
-      tab.location.href = fileUrl;
-    } else {
-      // Popup was blocked — navigate in current tab as last resort
-      window.location.href = fileUrl;
-    }
+    if (tab) tab.location.href = fileUrl;
+    else window.location.href = fileUrl;
   } catch (err) {
     tab?.close();
     throw err;
