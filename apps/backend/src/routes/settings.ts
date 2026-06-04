@@ -347,8 +347,36 @@ router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'),
     const database = dbUrl.pathname.slice(1);
     const username = dbUrl.username;
     const env = { ...process.env, PGPASSWORD: dbUrl.password };
+    const psqlBase = ['-h', host, '-p', port, '-U', username, '-d', database];
 
-    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '--on-error-stop', '-f', sqlFilePath], { env });
+    // Wipe the existing schema so the backup restores cleanly whether it was
+    // created with --clean (new format) or without (old format).
+    const cleanupSql = [
+      'DROP TABLE IF EXISTS reviews CASCADE',
+      'DROP TABLE IF EXISTS invoices CASCADE',
+      'DROP TABLE IF EXISTS audit_logs CASCADE',
+      'DROP TABLE IF EXISTS notifications CASCADE',
+      'DROP TABLE IF EXISTS contracts CASCADE',
+      'DROP TABLE IF EXISTS email_templates CASCADE',
+      'DROP TABLE IF EXISTS facilities CASCADE',
+      'DROP TABLE IF EXISTS customers CASCADE',
+      'DROP TABLE IF EXISTS settings CASCADE',
+      'DROP TABLE IF EXISTS users CASCADE',
+      'DROP TABLE IF EXISTS __drizzle_migrations CASCADE',
+      'DROP TYPE IF EXISTS user_role CASCADE',
+      'DROP TYPE IF EXISTS review_frequency CASCADE',
+      'DROP TYPE IF EXISTS invoice_delivery CASCADE',
+      'DROP TYPE IF EXISTS review_status CASCADE',
+      'DROP TYPE IF EXISTS invoice_status CASCADE',
+      'DROP TYPE IF EXISTS notification_type CASCADE',
+      'DROP TYPE IF EXISTS notification_type_new CASCADE',
+    ].map((s) => `${s};`).join('\n');
+
+    const cleanupFile = path.join(tmpDir, 'cleanup.sql');
+    await fs.writeFile(cleanupFile, cleanupSql);
+    await execFileAsync('psql', [...psqlBase, '-f', cleanupFile], { env });
+
+    await execFileAsync('psql', [...psqlBase, '-f', sqlFilePath], { env });
 
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
     res.json({ success: true });

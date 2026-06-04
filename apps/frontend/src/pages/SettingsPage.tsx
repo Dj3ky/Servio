@@ -1070,7 +1070,7 @@ export default function SettingsPage() {
               <input
                 ref={restoreInputRef}
                 type="file"
-                accept=".sql"
+                accept=".sql,.tar.gz"
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRestoreFileChange(f); e.target.value = ''; }}
               />
