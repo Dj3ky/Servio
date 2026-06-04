@@ -1035,7 +1035,9 @@ export default function SettingsPage() {
                 <div className="space-y-0 divide-y rounded-md border overflow-hidden">
                   {backupFiles.map((f) => (
                     <div key={f.filename} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/20 transition-colors">
-                      <HardDrive className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      {f.filename.endsWith('.tar.gz')
+                        ? <Archive className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                        : <HardDrive className="h-4 w-4 text-muted-foreground/60 shrink-0" />}
                       <span className="flex-1 text-xs font-mono truncate">{f.filename}</span>
                       <span className="text-xs text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
                       <span className="text-xs text-muted-foreground/60 shrink-0 hidden sm:block">{formatDateTime(f.createdAt)}</span>

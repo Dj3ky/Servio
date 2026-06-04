@@ -230,7 +230,7 @@ router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Resp
     const files = await fs.readdir(backupPath);
     const backups = await Promise.all(
       files
-        .filter((f) => f.endsWith('.sql'))
+        .filter((f) => f.endsWith('.sql') || f.endsWith('.tar.gz'))
         .map(async (filename) => {
           const stat = await fs.stat(path.join(backupPath, filename));
           return { filename, size: stat.size, createdAt: stat.mtime.toISOString() };
@@ -245,7 +245,7 @@ router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Resp
 
 router.get('/backup/download/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { filename } = req.params;
-  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
     return;
   }
@@ -265,7 +265,7 @@ router.get('/backup/download/:filename', requireRole('admin'), async (req: Reque
 // Issues a one-time 30-second token so PWA can open the download via window.open()
 router.post('/backup/download-token/:filename', requireRole('admin'), (req: Request, res: Response): void => {
   const { filename } = req.params;
-  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
     return;
   }
@@ -279,7 +279,7 @@ router.get('/backup/file/:filename', async (req: Request, res: Response): Promis
   const { filename } = req.params;
   const { token } = req.query as { token?: string };
 
-  if (!filename.endsWith('.sql') || filename.includes('/') || filename.includes('..')) {
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
     return;
   }
@@ -308,25 +308,54 @@ router.get('/backup/file/:filename', async (req: Request, res: Response): Promis
 router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
-  const tmpFile = path.join(os.tmpdir(), `servio-restore-${Date.now()}.sql`);
+  const tmpDir = path.join(os.tmpdir(), `servio-restore-${Date.now()}`);
   try {
-    await fs.writeFile(tmpFile, req.file.buffer);
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    let sqlFilePath: string;
+
+    if (req.file.originalname.endsWith('.tar.gz')) {
+      // Bundled backup — extract, locate the SQL file, optionally restore uploads
+      const tarPath = path.join(tmpDir, 'backup.tar.gz');
+      await fs.writeFile(tarPath, req.file.buffer);
+      await execFileAsync('tar', ['-xzf', tarPath, '-C', tmpDir]);
+
+      const entries = await fs.readdir(tmpDir);
+      const sqlEntry = entries.find((f) => f.endsWith('.sql'));
+      if (!sqlEntry) { res.status(400).json({ error: 'errors.validation' }); return; }
+      sqlFilePath = path.join(tmpDir, sqlEntry);
+
+      // Restore uploads directory if it was included in the bundle
+      const extractedUploads = path.join(tmpDir, 'uploads');
+      try {
+        await fs.access(extractedUploads);
+        const uploadsTarget = path.resolve('./uploads');
+        await fs.mkdir(uploadsTarget, { recursive: true });
+        await fs.cp(extractedUploads, uploadsTarget, { recursive: true, force: true });
+      } catch {
+        // no uploads in bundle — DB-only restore
+      }
+    } else {
+      // Legacy plain SQL upload
+      sqlFilePath = path.join(tmpDir, 'restore.sql');
+      await fs.writeFile(sqlFilePath, req.file.buffer);
+    }
 
     const dbUrl = new URL(process.env.DATABASE_URL!);
     const host = dbUrl.hostname;
     const port = dbUrl.port || '5432';
     const database = dbUrl.pathname.slice(1);
     const username = dbUrl.username;
-
     const env = { ...process.env, PGPASSWORD: dbUrl.password };
-    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '-f', tmpFile], { env });
+
+    await execFileAsync('psql', ['-h', host, '-p', port, '-U', username, '-d', database, '-f', sqlFilePath], { env });
 
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'errors.internal', message: err instanceof Error ? err.message : 'Restore failed' });
   } finally {
-    await fs.unlink(tmpFile).catch(() => {});
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 });
 

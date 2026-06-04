@@ -18,28 +18,43 @@ export async function createBackup(): Promise<string> {
 
   await fs.mkdir(backupPath, { recursive: true });
 
-  const filename = `backup_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.sql`;
-  const filePath = path.join(backupPath, filename);
+  const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+  const sqlFilename = `backup_${timestamp}.sql`;
+  const bundleFilename = `backup_${timestamp}.tar.gz`;
+  const sqlFilePath = path.join(backupPath, sqlFilename);
+  const bundleFilePath = path.join(backupPath, bundleFilename);
 
   const dbUrl = new URL(process.env.DATABASE_URL!);
   const host = dbUrl.hostname;
   const port = dbUrl.port || '5432';
   const database = dbUrl.pathname.slice(1);
   const username = dbUrl.username;
-
   const env = { ...process.env, PGPASSWORD: dbUrl.password };
 
-  await execFileAsync('pg_dump', ['-h', host, '-p', port, '-U', username, '-F', 'p', '-f', filePath, database], {
-    env,
-  });
+  // Step 1: dump DB to a plain SQL file inside the backup dir
+  await execFileAsync('pg_dump', ['-h', host, '-p', port, '-U', username, '-F', 'p', '-f', sqlFilePath, database], { env });
 
-  await createAuditLog({ action: 'create_backup', payload: { filename } });
+  // Step 2: bundle SQL + uploads into a single archive
+  const tarArgs = ['-czf', bundleFilePath, '-C', backupPath, sqlFilename];
+  const uploadsDir = path.resolve('./uploads');
+  try {
+    await fs.access(uploadsDir);
+    tarArgs.push('-C', path.dirname(uploadsDir), path.basename(uploadsDir));
+  } catch {
+    // uploads dir absent — bundle SQL only
+  }
+  await execFileAsync('tar', tarArgs);
+
+  // Step 3: remove the loose SQL file — it now lives inside the bundle
+  await fs.unlink(sqlFilePath).catch(() => {});
+
+  await createAuditLog({ action: 'create_backup', payload: { filename: bundleFilename } });
 
   if (s?.backupToNas) {
     try {
-      const buffer = await fs.readFile(filePath);
+      const buffer = await fs.readFile(bundleFilePath);
       const basePath = s.smbBasePath || '';
-      const remotePath = [basePath, 'Backups', filename].filter(Boolean).join('/');
+      const remotePath = [basePath, 'Backups', bundleFilename].filter(Boolean).join('/');
       await saveToSmb(remotePath, buffer);
       console.log('[backup] Backup copied to NAS:', remotePath);
     } catch (err) {
@@ -47,7 +62,7 @@ export async function createBackup(): Promise<string> {
     }
   }
 
-  return filePath;
+  return bundleFilePath;
 }
 
 export function startBackupScheduler(): void {

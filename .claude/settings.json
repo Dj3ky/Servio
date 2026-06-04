@@ -54,7 +54,8 @@
       "Bash(python3 -c ' *)",
       "Bash(node -e ' *)",
       "PowerShell(node -e \"const d = require\\('./package-lock.json'\\); const p = d.packages['node_modules/vite-plugin-pwa']; console.log\\('dev:', p.dev\\); console.log\\('keys:', Object.keys\\(p\\).join\\(', '\\)\\)\")",
-      "PowerShell($d = Get-Content \"d:\\\\GitHub\\\\Servio\\\\package-lock.json\" | ConvertFrom-Json; $p = $d.packages.'node_modules/vite-plugin-pwa'; Write-Host \"dev flag: $\\($p.dev\\)\"; Write-Host \"version: $\\($p.version\\)\")"
+      "PowerShell($d = Get-Content \"d:\\\\GitHub\\\\Servio\\\\package-lock.json\" | ConvertFrom-Json; $p = $d.packages.'node_modules/vite-plugin-pwa'; Write-Host \"dev flag: $\\($p.dev\\)\"; Write-Host \"version: $\\($p.version\\)\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\GitHub\\\\Servio\" -Directory)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend"
