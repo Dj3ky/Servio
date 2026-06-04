@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, ilike, or, and, inArray } from 'drizzle-orm';
 import { createContractSchema, updateContractSchema } from '@servio/shared';
 import { db } from '../db';
 import { contracts, reviews, invoices, customers, facilities, users } from '../db/schema';
@@ -20,19 +20,49 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
   const offset = (page - 1) * limit;
   const activeOnly = req.query.activeOnly !== 'false';
+  const search = (req.query.search as string ?? '').trim();
 
   const now = new Date();
   const currentMonth = format(startOfMonth(now), 'yyyy-MM-dd');
   const currentMonthNumber = now.getMonth() + 1;
 
-  const data = await db.query.contracts.findMany({
-    where: activeOnly ? (c, { eq }) => eq(c.isActive, true) : undefined,
+  // When searching, resolve matching IDs via joins (customer/facility name not on contracts table)
+  let matchedIds: string[] | null = null;
+  if (search) {
+    const rows = await db
+      .select({ id: contracts.id })
+      .from(contracts)
+      .innerJoin(customers, eq(contracts.customerId, customers.id))
+      .innerJoin(facilities, eq(contracts.facilityId, facilities.id))
+      .where(
+        and(
+          activeOnly ? eq(contracts.isActive, true) : undefined,
+          or(
+            ilike(contracts.contractNumber, `%${search}%`),
+            ilike(customers.name, `%${search}%`),
+            ilike(facilities.name, `%${search}%`),
+          ),
+        ),
+      )
+      .orderBy(contracts.contractNumber);
+    matchedIds = rows.map((r) => r.id);
+  }
+
+  const total = matchedIds !== null
+    ? matchedIds.length
+    : Number((await db.select({ count: sql<number>`count(*)` }).from(contracts).where(activeOnly ? eq(contracts.isActive, true) : undefined))[0].count);
+
+  const pageIds = matchedIds !== null ? matchedIds.slice(offset, offset + limit) : null;
+
+  const data = pageIds?.length === 0 ? [] : await db.query.contracts.findMany({
+    where: pageIds !== null
+      ? (c, { inArray: inArr }) => inArr(c.id, pageIds)
+      : activeOnly ? (c, { eq: eqOp }) => eqOp(c.isActive, true) : undefined,
     with: {
       customer: true,
       facility: true,
     },
-    limit,
-    offset,
+    ...(pageIds === null ? { limit, offset } : {}),
     orderBy: (c, { asc }) => [asc(c.contractNumber)],
   });
 
@@ -54,12 +84,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }),
   );
 
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(contracts)
-    .where(activeOnly ? eq(contracts.isActive, true) : undefined);
-
-  res.json({ data: enriched, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
+  res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });
 });
 
 router.get('/export', async (req: Request, res: Response): Promise<void> => {
