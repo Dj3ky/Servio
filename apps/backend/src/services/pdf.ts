@@ -23,6 +23,8 @@ const i18n: Record<string, Record<string, string>> = {
     invoiceNo: 'Invoice No.',
     invoiceCreated: 'Invoice Created',
     invoiceCompleted: 'Invoice Sent',
+    revenue: 'Value (excl. VAT)',
+    sum: 'Sum',
   },
   sl: {
     customer: 'Naročnik',
@@ -43,6 +45,8 @@ const i18n: Record<string, Record<string, string>> = {
     invoiceNo: 'Št. fakture',
     invoiceCreated: 'Faktura ustvarjena',
     invoiceCompleted: 'Faktura poslana',
+    revenue: 'Vrednost (brez DDV)',
+    sum: 'Vsota',
   },
 };
 
@@ -64,6 +68,11 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
   const appName = settings?.appName ?? 'Servio';
   const monthLabel = format(new Date(year, month - 1), 'MMMM yyyy');
 
+  const totalSum = completedReviews.reduce((acc, r) => {
+    const val = parseFloat((r as any).contract?.valueWithoutVat ?? '0');
+    return acc + (isNaN(val) ? 0 : val);
+  }, 0);
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -76,6 +85,7 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
     th { background: #1e293b; color: white; padding: 6px 10px; text-align: left; }
     td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
     tr:nth-child(even) td { background: #f8fafc; }
+    .sum-row td { background: #f1f5f9; font-weight: bold; border-top: 2px solid #1e293b; }
     .footer { margin-top: 40px; font-size: 11px; color: #999; }
   </style>
 </head>
@@ -92,12 +102,16 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
         <th>${t.completedAt}</th>
         <th>${t.invoiceNo}</th>
         <th>${t.invoiceCreated}</th>
+        <th style="text-align:right">${t.revenue}</th>
       </tr>
     </thead>
     <tbody>
       ${completedReviews
         .map(
-          (r, i) => `
+          (r, i) => {
+            const val = parseFloat((r as any).contract?.valueWithoutVat ?? '');
+            const valStr = isNaN(val) ? '-' : val.toFixed(2);
+            return `
         <tr>
           <td>${i + 1}</td>
           <td>${(r as any).contract?.customer?.name ?? '-'}</td>
@@ -106,13 +120,19 @@ export async function generateMonthlyReportPdf(year: number, month: number, lang
           <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
           <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
           <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
-        </tr>`,
+          <td style="text-align:right">${valStr}</td>
+        </tr>`;
+          },
         )
         .join('')}
+      <tr class="sum-row">
+        <td colspan="7">${t.sum}</td>
+        <td style="text-align:right">${totalSum.toFixed(2)}</td>
+      </tr>
     </tbody>
   </table>
   <div class="footer">
-    <p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p>
+    <p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews} | ${t.sum}: ${totalSum.toFixed(2)}</p>
   </div>
 </body>
 </html>`;
@@ -211,10 +231,23 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
     byMonth[m].push(r);
   }
 
+  const totalSum = completedReviews.reduce((acc, r) => {
+    const val = parseFloat((r as any).contract?.valueWithoutVat ?? '0');
+    return acc + (isNaN(val) ? 0 : val);
+  }, 0);
+
   const monthRows = Object.entries(byMonth)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([m, rows]) => `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="7">${m} (${rows.length} ${t.reviews})</td></tr>` +
-      rows.map((r, i) => `<tr>
+    .map(([m, rows]) => {
+      const monthSum = rows.reduce((acc, r) => {
+        const val = parseFloat((r as any).contract?.valueWithoutVat ?? '0');
+        return acc + (isNaN(val) ? 0 : val);
+      }, 0);
+      return `<tr style="background:#e2e8f0;font-weight:bold"><td colspan="7">${m} (${rows.length} ${t.reviews})</td><td style="text-align:right">${monthSum.toFixed(2)}</td></tr>` +
+        rows.map((r, i) => {
+          const val = parseFloat((r as any).contract?.valueWithoutVat ?? '');
+          const valStr = isNaN(val) ? '-' : val.toFixed(2);
+          return `<tr>
         <td>${i + 1}</td>
         <td>${(r as any).contract?.customer?.name ?? '-'}</td>
         <td>${(r as any).contract?.facility?.name ?? '-'}</td>
@@ -222,7 +255,10 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
         <td>${r.completedAt ? format(new Date(r.completedAt), 'dd.MM.yyyy') : '-'}</td>
         <td>${(r as any).invoice?.invoiceNumber ?? '-'}</td>
         <td>${(r as any).invoice?.createdAt ? format(new Date((r as any).invoice.createdAt), 'dd.MM.yyyy') : '-'}</td>
-      </tr>`).join(''))
+        <td style="text-align:right">${valStr}</td>
+      </tr>`;
+        }).join('');
+    })
     .join('');
 
   const html = `<!DOCTYPE html>
@@ -236,6 +272,7 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
     th { background: #1e293b; color: white; padding: 6px 10px; text-align: left; }
     td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+    .sum-row td { background: #f1f5f9; font-weight: bold; border-top: 2px solid #1e293b; }
     .footer { margin-top: 40px; font-size: 11px; color: #999; }
   </style>
 </head>
@@ -243,10 +280,16 @@ export async function generateYearlyReportPdf(year: number, lang = 'sl'): Promis
   <h1>${appName}</h1>
   <h2>${t.yearlyReport} – ${year}</h2>
   <table>
-    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th><th>${t.invoiceNo}</th><th>${t.invoiceCreated}</th></tr></thead>
-    <tbody>${monthRows}</tbody>
+    <thead><tr><th>#</th><th>${t.customer}</th><th>${t.facility}</th><th>${t.contractNo}</th><th>${t.completedAt}</th><th>${t.invoiceNo}</th><th>${t.invoiceCreated}</th><th style="text-align:right">${t.revenue}</th></tr></thead>
+    <tbody>
+      ${monthRows}
+      <tr class="sum-row">
+        <td colspan="7">${t.sum}</td>
+        <td style="text-align:right">${totalSum.toFixed(2)}</td>
+      </tr>
+    </tbody>
   </table>
-  <div class="footer"><p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews}</p></div>
+  <div class="footer"><p>${t.generated}: ${format(new Date(), 'dd.MM.yyyy HH:mm')} | ${t.total}: ${completedReviews.length} ${t.reviews} | ${t.sum}: ${totalSum.toFixed(2)}</p></div>
 </body>
 </html>`;
 
