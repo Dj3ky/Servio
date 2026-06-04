@@ -1039,16 +1039,15 @@ export default function SettingsPage() {
                       <span className="flex-1 text-xs font-mono truncate">{f.filename}</span>
                       <span className="text-xs text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
                       <span className="text-xs text-muted-foreground/60 shrink-0 hidden sm:block">{formatDateTime(f.createdAt)}</span>
-                      <a
-                        href={`/api/settings/backup/download/${encodeURIComponent(f.filename)}`}
-                        download={f.filename}
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="shrink-0"
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        title={t('common.download')}
+                        onClick={() => api.downloadBlob(`/settings/backup/download/${encodeURIComponent(f.filename)}`, f.filename).catch(() => toast.error(t('errors.internal')))}
                       >
-                        <Button size="icon" variant="ghost" className="h-7 w-7" title={t('common.download')}>
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                      </a>
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   ))}
                 </div>

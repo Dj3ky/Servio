@@ -14,7 +14,7 @@ const execFileAsync = promisify(execFile);
 
 export async function createBackup(): Promise<string> {
   const s = await db.query.settings.findFirst();
-  const backupPath = s?.backupPath ?? './backups';
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
 
   await fs.mkdir(backupPath, { recursive: true });
 

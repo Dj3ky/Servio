@@ -219,7 +219,7 @@ router.post('/backup/create', requireRole('admin'), async (req: Request, res: Re
 
 router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Response): Promise<void> => {
   const s = await db.query.settings.findFirst();
-  const backupPath = s?.backupPath ?? './backups';
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
 
   try {
     await fs.mkdir(backupPath, { recursive: true });
@@ -247,7 +247,7 @@ router.get('/backup/download/:filename', requireRole('admin'), async (req: Reque
   }
 
   const s = await db.query.settings.findFirst();
-  const backupPath = s?.backupPath ?? './backups';
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
   const filePath = path.join(backupPath, filename);
 
   try {
