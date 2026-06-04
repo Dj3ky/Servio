@@ -2,7 +2,6 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
-import { format } from 'date-fns';
 import cron from 'node-cron';
 import { db } from '../db';
 import { createAuditLog } from '../utils/audit';
@@ -12,13 +11,24 @@ import { saveToSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
 
+function localTimestamp(): string {
+  const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: tz,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+  return `${get('year')}-${get('month')}-${get('day')}_${get('hour')}-${get('minute')}-${get('second')}`;
+}
+
 export async function createBackup(): Promise<string> {
   const s = await db.query.settings.findFirst();
   const backupPath = path.resolve(s?.backupPath ?? './backups');
 
   await fs.mkdir(backupPath, { recursive: true });
 
-  const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+  const timestamp = localTimestamp();
   const sqlFilename = `backup_${timestamp}.sql`;
   const bundleFilename = `backup_${timestamp}.tar.gz`;
   const sqlFilePath = path.join(backupPath, sqlFilename);
