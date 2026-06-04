@@ -305,6 +305,24 @@ router.get('/backup/file/:filename', async (req: Request, res: Response): Promis
   }
 });
 
+router.delete('/backup/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  const { filename } = req.params;
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+  const s = await db.query.settings.findFirst();
+  const backupPath = path.resolve(s?.backupPath ?? './backups');
+  const filePath = path.join(backupPath, filename);
+  try {
+    await fs.access(filePath);
+    await fs.unlink(filePath);
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'errors.not_found' });
+  }
+});
+
 router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 

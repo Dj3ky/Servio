@@ -434,7 +434,20 @@ export default function SettingsPage() {
   const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
   const restartMutation = useMutation({
     mutationFn: () => api.post('/settings/backup/restart', {}),
-    onSuccess: () => { setRestartConfirmOpen(false); toast.success(t('settings.restartSuccess')); },
+    onSuccess: () => {
+      setRestartConfirmOpen(false);
+      toast.success(t('settings.restartSuccess'));
+      const poll = setInterval(async () => {
+        try { await fetch('/api/health'); clearInterval(poll); window.location.reload(); } catch { /* not back yet */ }
+      }, 2000);
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  const [deleteBackupTarget, setDeleteBackupTarget] = useState<string | null>(null);
+  const deleteBackupMutation = useMutation({
+    mutationFn: (filename: string) => api.delete(`/settings/backup/${encodeURIComponent(filename)}`),
+    onSuccess: () => { toast.success(t('common.delete')); refetchBackups(); setDeleteBackupTarget(null); },
     onError: () => toast.error(t('errors.internal')),
   });
 
@@ -1050,6 +1063,15 @@ export default function SettingsPage() {
                       >
                         <Download className="h-3.5 w-3.5" />
                       </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                        title={t('common.delete')}
+                        onClick={() => setDeleteBackupTarget(f.filename)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1328,6 +1350,25 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={() => setRestartConfirmOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => restartMutation.mutate()} disabled={restartMutation.isPending}>
               {restartMutation.isPending ? t('common.loading') : t('settings.restartServices')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteBackupTarget} onOpenChange={(v) => { if (!v) setDeleteBackupTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.delete')} {deleteBackupTarget}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('settings.deleteBackupConfirm')}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteBackupTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteBackupMutation.isPending}
+              onClick={() => deleteBackupTarget && deleteBackupMutation.mutate(deleteBackupTarget)}
+            >
+              {deleteBackupMutation.isPending ? t('common.loading') : t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
