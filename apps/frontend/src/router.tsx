@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { createBrowserRouter, useRouteError } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +14,45 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const UsersPage = lazy(() => import('@/pages/UsersPage'));
 const AuditLogPage = lazy(() => import('@/pages/AuditLogPage'));
 const ContractTimelinePage = lazy(() => import('@/pages/ContractTimelinePage'));
+
+function ChunkErrorBoundary() {
+  const error = useRouteError();
+  const isChunkError = error instanceof TypeError && error.message.includes('dynamically imported module');
+
+  useEffect(() => {
+    if (!isChunkError) return;
+    // Reload once to pick up new chunk filenames after a deployment.
+    // The flag prevents an infinite reload loop if chunks are genuinely missing.
+    const key = 'chunk_reload_attempted';
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1');
+      window.location.reload();
+    }
+  }, [isChunkError]);
+
+  // Clear the flag on every clean render so future reloads work normally.
+  useEffect(() => {
+    if (!isChunkError) sessionStorage.removeItem('chunk_reload_attempted');
+  });
+
+  if (isChunkError) {
+    return (
+      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+        Posodabljanje aplikacije…
+      </div>
+    );
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    <div className="flex h-screen items-center justify-center p-8 text-center">
+      <div className="space-y-2">
+        <p className="font-semibold">Prišlo je do napake</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 function PageLoader() {
   return (
@@ -40,6 +79,7 @@ export const router = createBrowserRouter([
         <Layout />
       </ProtectedRoute>
     ),
+    errorElement: <ChunkErrorBoundary />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'contracts', element: withSuspense(<ContractsPage />) },
