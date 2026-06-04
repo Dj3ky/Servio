@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
@@ -116,6 +116,37 @@ export default function FacilityDetailPage() {
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docUploading, setDocUploading] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    return () => { if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePreviewToggle = useCallback(async (url: string) => {
+    if (previewDoc === url) {
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      setPreviewDoc(null);
+      setPreviewBlobUrl(null);
+      return;
+    }
+    setPreviewDoc(url);
+    setPreviewBlobUrl(null);
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+      setPreviewBlobUrl(URL.createObjectURL(blob));
+    } catch {
+      toast.error(t('errors.internal'));
+      setPreviewDoc(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [previewDoc, previewBlobUrl, t]);
 
   const { data: facility, isLoading: facilityLoading, refetch: refetchFacility } = useQuery({
     queryKey: ['facility', id],
@@ -653,7 +684,8 @@ export default function FacilityDetailPage() {
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        onClick={() => setPreviewDoc((prev) => prev === doc.url ? null : doc.url)}
+                        disabled={previewLoading && previewDoc === doc.url}
+                        onClick={() => handlePreviewToggle(doc.url)}
                       >
                         {previewDoc === doc.url ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                       </Button>
@@ -675,12 +707,11 @@ export default function FacilityDetailPage() {
                     </div>
                   </div>
                   {previewDoc === doc.url && (
-                    <iframe
-                      src={doc.url}
-                      className="w-full border-t"
-                      style={{ height: '500px' }}
-                      title={doc.filename}
-                    />
+                    previewLoading
+                      ? <div className="border-t"><Skeleton className="w-full" style={{ height: '500px' }} /></div>
+                      : previewBlobUrl
+                        ? <iframe src={previewBlobUrl} className="w-full border-t" style={{ height: '500px' }} title={doc.filename} />
+                        : null
                   )}
                 </div>
               ))}
