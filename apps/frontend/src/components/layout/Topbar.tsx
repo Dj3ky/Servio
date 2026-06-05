@@ -28,32 +28,43 @@ function LicenseWarning() {
   const { data: license } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
     queryFn: () => api.get<LicenseStatus>('/license/status'),
-    enabled: user?.role === 'admin',
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!license || !user || user.role !== 'admin') return null;
+  if (!license || !user) return null;
   if (license.perpetual) return null;
   if (license.valid && (license.daysLeft === null || license.daysLeft === undefined || license.daysLeft > 30)) return null;
 
   const expired = !license.valid && license.configured;
+  const isAdmin = user.role === 'admin';
   const label = expired
     ? t('license.expired')
     : t('license.expiringSoon', { days: license.daysLeft });
 
+  const className = cn(
+    'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium border',
+    expired
+      ? 'border-destructive/50 bg-destructive/10 text-destructive'
+      : 'border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+    isAdmin && (expired ? 'hover:bg-destructive/20 cursor-pointer' : 'hover:bg-yellow-500/20 cursor-pointer'),
+    !isAdmin && 'cursor-default',
+  );
+
+  if (isAdmin) {
+    return (
+      <button onClick={() => navigate('/settings?tab=license')} className={className}>
+        <KeyRound className="h-3.5 w-3.5 shrink-0" />
+        <span className="hidden sm:inline">{label}</span>
+      </button>
+    );
+  }
+
   return (
-    <button
-      onClick={() => navigate('/settings?tab=license')}
-      className={cn(
-        'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors border',
-        expired
-          ? 'border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20'
-          : 'border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20',
-      )}
-    >
+    <div className={className}>
       <KeyRound className="h-3.5 w-3.5 shrink-0" />
       <span className="hidden sm:inline">{label}</span>
-    </button>
+    </div>
   );
 }
 
@@ -207,6 +218,8 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        <LicenseWarning />
+
         <Button variant="ghost" size="icon" onClick={toggleLanguage} title={i18n.language === 'sl' ? 'Switch to English' : 'Preklopi na slovenščino'}>
           <Globe className="h-4 w-4" />
         </Button>
@@ -215,7 +228,6 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        <LicenseWarning />
         <InboxCenter />
         <NotificationCenter />
 

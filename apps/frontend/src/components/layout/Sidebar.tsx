@@ -120,20 +120,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onClick={() => { navigate('/settings?tab=license'); onClose(); }}
                   className="border-t border-sidebar-border px-4 py-2.5 w-full text-left hover:bg-sidebar-accent/50 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground truncate">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <KeyRound className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('license.tab')}</span>
+                      <span className={cn(
+                        'ml-auto h-2 w-2 rounded-full shrink-0',
+                        !license.configured ? 'bg-muted-foreground' :
+                        !license.valid ? 'bg-destructive' :
+                        (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
+                        'bg-green-500',
+                      )} />
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate pl-4">
                       {license.valid
-                        ? (license.customer ?? t('license.tab'))
+                        ? (license.customer ?? '—')
                         : t('license.expired')}
                     </span>
-                    <span className={cn(
-                      'ml-auto h-2 w-2 rounded-full shrink-0',
-                      !license.configured ? 'bg-muted-foreground' :
-                      !license.valid ? 'bg-destructive' :
-                      (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
-                      'bg-green-500',
-                    )} />
                   </div>
                 </button>
               </TooltipTrigger>

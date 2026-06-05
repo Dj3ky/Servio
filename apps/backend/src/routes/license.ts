@@ -11,7 +11,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 
 const LICENSE_KEY_PATH = process.env.LICENSE_KEY_PATH ?? path.join(process.cwd(), 'license.key');
 
-router.get('/status', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
+router.get('/status', requireAuth, (_req: Request, res: Response) => {
   res.json(getLicenseStatus());
 });
 
