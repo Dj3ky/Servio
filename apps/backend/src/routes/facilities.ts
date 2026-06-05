@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql } from 'drizzle-orm';
-import { createFacilitySchema, updateFacilitySchema, permissions } from '@servio/shared';
+import { createFacilitySchema, updateFacilitySchema } from '@servio/shared';
 import { db } from '../db';
 import { facilities } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -47,7 +47,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(facility);
 });
 
-router.post('/', requireRole(...permissions.facilities.manage), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('facilities', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createFacilitySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -62,7 +62,7 @@ router.post('/', requireRole(...permissions.facilities.manage), async (req: Requ
   res.status(201).json(facility);
 });
 
-router.patch('/:id', requireRole(...permissions.facilities.manage), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('facilities', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateFacilitySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 

@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { generateMonthlyReportPdf, generateMonthlyReportXlsx, generateYearlyReportPdf, generateYearlyReportXlsx } from '../services/pdf';
@@ -7,7 +6,7 @@ import { createAuditLog } from '../utils/audit';
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireRole(...permissions.reports.access));
+router.use(requireRole('reports', 'access'));
 
 router.get('/monthly/pdf', async (req: Request, res: Response): Promise<void> => {
   const year = parseInt(req.query.year as string, 10);

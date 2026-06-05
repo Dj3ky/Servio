@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
   GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff, KeyRound,
+  ShieldCheck, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ import {
   type UpdateBackupSettings, type UpdateAlertsSettings,
   testSmtpSchema, type TestSmtpRequest,
   createEmailTemplateSchema, type CreateEmailTemplateRequest,
+  type UserRole,
 } from '@servio/shared';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
@@ -746,6 +748,7 @@ export default function SettingsPage() {
     { value: 'alerts', icon: Bell, label: t('settings.alerts') },
     { value: 'updates', icon: RefreshCw, label: t('settings.updates') },
     { value: 'license', icon: KeyRound, label: t('license.tab') },
+    { value: 'roles', icon: ShieldCheck, label: t('settings.roles') },
   ];
 
   return (
@@ -1423,6 +1426,7 @@ export default function SettingsPage() {
 
         {activeTab === 'updates' && <UpdatesTab />}
         {activeTab === 'license' && <LicenseTab />}
+        {activeTab === 'roles' && <PermissionsTab />}
 
         </div>
       </div>
@@ -1576,5 +1580,171 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+type PermMap = Record<string, Record<string, string[]>>;
+
+function PermissionsTab() {
+  const { t } = useTranslation();
+  const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'technician'];
+
+  const { data: serverPerms, isLoading, refetch } = useQuery<PermMap>({
+    queryKey: ['permissions'],
+    queryFn: () => api.get<PermMap>('/settings/permissions'),
+  });
+
+  const [local, setLocal] = useState<PermMap | null>(null);
+
+  useEffect(() => {
+    if (serverPerms) setLocal(JSON.parse(JSON.stringify(serverPerms)));
+  }, [serverPerms]);
+
+  const save = useMutation({
+    mutationFn: () => api.patch('/settings/permissions', local),
+    onSuccess: () => { toast.success(t('common.save')); refetch(); },
+  });
+
+  const reset = useMutation({
+    mutationFn: () => api.delete('/settings/permissions'),
+    onSuccess: () => { setLocal(null); refetch(); toast.success(t('common.reset')); },
+  });
+
+  const toggle = (section: string, action: string, role: UserRole) => {
+    if (role === 'admin') return;
+    setLocal(prev => {
+      if (!prev) return prev;
+      const current: string[] = prev[section]?.[action] ?? [];
+      const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
+      return { ...prev, [section]: { ...prev[section], [action]: next } };
+    });
+  };
+
+  const hasRole = (section: string, action: string, role: UserRole): boolean => {
+    const perms = local ?? serverPerms;
+    if (!perms) return false;
+    return (perms[section]?.[action] ?? []).includes(role);
+  };
+
+  const sections = [
+    { label: t('settings.perm.pages'), rows: [
+      { section: 'pages', action: 'invoices', label: t('settings.perm.pageInvoices') },
+      { section: 'pages', action: 'reports', label: t('settings.perm.pageReports') },
+      { section: 'pages', action: 'users', label: t('settings.perm.pageUsers') },
+      { section: 'pages', action: 'auditLog', label: t('settings.perm.pageAuditLog') },
+      { section: 'pages', action: 'settings', label: t('settings.perm.pageSettings') },
+    ]},
+    { label: t('settings.perm.users'), rows: [
+      { section: 'users', action: 'view', label: t('settings.perm.usersView') },
+      { section: 'users', action: 'manage', label: t('settings.perm.usersManage') },
+      { section: 'users', action: 'resetPassword', label: t('settings.perm.usersResetPw') },
+    ]},
+    { label: t('settings.perm.customers'), rows: [
+      { section: 'customers', action: 'manage', label: t('settings.perm.customersManage') },
+      { section: 'customers', action: 'delete', label: t('settings.perm.customersDelete') },
+    ]},
+    { label: t('settings.perm.facilities'), rows: [
+      { section: 'facilities', action: 'manage', label: t('settings.perm.facilitiesManage') },
+    ]},
+    { label: t('settings.perm.contracts'), rows: [
+      { section: 'contracts', action: 'manage', label: t('settings.perm.contractsManage') },
+      { section: 'contracts', action: 'delete', label: t('settings.perm.contractsDelete') },
+    ]},
+    { label: t('settings.perm.reviews'), rows: [
+      { section: 'reviews', action: 'upload', label: t('settings.perm.reviewsUpload') },
+      { section: 'reviews', action: 'backfill', label: t('settings.perm.reviewsBackfill') },
+    ]},
+    { label: t('settings.perm.invoices'), rows: [
+      { section: 'invoices', action: 'access', label: t('settings.perm.invoicesAccess') },
+      { section: 'invoices', action: 'reset', label: t('settings.perm.invoicesReset') },
+    ]},
+    { label: t('settings.perm.reports'), rows: [
+      { section: 'reports', action: 'access', label: t('settings.perm.reportsAccess') },
+    ]},
+    { label: t('settings.perm.settingsSection'), rows: [
+      { section: 'settings', action: 'view', label: t('settings.perm.settingsView') },
+      { section: 'settings', action: 'manage', label: t('settings.perm.settingsManage') },
+      { section: 'settings', action: 'manageTemplates', label: t('settings.perm.settingsTemplates') },
+      { section: 'settings', action: 'deleteTemplates', label: t('settings.perm.settingsDeleteTemplates') },
+      { section: 'settings', action: 'backup', label: t('settings.perm.settingsBackup') },
+    ]},
+    { label: t('settings.perm.system'), rows: [
+      { section: 'smb', action: 'access', label: t('settings.perm.systemSmb') },
+      { section: 'scheduler', action: 'access', label: t('settings.perm.systemScheduler') },
+      { section: 'update', action: 'access', label: t('settings.perm.systemUpdates') },
+      { section: 'license', action: 'access', label: t('settings.perm.systemLicense') },
+    ]},
+  ];
+
+  const isDirty = local !== null && JSON.stringify(local) !== JSON.stringify(serverPerms);
+
+  if (isLoading) return <div className="text-sm text-muted-foreground py-4">{t('common.loading')}</div>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle>{t('settings.roles')}</CardTitle>
+            <CardDescription className="mt-1">{t('settings.rolesDesc')}</CardDescription>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => reset.mutate()} disabled={reset.isPending}>
+              {t('common.reset')}
+            </Button>
+            <Button size="sm" onClick={() => save.mutate()} disabled={!isDirty || save.isPending}>
+              {t('common.save')}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 px-4 font-medium text-muted-foreground w-52" />
+                {ALL_ROLES.map(role => (
+                  <th key={role} className="text-center py-2 px-3 font-medium w-24">
+                    <span className="text-xs uppercase tracking-wide">{t(`users.roles.${role}` as any)}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sections.map(section => (
+                <>
+                  <tr key={section.label}>
+                    <td colSpan={5} className="py-1.5 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
+                      {section.label}
+                    </td>
+                  </tr>
+                  {section.rows.map(row => (
+                    <tr key={`${row.section}.${row.action}`} className="border-b border-muted/20 hover:bg-muted/10">
+                      <td className="py-2 px-4 text-sm">{row.label}</td>
+                      {ALL_ROLES.map(role => {
+                        const checked = hasRole(row.section, row.action, role);
+                        const isAdmin = role === 'admin';
+                        return (
+                          <td key={role} className="text-center py-2 px-3">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={isAdmin}
+                              onChange={() => toggle(row.section, row.action, role)}
+                              className="h-4 w-4 rounded border-border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 accent-primary"
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

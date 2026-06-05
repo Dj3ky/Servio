@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import { eq, sql, ilike, or, and, inArray } from 'drizzle-orm';
-import { createContractSchema, updateContractSchema, permissions } from '@servio/shared';
+import { createContractSchema, updateContractSchema } from '@servio/shared';
 import { db } from '../db';
 import { contracts, reviews, invoices, customers, facilities, users } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -144,7 +144,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(contract);
 });
 
-router.post('/', requireRole(...permissions.contracts.manage), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('contracts', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createContractSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -190,7 +190,7 @@ router.post('/', requireRole(...permissions.contracts.manage), async (req: Reque
   res.status(201).json(contract);
 });
 
-router.delete('/:id', requireRole(...permissions.contracts.delete), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('contracts', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const contract = await db.query.contracts.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
   if (!contract) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
@@ -202,7 +202,7 @@ router.delete('/:id', requireRole(...permissions.contracts.delete), async (req: 
   res.json({ success: true });
 });
 
-router.patch('/:id', requireRole(...permissions.contracts.manage), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('contracts', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateContractSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -243,7 +243,7 @@ router.patch('/:id', requireRole(...permissions.contracts.manage), async (req: R
   res.json(updated);
 });
 
-router.post('/:id/documents', requireRole(...permissions.contracts.manage), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/documents', requireRole('contracts', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
   const contract = await db.query.contracts.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
@@ -265,7 +265,7 @@ router.post('/:id/documents', requireRole(...permissions.contracts.manage), docu
   res.json({ filename: req.file.originalname, url });
 });
 
-router.delete('/:id/documents/:filename', requireRole(...permissions.contracts.manage), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id/documents/:filename', requireRole('contracts', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const contract = await db.query.contracts.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
   if (!contract) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
@@ -281,7 +281,7 @@ router.delete('/:id/documents/:filename', requireRole(...permissions.contracts.m
   res.json({ success: true });
 });
 
-router.post('/import', requireRole(...permissions.contracts.manage), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/import', requireRole('contracts', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
   const content = req.file.buffer.toString('utf-8');

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { usePermissionsStore, type PermMap } from '@/stores/permissionsStore';
+import { api } from '@/lib/api';
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -12,6 +15,17 @@ export function Layout() {
   });
 
   useWebSocket();
+
+  const setPerms = usePermissionsStore(s => s.setPerms);
+  useQuery({
+    queryKey: ['permissions'],
+    queryFn: async () => {
+      const data = await api.get<PermMap>('/settings/permissions');
+      setPerms(data);
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     const root = document.documentElement;

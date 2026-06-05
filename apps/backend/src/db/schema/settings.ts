@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, jsonb } from 'drizzle-orm/pg-core';
 
 export const settings = pgTable('settings', {
   id: integer('id').primaryKey().default(1),
@@ -28,6 +28,7 @@ export const settings = pgTable('settings', {
   escalationEnabled: boolean('escalation_enabled').notNull().default(false),
   escalationDays: integer('escalation_days').notNull().default(3),
   licenseKey: text('license_key'),
+  permissionsConfig: jsonb('permissions_config').$type<Record<string, Record<string, string[]>>>(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

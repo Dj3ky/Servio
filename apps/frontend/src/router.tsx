@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { permissions } from '@servio/shared';
 import { createBrowserRouter, useRouteError } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -89,31 +88,31 @@ export const router = createBrowserRouter([
       {
         path: 'invoices',
         element: withSuspense(
-          <ProtectedRoute roles={permissions.pages.invoices}><InvoiceQueuePage /></ProtectedRoute>,
+          <ProtectedRoute permKey="pages.invoices"><InvoiceQueuePage /></ProtectedRoute>,
         ),
       },
       {
         path: 'reports',
         element: withSuspense(
-          <ProtectedRoute roles={permissions.pages.reports}><ReportsPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="pages.reports"><ReportsPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'users',
         element: withSuspense(
-          <ProtectedRoute roles={permissions.pages.users}><UsersPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="pages.users"><UsersPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'audit-log',
         element: withSuspense(
-          <ProtectedRoute roles={permissions.pages.auditLog}><AuditLogPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="pages.auditLog"><AuditLogPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'settings',
         element: withSuspense(
-          <ProtectedRoute roles={permissions.pages.settings}><SettingsPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="pages.settings"><SettingsPage /></ProtectedRoute>,
         ),
       },
     ],

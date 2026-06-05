@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { eq, ilike, or, sql } from 'drizzle-orm';
-import { createCustomerSchema, updateCustomerSchema, permissions } from '@servio/shared';
+import { createCustomerSchema, updateCustomerSchema } from '@servio/shared';
 import { db } from '../db';
 import { customers } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -41,7 +41,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(customer);
 });
 
-router.post('/', requireRole(...permissions.customers.manage), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('customers', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createCustomerSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -57,7 +57,7 @@ router.post('/', requireRole(...permissions.customers.manage), async (req: Reque
   res.status(201).json(customer);
 });
 
-router.patch('/:id', requireRole(...permissions.customers.manage), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('customers', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateCustomerSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -68,7 +68,7 @@ router.patch('/:id', requireRole(...permissions.customers.manage), async (req: R
   res.json(updated);
 });
 
-router.delete('/:id', requireRole(...permissions.customers.delete), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('customers', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.update(customers).set({ isActive: false, updatedAt: new Date() }).where(eq(customers.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
 

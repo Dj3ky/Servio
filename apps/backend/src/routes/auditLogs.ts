@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql, and, gte, lte } from 'drizzle-orm';
-import { auditLogQuerySchema, permissions } from '@servio/shared';
+import { auditLogQuerySchema } from '@servio/shared';
 import { db } from '../db';
 import { auditLogs } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -8,7 +8,7 @@ import { requireRole } from '../middleware/role';
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireRole(...permissions.auditLog.access));
+router.use(requireRole('auditLog', 'access'));
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const parsed = auditLogQuerySchema.safeParse(req.query);

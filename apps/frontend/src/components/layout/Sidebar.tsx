@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { permissions } from '@servio/shared';
+import { usePermissionsStore } from '@/stores/permissionsStore';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -30,24 +30,25 @@ interface NavItem {
   labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
-  roles?: string[];
+  pageKey?: string; // key into perms.pages — resolved at render time
 }
 
 const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
   { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline' },
-  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', roles: permissions.pages.invoices },
-  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', roles: permissions.pages.reports },
-  { labelKey: 'nav.users', icon: Users, path: '/users', roles: permissions.pages.users },
-  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', roles: permissions.pages.auditLog },
-  { labelKey: 'nav.settings', icon: Settings, path: '/settings', roles: permissions.pages.settings },
+  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', pageKey: 'invoices' },
+  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', pageKey: 'reports' },
+  { labelKey: 'nav.users', icon: Users, path: '/users', pageKey: 'users' },
+  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', pageKey: 'auditLog' },
+  { labelKey: 'nav.settings', icon: Settings, path: '/settings', pageKey: 'settings' },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { settings } = useSettingsStore();
+  const perms = usePermissionsStore(s => s.perms);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -59,8 +60,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   });
 
   const visibleItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    return user ? item.roles.includes(user.role) : false;
+    if (!item.pageKey) return true;
+    const roles: string[] = perms.pages?.[item.pageKey] ?? [];
+    return user ? roles.includes(user.role) : false;
   });
 
   return (

@@ -10,6 +10,7 @@ import { startScheduler } from './services/scheduler';
 import { startBackupScheduler } from './services/backup';
 import { checkForUpdates } from './services/update';
 import { setLicenseTokenFromDb } from './middleware/license';
+import { loadPermissions } from './services/permissionsService';
 
 const server = createServer(app);
 
@@ -28,6 +29,10 @@ async function ensureSettingsColumns() {
   await db.execute(sql`
     ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS license_key text
+  `);
+  await db.execute(sql`
+    ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS permissions_config jsonb
   `);
   await db.execute(sql`
     ALTER TABLE reviews
@@ -51,6 +56,7 @@ async function start() {
 
   const s = await db.query.settings.findFirst();
   if (s?.licenseKey) setLicenseTokenFromDb(s.licenseKey);
+  await loadPermissions();
 
   initWebSocket(server);
   startScheduler();

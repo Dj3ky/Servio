@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { eq } from 'drizzle-orm';
-import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { getLicenseStatus, setLicenseTokenFromDb } from '../middleware/license';
@@ -19,7 +18,7 @@ router.get('/status', requireAuth, (_req: Request, res: Response) => {
   res.json(getLicenseStatus());
 });
 
-router.post('/upload', requireAuth, requireRole(...permissions.license.access), upload.single('license'), async (req: Request, res: Response) => {
+router.post('/upload', requireAuth, requireRole('license', 'access'), upload.single('license'), async (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'errors.file_required' });
     return;

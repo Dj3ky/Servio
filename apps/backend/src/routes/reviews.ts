@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { eq, sql, and } from 'drizzle-orm';
 import { db } from '../db';
 import { reviews, invoices, notifications } from '../db/schema';
-import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
@@ -51,7 +50,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
 });
 
-router.get('/pending', requireRole(...permissions.reviews.upload), async (_req: Request, res: Response): Promise<void> => {
+router.get('/pending', requireRole('reviews', 'upload'), async (_req: Request, res: Response): Promise<void> => {
   const data = await db.query.reviews.findMany({
     where: (r, { eq }) => eq(r.status, 'pending'),
     with: {
@@ -94,7 +93,7 @@ router.get('/monthly-overview', async (req: Request, res: Response): Promise<voi
 
 router.post(
   '/',
-  requireRole(...permissions.reviews.upload),
+  requireRole('reviews', 'upload'),
   async (req: Request, res: Response): Promise<void> => {
     const { contractId, scheduledMonth } = req.body as { contractId?: string; scheduledMonth?: string };
 
@@ -138,7 +137,7 @@ router.post(
 
 router.post(
   '/:id/upload',
-  requireRole(...permissions.reviews.upload),
+  requireRole('reviews', 'upload'),
   documentUpload.array('files', 10),
   async (req: Request, res: Response): Promise<void> => {
     const uploadedFiles = (req.files as Express.Multer.File[] | undefined) ?? [];
@@ -279,7 +278,7 @@ router.post(
 
 router.post(
   '/:id/reset',
-  requireRole(...permissions.reviews.backfill),
+  requireRole('reviews', 'backfill'),
   async (req: Request, res: Response): Promise<void> => {
     const review = await db.query.reviews.findFirst({
       where: (r, { eq }) => eq(r.id, req.params.id),

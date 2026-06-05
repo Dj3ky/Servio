@@ -1,12 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createPendingReviews, backfillMissingReviews } from '../services/scheduler';
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireRole(...permissions.scheduler.access));
+router.use(requireRole('scheduler', 'access'));
 
 router.post('/trigger-reviews', async (req: Request, res: Response): Promise<void> => {
   const count = await createPendingReviews();

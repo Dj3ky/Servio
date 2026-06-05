@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { testSmbConnection } from '../services/smb';
@@ -7,7 +6,7 @@ import { createAuditLog } from '../utils/audit';
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireRole(...permissions.smb.access));
+router.use(requireRole('smb', 'access'));
 
 router.post('/test', async (req: Request, res: Response): Promise<void> => {
   const result = await testSmbConnection();
