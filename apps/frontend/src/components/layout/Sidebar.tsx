@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
 
 interface LicenseStatus {
@@ -112,26 +113,46 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </ScrollArea>
 
         {user?.role === 'admin' && license && (
-          <button
-            onClick={() => { navigate('/settings?tab=license'); onClose(); }}
-            className="border-t border-sidebar-border px-4 py-2.5 w-full text-left hover:bg-sidebar-accent/50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground truncate">
-                {license.valid
-                  ? (license.customer ?? t('license.tab'))
-                  : t('license.expired')}
-              </span>
-              <span className={cn(
-                'ml-auto h-2 w-2 rounded-full shrink-0',
-                !license.configured ? 'bg-muted-foreground' :
-                !license.valid ? 'bg-destructive' :
-                (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
-                'bg-green-500',
-              )} />
-            </div>
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => { navigate('/settings?tab=license'); onClose(); }}
+                  className="border-t border-sidebar-border px-4 py-2.5 w-full text-left hover:bg-sidebar-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground truncate">
+                      {license.valid
+                        ? (license.customer ?? t('license.tab'))
+                        : t('license.expired')}
+                    </span>
+                    <span className={cn(
+                      'ml-auto h-2 w-2 rounded-full shrink-0',
+                      !license.configured ? 'bg-muted-foreground' :
+                      !license.valid ? 'bg-destructive' :
+                      (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
+                      'bg-green-500',
+                    )} />
+                  </div>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs space-y-0.5">
+                {license.valid ? (
+                  <>
+                    <p className="font-medium">{license.customer}</p>
+                    <p className="text-muted-foreground">
+                      {license.perpetual
+                        ? t('license.neverExpires')
+                        : t('license.daysLeft') + ': ' + license.daysLeft}
+                    </p>
+                  </>
+                ) : (
+                  <p>{t('license.invalidDesc')}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {user && (
