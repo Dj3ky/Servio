@@ -16,6 +16,8 @@ RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=apps/backend
 
 FROM base AS runner
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
 # Install Chromium, smbclient, and shared-library dependencies
 RUN apk add --no-cache \
     chromium \

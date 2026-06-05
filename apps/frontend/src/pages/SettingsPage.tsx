@@ -95,6 +95,7 @@ interface UpdateStatus {
   checking: boolean;
   applying: boolean;
   lastError: string | null;
+  isDocker: boolean;
 }
 
 interface UpdateLog {
@@ -234,23 +235,44 @@ function UpdatesTab() {
             </div>
           </div>
 
-          {status?.lastError && !isUpdating && (
+          {status?.lastError && !isUpdating && !status.isDocker && (
             <p className="text-sm text-destructive">{status.lastError}</p>
           )}
 
           <Separator />
 
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => check.mutate()} disabled={busy}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${check.isPending || status?.checking ? 'animate-spin' : ''}`} />
-              {t('settings.checkNow')}
-            </Button>
-            {status?.updateAvailable && !isUpdating && (
-              <Button onClick={() => setConfirmOpen(true)} disabled={busy}>
-                {t('settings.applyUpdate')}
+          {status?.isDocker ? (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => check.mutate()} disabled={busy}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${check.isPending || status?.checking ? 'animate-spin' : ''}`} />
+                  {t('settings.checkNow')}
+                </Button>
+              </div>
+              {status?.lastError && (
+                <p className="text-sm text-destructive">{status.lastError}</p>
+              )}
+              <div className="flex items-start gap-3 rounded-md border border-muted bg-muted/40 p-4 text-sm text-muted-foreground">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p>{t('settings.dockerUpdateNotice')}</p>
+                  <pre className="text-xs font-mono bg-black/10 dark:bg-white/5 rounded px-2 py-1 select-all whitespace-pre-wrap">docker compose pull && docker compose up -d</pre>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => check.mutate()} disabled={busy}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${check.isPending || status?.checking ? 'animate-spin' : ''}`} />
+                {t('settings.checkNow')}
               </Button>
-            )}
-          </div>
+              {status?.updateAvailable && !isUpdating && (
+                <Button onClick={() => setConfirmOpen(true)} disabled={busy}>
+                  {t('settings.applyUpdate')}
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Terminal output */}
           {isUpdating && (

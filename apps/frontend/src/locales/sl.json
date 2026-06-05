@@ -308,6 +308,7 @@
     "testRecipient": "Testni prejemnik",
     "updates": "Posodobitve",
     "updatesDesc": "Preverite nove različice in namestite posodobitve iz repozitorija GitHub",
+    "dockerUpdateNotice": "Ta instanca teče v Dockerju. Posodobitve se namestijo z obnovo in ponovnim zagonom zabojnikov:",
     "currentVersion": "Trenutna različica",
     "remoteVersion": "Oddaljena različica",
     "lastChecked": "Zadnja preveritev",

@@ -1,7 +1,9 @@
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
+import { existsSync } from 'fs';
 import path from 'path';
 
+const IS_DOCKER = existsSync('/.dockerenv');
 const execAsync = promisify(exec);
 
 export interface UpdateStatus {
@@ -12,6 +14,7 @@ export interface UpdateStatus {
   checking: boolean;
   applying: boolean;
   lastError: string | null;
+  isDocker: boolean;
 }
 
 export interface UpdateLog {
@@ -20,14 +23,18 @@ export interface UpdateLog {
   success: boolean;
 }
 
+const BAKED_COMMIT = process.env.COMMIT_SHA?.trim().slice(0, 7) ?? '';
+const GITHUB_REPO = 'dj3ky/servio';
+
 let cachedStatus: UpdateStatus = {
-  currentCommit: '',
+  currentCommit: BAKED_COMMIT,
   remoteCommit: null,
   updateAvailable: false,
   lastChecked: null,
   checking: false,
   applying: false,
   lastError: null,
+  isDocker: IS_DOCKER,
 };
 
 let updateLog: UpdateLog = { lines: [], done: false, success: false };
@@ -40,6 +47,26 @@ export function getUpdateLog(): UpdateLog {
   return { ...updateLog, lines: [...updateLog.lines] };
 }
 
+async function checkViaGitHub(): Promise<{ localCommit: string; remoteCommit: string | null }> {
+  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits/main`, {
+    headers: { Accept: 'application/vnd.github.sha' },
+  });
+  if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+
+  const remoteCommit = (await res.text()).trim();
+  return { localCommit: BAKED_COMMIT, remoteCommit };
+}
+
+async function checkViaGit(): Promise<{ localCommit: string; remoteCommit: string | null }> {
+  const [localResult, remoteResult] = await Promise.all([
+    execAsync('git rev-parse HEAD'),
+    execAsync('git ls-remote origin HEAD'),
+  ]);
+  const localCommit = localResult.stdout.trim();
+  const remoteCommit = remoteResult.stdout.split('\t')[0]?.trim() ?? null;
+  return { localCommit, remoteCommit };
+}
+
 export async function checkForUpdates(): Promise<UpdateStatus> {
   if (cachedStatus.checking || cachedStatus.applying) return getUpdateStatus();
 
@@ -47,13 +74,9 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
   cachedStatus.lastError = null;
 
   try {
-    const [localResult, remoteResult] = await Promise.all([
-      execAsync('git rev-parse HEAD'),
-      execAsync('git ls-remote origin HEAD'),
-    ]);
-
-    const localCommit = localResult.stdout.trim();
-    const remoteCommit = remoteResult.stdout.split('\t')[0]?.trim() ?? null;
+    const { localCommit, remoteCommit } = IS_DOCKER
+      ? await checkViaGitHub()
+      : await checkViaGit();
 
     cachedStatus = {
       ...cachedStatus,

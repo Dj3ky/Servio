@@ -308,6 +308,7 @@
     "testRecipient": "Test Recipient",
     "updates": "Updates",
     "updatesDesc": "Check for new versions and apply updates from the GitHub repository",
+    "dockerUpdateNotice": "This instance is running inside Docker. Updates are applied by rebuilding and restarting the containers:",
     "currentVersion": "Current Version",
     "remoteVersion": "Remote Version",
     "lastChecked": "Last Checked",
