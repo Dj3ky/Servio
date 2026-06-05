@@ -86,48 +86,54 @@ export async function createBackup(): Promise<string> {
   return bundleFilePath;
 }
 
-export function startBackupScheduler(): void {
-  let currentTask: cron.ScheduledTask | null = null;
+let currentBackupTask: cron.ScheduledTask | null = null;
 
-  async function scheduleBackup() {
-    if (currentTask) {
-      currentTask.stop();
-      currentTask = null;
-    }
-
-    const s = await db.query.settings.findFirst();
-    if (!s?.backupEnabled || !s.backupSchedule) return;
-
-    if (!cron.validate(s.backupSchedule)) {
-      console.error('[backup] Invalid cron schedule:', s.backupSchedule);
-      return;
-    }
-
-    currentTask = cron.schedule(s.backupSchedule, async () => {
-      console.log('[backup] Running scheduled backup...');
-      try {
-        const file = await createBackup();
-        console.log('[backup] Backup created:', file);
-      } catch (err) {
-        console.error('[backup] Backup failed:', err);
-        try {
-          const [notif] = await db
-            .insert(notifications)
-            .values({
-              type: 'backup_failed',
-              title: 'Backup Failed',
-              message: err instanceof Error ? err.message : 'Unknown error',
-              entityType: null,
-              entityId: null,
-            })
-            .returning();
-          broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
-        } catch {}
-      }
-    });
-
-    console.log(`[backup] Scheduled backup: ${s.backupSchedule}`);
+export async function rescheduleBackup(): Promise<void> {
+  if (currentBackupTask) {
+    currentBackupTask.stop();
+    currentBackupTask = null;
   }
 
-  scheduleBackup().catch(console.error);
+  const s = await db.query.settings.findFirst();
+  if (!s?.backupEnabled || !s.backupSchedule) {
+    console.log('[backup] Scheduled backup disabled or no schedule set.');
+    return;
+  }
+
+  if (!cron.validate(s.backupSchedule)) {
+    console.error('[backup] Invalid cron schedule:', s.backupSchedule);
+    return;
+  }
+
+  const tz = process.env.TZ;
+  const options = tz ? { timezone: tz } : {};
+
+  currentBackupTask = cron.schedule(s.backupSchedule, async () => {
+    console.log('[backup] Running scheduled backup...');
+    try {
+      const file = await createBackup();
+      console.log('[backup] Backup created:', file);
+    } catch (err) {
+      console.error('[backup] Backup failed:', err);
+      try {
+        const [notif] = await db
+          .insert(notifications)
+          .values({
+            type: 'backup_failed',
+            title: 'Backup Failed',
+            message: err instanceof Error ? err.message : 'Unknown error',
+            entityType: null,
+            entityId: null,
+          })
+          .returning();
+        broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
+      } catch {}
+    }
+  }, options);
+
+  console.log(`[backup] Scheduled backup: ${s.backupSchedule}${tz ? ` (timezone: ${tz})` : ' (system timezone)'}`);
+}
+
+export function startBackupScheduler(): void {
+  rescheduleBackup().catch(console.error);
 }

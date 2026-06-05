@@ -18,7 +18,7 @@ import {
   createEmailTemplateSchema,
   updateEmailTemplateSchema,
 } from '@servio/shared';
-import { createBackup } from '../services/backup';
+import { createBackup, rescheduleBackup } from '../services/backup';
 import { db } from '../db';
 import { settings, emailTemplates } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -184,6 +184,7 @@ router.patch('/backup', requireRole('settings', 'manage'), async (req: Request, 
 
   await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, updatedAt: new Date() }).where(eq(settings.id, 1));
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'backup' }, req });
+  rescheduleBackup().catch(console.error);
   res.json({ success: true });
 });
 
