@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
   GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff, KeyRound,
-  ShieldCheck, Check,
+  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
