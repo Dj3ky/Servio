@@ -21,6 +21,7 @@ export const settings = pgTable('settings', {
   backupSchedule: text('backup_schedule').default('0 2 * * *'),
   backupPath: text('backup_path'),
   backupToNas: boolean('backup_to_nas').notNull().default(false),
+  backupNasPath: text('backup_nas_path'),
   accountingEmail: text('accounting_email'),
   digestEnabled: boolean('digest_enabled').notNull().default(false),
   digestFrequency: text('digest_frequency').notNull().default('daily'),

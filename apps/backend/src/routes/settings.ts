@@ -101,6 +101,7 @@ router.get('/', requireRole('settings', 'view'), async (_req: Request, res: Resp
     backupSchedule: s.backupSchedule,
     backupPath: s.backupPath,
     backupToNas: s.backupToNas,
+    backupNasPath: s.backupNasPath,
     accountingEmail: s.accountingEmail,
     digestEnabled: s.digestEnabled,
     digestFrequency: s.digestFrequency,
@@ -182,7 +183,7 @@ router.patch('/backup', requireRole('settings', 'manage'), async (req: Request, 
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, updatedAt: new Date() }).where(eq(settings.id, 1));
+  await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, backupNasPath: parsed.data.backupNasPath || null, updatedAt: new Date() }).where(eq(settings.id, 1));
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'backup' }, req });
   rescheduleBackup().catch(console.error);
   res.json({ success: true });

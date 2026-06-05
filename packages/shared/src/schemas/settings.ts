@@ -35,6 +35,7 @@ export const updateBackupSettingsSchema = z.object({
   backupSchedule: z.string().min(1),
   backupPath: z.string().min(1),
   backupToNas: z.boolean(),
+  backupNasPath: z.string().optional().or(z.literal('')),
 });
 
 export const updateAlertsSettingsSchema = z.object({

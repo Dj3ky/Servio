@@ -54,6 +54,7 @@ interface FullSettings {
   backupSchedule: string | null;
   backupPath: string | null;
   backupToNas: boolean;
+  backupNasPath: string | null;
   accountingEmail: string | null;
   digestEnabled: boolean;
   digestFrequency: 'daily' | 'weekly';
@@ -602,6 +603,7 @@ export default function SettingsPage() {
       backupSchedule: settings?.backupSchedule ?? '0 2 * * *',
       backupPath: settings?.backupPath ?? './backups',
       backupToNas: settings?.backupToNas ?? false,
+      backupNasPath: settings?.backupNasPath ?? '',
     },
   });
 
@@ -737,6 +739,7 @@ export default function SettingsPage() {
   const escalationEnabled = alertsForm.watch('escalationEnabled');
 
   const backupEnabled = backupForm.watch('backupEnabled');
+  const backupToNas = backupForm.watch('backupToNas');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'general';
@@ -1217,6 +1220,17 @@ export default function SettingsPage() {
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                       </FormItem>
                     )} />
+
+                    {backupToNas && (
+                      <FormField control={backupForm.control} name="backupNasPath" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('settings.backupNasPath')}</FormLabel>
+                          <FormControl><Input placeholder="Backups" {...field} value={field.value ?? ''} /></FormControl>
+                          <FormDescription>{t('settings.backupNasPathHint')}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    )}
                   </div>
 
                   <div className="flex gap-2 pt-1">

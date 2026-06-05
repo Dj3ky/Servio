@@ -74,8 +74,8 @@ export async function createBackup(): Promise<string> {
   if (s?.backupToNas) {
     try {
       const buffer = await fs.readFile(bundleFilePath);
-      const basePath = s.smbBasePath || '';
-      const remotePath = [basePath, 'Backups', bundleFilename].filter(Boolean).join('/');
+      const nasDir = (s.backupNasPath || 'Backups').replace(/\/+$/, '');
+      const remotePath = `${nasDir}/${bundleFilename}`;
       await saveToSmb(remotePath, buffer);
       console.log('[backup] Backup copied to NAS:', remotePath);
     } catch (err) {

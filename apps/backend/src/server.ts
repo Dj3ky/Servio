@@ -36,6 +36,10 @@ async function ensureSettingsColumns() {
   `);
   await db.execute(sql`
     ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS backup_nas_path text
+  `);
+  await db.execute(sql`
+    ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS permissions_config jsonb
   `);
   await db.execute(sql`
