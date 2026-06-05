@@ -35,6 +35,7 @@ services:
     volumes:
       - uploads:/app/uploads
       - backups:/app/backups
+      - ./license.key:/app/apps/backend/license.key:ro
     depends_on:
       postgres:
         condition: service_healthy
