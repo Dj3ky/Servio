@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { getInboxStatus, markMessageSeen } from '../services/imap';
+import { getInboxStatus, markMessageSeen, fetchMessageBody } from '../services/imap';
 
 const router = Router();
 
@@ -13,6 +13,14 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     return;
   }
   res.json({ enabled: true, unreadCount: result.unreadCount, messages: result.messages });
+});
+
+router.get('/:uid', async (req: Request, res: Response): Promise<void> => {
+  const uid = parseInt(req.params.uid, 10);
+  if (isNaN(uid)) { res.status(400).json({ error: 'errors.validation' }); return; }
+  const message = await fetchMessageBody(uid);
+  if (!message) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  res.json(message);
 });
 
 router.post('/:uid/read', async (req: Request, res: Response): Promise<void> => {

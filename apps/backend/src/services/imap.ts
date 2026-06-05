@@ -195,6 +195,63 @@ export async function detectAndProcessBounces(): Promise<string[]> {
   return bouncedEmails;
 }
 
+function extractTextBody(source: string): string {
+  const blankLine = source.indexOf('\r\n\r\n') !== -1 ? source.indexOf('\r\n\r\n') + 4 : source.indexOf('\n\n') + 2;
+  const headers = source.substring(0, blankLine);
+  const body = source.substring(blankLine);
+
+  const boundaryMatch = headers.match(/boundary="?([^";\r\n]+)"?/i);
+  if (boundaryMatch) {
+    const boundary = '--' + boundaryMatch[1].trim();
+    const parts = body.split(boundary);
+    for (const part of parts) {
+      if (/content-type:\s*text\/plain/i.test(part)) {
+        const partBody = part.indexOf('\r\n\r\n') !== -1
+          ? part.substring(part.indexOf('\r\n\r\n') + 4)
+          : part.substring(part.indexOf('\n\n') + 2);
+        const cleaned = partBody.replace(/--$/, '').trim();
+        if (cleaned) return cleaned;
+      }
+    }
+  }
+
+  return body.trim();
+}
+
+export async function fetchMessageBody(uid: number): Promise<{ from: string; subject: string; date: string; body: string } | null> {
+  const client = await createImapClient();
+  if (!client) return null;
+
+  try {
+    await client.connect();
+    await client.mailboxOpen('INBOX');
+
+    let result: { from: string; subject: string; date: string; body: string } | null = null;
+
+    for await (const msg of client.fetch(String(uid), { envelope: true, source: true, uid: true }, { uid: true })) {
+      const env = msg.envelope;
+      const from = env?.from?.[0]
+        ? (env.from[0].name ? `${env.from[0].name} <${env.from[0].address}>` : (env.from[0].address ?? ''))
+        : '';
+      const source = msg.source ? msg.source.toString() : '';
+      result = {
+        from,
+        subject: env?.subject ?? '(no subject)',
+        date: (env?.date ?? new Date()).toISOString(),
+        body: extractTextBody(source),
+      };
+      await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
+    }
+
+    return result;
+  } catch (err) {
+    console.error('[imap] Failed to fetch message body:', err);
+    return null;
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
 export async function markMessageSeen(uid: number): Promise<void> {
   const client = await createImapClient();
   if (!client) return;
