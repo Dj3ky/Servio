@@ -41,7 +41,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(customer);
 });
 
-router.post('/', requireRole('customers', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createCustomerSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -57,7 +57,7 @@ router.post('/', requireRole('customers', 'manage'), async (req: Request, res: R
   res.status(201).json(customer);
 });
 
-router.patch('/:id', requireRole('customers', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateCustomerSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -68,7 +68,7 @@ router.patch('/:id', requireRole('customers', 'manage'), async (req: Request, re
   res.json(updated);
 });
 
-router.delete('/:id', requireRole('customers', 'delete'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('records', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.update(customers).set({ isActive: false, updatedAt: new Date() }).where(eq(customers.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
 

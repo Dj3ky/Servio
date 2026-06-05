@@ -1635,16 +1635,9 @@ function PermissionsTab() {
       { section: 'users', action: 'manage', label: t('settings.perm.usersManage') },
       { section: 'users', action: 'resetPassword', label: t('settings.perm.usersResetPw') },
     ]},
-    { label: t('settings.perm.customers'), rows: [
-      { section: 'customers', action: 'manage', label: t('settings.perm.customersManage') },
-      { section: 'customers', action: 'delete', label: t('settings.perm.customersDelete') },
-    ]},
-    { label: t('settings.perm.facilities'), rows: [
-      { section: 'facilities', action: 'manage', label: t('settings.perm.facilitiesManage') },
-    ]},
-    { label: t('settings.perm.contracts'), rows: [
-      { section: 'contracts', action: 'manage', label: t('settings.perm.contractsManage') },
-      { section: 'contracts', action: 'delete', label: t('settings.perm.contractsDelete') },
+    { label: t('settings.perm.records'), rows: [
+      { section: 'records', action: 'manage', label: t('settings.perm.recordsManage') },
+      { section: 'records', action: 'delete', label: t('settings.perm.recordsDelete') },
       { section: 'contractTimeline', action: 'access', label: t('settings.perm.contractTimelineAccess') },
     ]},
     { label: t('settings.perm.reviews'), rows: [

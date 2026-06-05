@@ -8,14 +8,7 @@ export const permissions = {
     manage:        r('admin'),
     resetPassword: r('admin'),
   },
-  customers: {
-    manage: r('admin', 'manager'),
-    delete: r('admin'),
-  },
-  facilities: {
-    manage: r('admin', 'manager'),
-  },
-  contracts: {
+  records: {
     manage: r('admin', 'manager'),
     delete: r('admin'),
   },
