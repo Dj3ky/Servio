@@ -50,7 +50,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
 });
 
-router.get('/pending', async (_req: Request, res: Response): Promise<void> => {
+router.get('/pending', requireRole('admin', 'manager', 'technician'), async (_req: Request, res: Response): Promise<void> => {
   const data = await db.query.reviews.findMany({
     where: (r, { eq }) => eq(r.status, 'pending'),
     with: {

@@ -70,7 +70,8 @@
       "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/frontend/tsconfig.json)",
       "PowerShell(Get-Command node, npx, pnpm 2>&1)",
       "Bash(which node *)",
-      "Read(//c/Users/Dejan/.nvm/versions/**)"
+      "Read(//c/Users/Dejan/.nvm/versions/**)",
+      "Bash(dir /B d:\\\\GitHub\\\\Servio)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend",

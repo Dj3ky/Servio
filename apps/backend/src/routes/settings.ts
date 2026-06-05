@@ -335,6 +335,21 @@ router.delete('/backup/:filename', requireRole('admin'), async (req: Request, re
 router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
+  // Validate file magic bytes — reject anything that doesn't match its claimed type
+  const buf = req.file.buffer;
+  if (req.file.originalname.endsWith('.tar.gz')) {
+    if (buf.length < 2 || buf[0] !== 0x1f || buf[1] !== 0x8b) {
+      res.status(400).json({ error: 'errors.validation' });
+      return;
+    }
+  } else {
+    // Plain SQL must be text — null bytes indicate binary content
+    if (buf.includes(0x00)) {
+      res.status(400).json({ error: 'errors.validation' });
+      return;
+    }
+  }
+
   const tmpDir = path.join(os.tmpdir(), `servio-restore-${Date.now()}`);
   try {
     await fs.mkdir(tmpDir, { recursive: true });
