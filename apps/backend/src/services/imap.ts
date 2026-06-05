@@ -226,24 +226,23 @@ export async function fetchMessageBody(uid: number): Promise<{ from: string; sub
     await client.connect();
     await client.mailboxOpen('INBOX');
 
-    let result: { from: string; subject: string; date: string; body: string } | null = null;
+    const msg = await client.fetchOne(String(uid), { envelope: true, source: true }, { uid: true });
+    if (!msg) return null;
 
-    for await (const msg of client.fetch(String(uid), { envelope: true, source: true, uid: true }, { uid: true })) {
-      const env = msg.envelope;
-      const from = env?.from?.[0]
-        ? (env.from[0].name ? `${env.from[0].name} <${env.from[0].address}>` : (env.from[0].address ?? ''))
-        : '';
-      const source = msg.source ? msg.source.toString() : '';
-      result = {
-        from,
-        subject: env?.subject ?? '(no subject)',
-        date: (env?.date ?? new Date()).toISOString(),
-        body: extractTextBody(source),
-      };
-      await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
-    }
+    const env = msg.envelope;
+    const from = env?.from?.[0]
+      ? (env.from[0].name ? `${env.from[0].name} <${env.from[0].address}>` : (env.from[0].address ?? ''))
+      : '';
+    const source = msg.source ? msg.source.toString() : '';
 
-    return result;
+    await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
+
+    return {
+      from,
+      subject: env?.subject ?? '(no subject)',
+      date: (env?.date ?? new Date()).toISOString(),
+      body: extractTextBody(source),
+    };
   } catch (err) {
     console.error('[imap] Failed to fetch message body:', err);
     return null;

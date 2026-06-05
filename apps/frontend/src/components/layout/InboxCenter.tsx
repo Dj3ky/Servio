@@ -40,10 +40,11 @@ export function InboxCenter() {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  const { data: messageDetail, isLoading: messageLoading } = useQuery({
+  const { data: messageDetail, isLoading: messageLoading, isError: messageError } = useQuery({
     queryKey: ['inbox-message', openUid],
     queryFn: () => api.get<MessageDetail>(`/inbox/${openUid}`),
     enabled: openUid !== null,
+    retry: false,
   });
 
   const markReadMutation = useMutation({
@@ -115,6 +116,8 @@ export function InboxCenter() {
           </DialogHeader>
           {messageLoading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
+          ) : messageError ? (
+            <div className="py-8 text-center text-sm text-destructive">{t('errors.internal')}</div>
           ) : messageDetail ? (
             <div className="flex flex-col gap-3 overflow-hidden">
               <div className="text-xs text-muted-foreground space-y-0.5 border-b pb-3">
