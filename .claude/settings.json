@@ -71,7 +71,8 @@
       "PowerShell(Get-Command node, npx, pnpm 2>&1)",
       "Bash(which node *)",
       "Read(//c/Users/Dejan/.nvm/versions/**)",
-      "Bash(dir /B d:\\\\GitHub\\\\Servio)"
+      "Bash(dir /B d:\\\\GitHub\\\\Servio)",
+      "Bash(git check-ignore *)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend",
