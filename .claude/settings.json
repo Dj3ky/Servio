@@ -67,7 +67,10 @@
       "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npx.cmd\" tsc --noEmit -p \"d:\\\\GitHub\\\\Servio\\\\apps\\\\backend\\\\tsconfig.json\" 2>&1)",
       "Bash(node_modules/.bin/tsc --noEmit -p apps/backend/tsconfig.json)",
       "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/backend/tsconfig.json)",
-      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/frontend/tsconfig.json)"
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/frontend/tsconfig.json)",
+      "PowerShell(Get-Command node, npx, pnpm 2>&1)",
+      "Bash(which node *)",
+      "Read(//c/Users/Dejan/.nvm/versions/**)"
     ],
     "additionalDirectories": [
       "d:\\GitHub\\Servio\\apps\\frontend",

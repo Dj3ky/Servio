@@ -9,7 +9,6 @@ import {
   GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff, KeyRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +29,7 @@ import {
 } from '@servio/shared';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, cn } from '@/lib/utils';
 
 interface FullSettings {
   appName: string;
@@ -204,7 +203,7 @@ function UpdatesTab() {
   const busy = status?.checking || status?.applying || check.isPending || isUpdating;
 
   return (
-    <TabsContent value="updates" className="space-y-4 mt-4">
+    <div className="space-y-4">
       <Card>
         <SectionHeader icon={GitBranch} title={t('settings.updates')} description={t('settings.updatesDesc')} />
         <CardContent className="space-y-6">
@@ -297,7 +296,7 @@ function UpdatesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TabsContent>
+    </div>
   );
 }
 
@@ -346,7 +345,7 @@ function LicenseTab() {
   const expiringSoon = license?.valid && !license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30;
 
   return (
-    <TabsContent value="license" className="space-y-4 mt-4">
+    <div className="space-y-4">
       <Card>
         <SectionHeader icon={KeyRound} title={t('license.status')} description={t('license.statusDesc')} />
         <CardContent className="space-y-6">
@@ -450,7 +449,7 @@ function LicenseTab() {
           </Button>
         </CardContent>
       </Card>
-    </TabsContent>
+    </div>
   );
 }
 
@@ -714,43 +713,52 @@ export default function SettingsPage() {
 
   const backupEnabled = backupForm.watch('backupEnabled');
 
+  const [activeTab, setActiveTab] = useState<string>(new URLSearchParams(window.location.search).get('tab') ?? 'general');
+
+  const navItems = [
+    { value: 'general', icon: Settings2, label: t('settings.general') },
+    { value: 'smtp', icon: Mail, label: t('settings.smtp') },
+    { value: 'smb', icon: Server, label: t('settings.smb') },
+    { value: 'templates', icon: MailOpen, label: t('settings.templates') },
+    { value: 'backup', icon: Archive, label: t('settings.backup') },
+    { value: 'alerts', icon: Bell, label: t('settings.alerts') },
+    { value: 'updates', icon: RefreshCw, label: t('settings.updates') },
+    { value: 'license', icon: KeyRound, label: t('license.tab') },
+  ];
+
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{t('settings.pageDesc')}</p>
       </div>
 
-      <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') ?? 'general'}>
-        <TabsList className="w-full justify-start flex-wrap h-auto">
-          <TabsTrigger value="general" className="gap-1.5">
-            <Settings2 className="h-3.5 w-3.5" />{t('settings.general')}
-          </TabsTrigger>
-          <TabsTrigger value="smtp" className="gap-1.5">
-            <Mail className="h-3.5 w-3.5" />{t('settings.smtp')}
-          </TabsTrigger>
-          <TabsTrigger value="smb" className="gap-1.5">
-            <Server className="h-3.5 w-3.5" />{t('settings.smb')}
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5">
-            <MailOpen className="h-3.5 w-3.5" />{t('settings.templates')}
-          </TabsTrigger>
-          <TabsTrigger value="backup" className="gap-1.5">
-            <Archive className="h-3.5 w-3.5" />{t('settings.backup')}
-          </TabsTrigger>
-          <TabsTrigger value="alerts" className="gap-1.5">
-            <Bell className="h-3.5 w-3.5" />{t('settings.alerts')}
-          </TabsTrigger>
-          <TabsTrigger value="updates" className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />{t('settings.updates')}
-          </TabsTrigger>
-          <TabsTrigger value="license" className="gap-1.5">
-            <KeyRound className="h-3.5 w-3.5" />{t('license.tab')}
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex gap-8">
+        {/* Sidebar nav */}
+        <nav className="w-48 shrink-0">
+          <div className="space-y-0.5">
+            {navItems.map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => setActiveTab(value)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors text-left',
+                  activeTab === value
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </nav>
 
-        {/* ── GENERAL ─────────────────────────────────────────────────────── */}
-        <TabsContent value="general" className="space-y-4 mt-4">
+        {/* Content area */}
+        <div className="flex-1 min-w-0 space-y-4">
+
+        {activeTab === 'general' && (<>
           <Card>
             <SectionHeader
               icon={Globe}
@@ -834,10 +842,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── SMTP ────────────────────────────────────────────────────────── */}
-        <TabsContent value="smtp" className="space-y-4 mt-4">
+        {activeTab === 'smtp' && (<>
           <Card>
             <SectionHeader
               icon={Mail}
@@ -987,10 +994,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── SMB ─────────────────────────────────────────────────────────── */}
-        <TabsContent value="smb" className="space-y-4 mt-4">
+        {activeTab === 'smb' && (<>
           <Card>
             <SectionHeader
               icon={Server}
@@ -1070,10 +1076,9 @@ export default function SettingsPage() {
               </Form>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── TEMPLATES ───────────────────────────────────────────────────── */}
-        <TabsContent value="templates" className="space-y-4 mt-4">
+        {activeTab === 'templates' && (<>
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
@@ -1134,10 +1139,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── BACKUP ──────────────────────────────────────────────────────── */}
-        <TabsContent value="backup" className="space-y-4 mt-4">
+        {activeTab === 'backup' && (<>
           <Card>
             <SectionHeader
               icon={Archive}
@@ -1295,10 +1299,9 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── ALERTS ──────────────────────────────────────────────────────── */}
-        <TabsContent value="alerts" className="space-y-4 mt-4">
+        {activeTab === 'alerts' && (<>
           <Card>
             <SectionHeader
               icon={Bell}
@@ -1394,14 +1397,13 @@ export default function SettingsPage() {
               </Form>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>)}
 
-        {/* ── UPDATES ─────────────────────────────────────────────────────── */}
-        <UpdatesTab />
+        {activeTab === 'updates' && <UpdatesTab />}
+        {activeTab === 'license' && <LicenseTab />}
 
-        {/* ── LICENSE ─────────────────────────────────────────────────────── */}
-        <LicenseTab />
-      </Tabs>
+        </div>
+      </div>
 
       {/* Template dialog */}
       <Dialog open={!!templateDialog} onOpenChange={(open) => { if (!open) setTemplateDialog(null); }}>
