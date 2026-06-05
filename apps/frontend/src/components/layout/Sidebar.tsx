@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { permissions } from '@servio/shared';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -36,11 +37,11 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
   { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline' },
-  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', roles: ['admin', 'manager', 'accountant'] },
-  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', roles: ['admin', 'manager', 'accountant'] },
-  { labelKey: 'nav.users', icon: Users, path: '/users', roles: ['admin', 'manager'] },
-  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', roles: ['admin', 'manager'] },
-  { labelKey: 'nav.settings', icon: Settings, path: '/settings', roles: ['admin'] },
+  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', roles: permissions.pages.invoices },
+  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', roles: permissions.pages.reports },
+  { labelKey: 'nav.users', icon: Users, path: '/users', roles: permissions.pages.users },
+  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', roles: permissions.pages.auditLog },
+  { labelKey: 'nav.settings', icon: Settings, path: '/settings', roles: permissions.pages.settings },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {

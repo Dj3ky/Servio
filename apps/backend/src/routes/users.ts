@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { eq, sql } from 'drizzle-orm';
-import { createUserSchema, updateUserSchema, resetPasswordSchema } from '@servio/shared';
+import { createUserSchema, updateUserSchema, resetPasswordSchema, permissions } from '@servio/shared';
 import { db } from '../db';
 import { users, auditLogs } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -12,7 +12,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Response): Promise<void> => {
+router.get('/', requireRole(...permissions.users.view), async (_req: Request, res: Response): Promise<void> => {
   const result = await db
     .select({
       id: users.id,
@@ -45,7 +45,7 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
   })));
 });
 
-router.post('/', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole(...permissions.users.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors });
@@ -81,7 +81,7 @@ router.post('/', requireRole('admin'), async (req: Request, res: Response): Prom
   res.status(201).json({ id: user.id, email: user.email, name: user.name, role: user.role });
 });
 
-router.patch('/:id', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole(...permissions.users.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors });
@@ -127,7 +127,7 @@ router.patch('/:id', requireRole('admin'), async (req: Request, res: Response): 
   res.json({ id: updated.id, email: updated.email, name: updated.name, role: updated.role, isActive: updated.isActive });
 });
 
-router.post('/:id/reset-password', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/reset-password', requireRole(...permissions.users.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = resetPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors });

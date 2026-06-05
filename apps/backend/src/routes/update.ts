@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { permissions } from '@servio/shared';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { checkForUpdates, startUpdate, getUpdateStatus, getUpdateLog } from '../services/update';
@@ -6,7 +7,7 @@ import { createAuditLog } from '../utils/audit';
 
 const router = Router();
 
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requireRole(...permissions.update.access));
 
 router.get('/status', (_req: Request, res: Response): void => {
   res.json(getUpdateStatus());

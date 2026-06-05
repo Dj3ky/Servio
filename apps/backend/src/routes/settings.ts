@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import { eq } from 'drizzle-orm';
 
 const execFileAsync = promisify(execFile);
+import { permissions } from '@servio/shared';
 import {
   updateGeneralSettingsSchema,
   updateSmtpSettingsSchema,
@@ -76,7 +77,7 @@ router.get('/backup/file/:filename', async (req: Request, res: Response): Promis
 
 router.use(requireAuth);
 
-router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Response): Promise<void> => {
+router.get('/', requireRole(...permissions.settings.view), async (_req: Request, res: Response): Promise<void> => {
   const s = await db.query.settings.findFirst();
   if (!s) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
@@ -110,7 +111,7 @@ router.get('/', requireRole('admin', 'manager'), async (_req: Request, res: Resp
   });
 });
 
-router.patch('/general', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/general', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateGeneralSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -124,7 +125,7 @@ router.patch('/general', requireRole('admin'), async (req: Request, res: Respons
   res.json({ success: true });
 });
 
-router.patch('/smtp', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/smtp', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateSmtpSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -147,7 +148,7 @@ router.patch('/smtp', requireRole('admin'), async (req: Request, res: Response):
   res.json({ success: true });
 });
 
-router.post('/smtp/test', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/smtp/test', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = testSmtpSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -156,7 +157,7 @@ router.post('/smtp/test', requireRole('admin'), async (req: Request, res: Respon
   res.json(result);
 });
 
-router.patch('/smb', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/smb', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateSmbSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -177,7 +178,7 @@ router.patch('/smb', requireRole('admin'), async (req: Request, res: Response): 
   res.json({ success: true });
 });
 
-router.patch('/backup', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/backup', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -186,7 +187,7 @@ router.patch('/backup', requireRole('admin'), async (req: Request, res: Response
   res.json({ success: true });
 });
 
-router.patch('/alerts', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/alerts', requireRole(...permissions.settings.manage), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateAlertsSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -202,7 +203,7 @@ router.patch('/alerts', requireRole('admin'), async (req: Request, res: Response
   res.json({ success: true });
 });
 
-router.post('/logo', requireRole('admin'), imageUpload.single('logo'), async (req: Request, res: Response): Promise<void> => {
+router.post('/logo', requireRole(...permissions.settings.manage), imageUpload.single('logo'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
   const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -223,7 +224,7 @@ router.get('/templates', async (_req: Request, res: Response): Promise<void> => 
   res.json(templates);
 });
 
-router.post('/templates', requireRole('admin', 'manager'), async (req: Request, res: Response): Promise<void> => {
+router.post('/templates', requireRole(...permissions.settings.manageTemplates), async (req: Request, res: Response): Promise<void> => {
   const parsed = createEmailTemplateSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -231,7 +232,7 @@ router.post('/templates', requireRole('admin', 'manager'), async (req: Request, 
   res.status(201).json(template);
 });
 
-router.patch('/templates/:id', requireRole('admin', 'manager'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/templates/:id', requireRole(...permissions.settings.manageTemplates), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateEmailTemplateSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -240,12 +241,12 @@ router.patch('/templates/:id', requireRole('admin', 'manager'), async (req: Requ
   res.json(updated);
 });
 
-router.delete('/templates/:id', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/templates/:id', requireRole(...permissions.settings.deleteTemplates), async (req: Request, res: Response): Promise<void> => {
   await db.delete(emailTemplates).where(eq(emailTemplates.id, req.params.id));
   res.json({ success: true });
 });
 
-router.post('/backup/create', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/backup/create', requireRole(...permissions.settings.backup), async (req: Request, res: Response): Promise<void> => {
   try {
     const filePath = await createBackup();
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create_backup', payload: { filePath }, req });
@@ -255,7 +256,7 @@ router.post('/backup/create', requireRole('admin'), async (req: Request, res: Re
   }
 });
 
-router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Response): Promise<void> => {
+router.get('/backup/list', requireRole(...permissions.settings.backup), async (_req: Request, res: Response): Promise<void> => {
   const s = await db.query.settings.findFirst();
   const backupPath = path.resolve(s?.backupPath ?? './backups');
 
@@ -283,7 +284,7 @@ router.get('/backup/list', requireRole('admin'), async (_req: Request, res: Resp
   }
 });
 
-router.get('/backup/download/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/backup/download/:filename', requireRole(...permissions.settings.backup), async (req: Request, res: Response): Promise<void> => {
   const { filename } = req.params;
   if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
@@ -303,7 +304,7 @@ router.get('/backup/download/:filename', requireRole('admin'), async (req: Reque
 });
 
 // Issues a one-time 30-second token so PWA can open the download via window.open()
-router.post('/backup/download-token/:filename', requireRole('admin'), (req: Request, res: Response): void => {
+router.post('/backup/download-token/:filename', requireRole(...permissions.settings.backup), (req: Request, res: Response): void => {
   const { filename } = req.params;
   if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
@@ -314,7 +315,7 @@ router.post('/backup/download-token/:filename', requireRole('admin'), (req: Requ
   res.json({ token });
 });
 
-router.delete('/backup/:filename', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/backup/:filename', requireRole(...permissions.settings.backup), async (req: Request, res: Response): Promise<void> => {
   const { filename } = req.params;
   if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('..')) {
     res.status(400).json({ error: 'errors.validation' });
@@ -332,7 +333,7 @@ router.delete('/backup/:filename', requireRole('admin'), async (req: Request, re
   }
 });
 
-router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
+router.post('/backup/restore', requireRole(...permissions.settings.backup), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
   // Validate file magic bytes — reject anything that doesn't match its claimed type
@@ -429,7 +430,7 @@ router.post('/backup/restore', requireRole('admin'), sqlUpload.single('backup'),
   }
 });
 
-router.post('/backup/restart', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/backup/restart', requireRole(...permissions.settings.backup), async (req: Request, res: Response): Promise<void> => {
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restart_services', payload: {}, req });
   res.json({ success: true });
   // Delay restart so the response is delivered first

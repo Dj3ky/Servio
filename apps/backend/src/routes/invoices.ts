@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql } from 'drizzle-orm';
-import { updateInvoiceSchema } from '@servio/shared';
+import { updateInvoiceSchema, permissions } from '@servio/shared';
 import { db } from '../db';
 import { invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -16,7 +16,7 @@ import { documentUpload } from '../middleware/upload';
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireRole('admin', 'manager', 'accountant'));
+router.use(requireRole(...permissions.invoices.access));
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const status = req.query.status as string | undefined;
@@ -239,7 +239,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(updated);
 });
 
-router.post('/:id/reset', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/reset', requireRole(...permissions.invoices.reset), async (req: Request, res: Response): Promise<void> => {
   const invoice = await db.query.invoices.findFirst({
     where: (inv, { eq }) => eq(inv.id, req.params.id),
   });
