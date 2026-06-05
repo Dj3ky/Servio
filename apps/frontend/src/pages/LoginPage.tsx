@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -36,6 +36,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
   const [error, setError] = useState<string | null>(null);
+  const [resetSuccess] = useState(() => !!(location.state as { resetSuccess?: boolean })?.resetSuccess);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
 
@@ -97,6 +98,11 @@ export default function LoginPage() {
           <CardDescription>{t('auth.welcomeBack')}</CardDescription>
         </CardHeader>
         <CardContent>
+          {resetSuccess && (
+            <Alert className="mb-4">
+              <AlertDescription>{t('auth.resetPasswordSuccess')}</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
@@ -135,6 +141,11 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">
+                  {t('auth.forgotPassword')}
+                </Link>
+              </div>
               <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                 {loginMutation.isPending ? t('common.loading') : t('auth.signIn')}
               </Button>

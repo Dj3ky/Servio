@@ -16,5 +16,16 @@ export const loginResponseSchema = z.object({
   }),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordByTokenSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8).max(100),
+});
+
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordByTokenRequest = z.infer<typeof resetPasswordByTokenSchema>;

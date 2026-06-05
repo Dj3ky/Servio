@@ -58,7 +58,20 @@
     "email": "Email address",
     "password": "Password",
     "signIn": "Sign in",
-    "welcomeBack": "Welcome back"
+    "welcomeBack": "Welcome back",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordTitle": "Reset password",
+    "forgotPasswordDesc": "Enter your email and we'll send you a reset link.",
+    "forgotPasswordSuccess": "If that email is registered, you'll receive a reset link shortly.",
+    "sendResetLink": "Send reset link",
+    "backToLogin": "Back to login",
+    "resetPasswordTitle": "Set new password",
+    "resetPasswordDesc": "Enter your new password below.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordsNoMatch": "Passwords do not match",
+    "resetPasswordSuccess": "Password reset successfully. You can now sign in.",
+    "resetPassword": "Reset password"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -495,6 +508,7 @@
     "rate_limited": "Too many requests.",
     "internal": "Internal server error.",
     "unknown": "Unknown error.",
-    "license_invalid": "License required. Please upload a valid license file in Settings."
+    "license_invalid": "License required. Please upload a valid license file in Settings.",
+    "invalid_reset_token": "This link is invalid or has expired."
   }
 }

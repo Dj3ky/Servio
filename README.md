@@ -124,12 +124,14 @@ servio/
 
 ## User Roles
 
-| Role | Contracts | Upload PDF | Invoices | Reports | Users | Settings |
-|------|-----------|-----------|----------|---------|-------|----------|
-| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **manager** | ✅ | ✅ | ✅ | ✅ | ✅ view | ❌ |
-| **accountant** | 👁 view | ❌ | ✅ | ✅ | ❌ | ❌ |
-| **technician** | 👁 view | ✅ | ❌ | ❌ | ❌ | ❌ |
+Default permissions (overridable via the Permissions Editor in Settings):
+
+| Role | Contracts | Upload PDF | Invoices | Reports | Users | Settings | Audit Log | Timeline | License/Backup |
+|------|-----------|-----------|----------|---------|-------|----------|-----------|----------|----------------|
+| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **manager** | ✅ | ✅ | ✅ | ✅ | 👁 view | 👁 view/templates | ✅ | ✅ | ❌ |
+| **accountant** | 👁 view | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **technician** | 👁 view | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 
 ## Features
 
@@ -151,6 +153,12 @@ servio/
 - **Quadannual** — creates reviews in January, April, July, October
 - **Custom** — admin selects specific months (e.g. [3, 6, 9, 12])
 
+### Password Reset
+1. User clicks "Forgot password" on the login page and submits their email
+2. If the account exists and is active, a reset link is sent via email (expires in 1 hour)
+3. The link opens `/reset-password?token=...` where the user sets a new password
+4. Token is invalidated after use — always returns success to avoid email enumeration
+
 ### Notification Center
 Bell icon in the top navigation shows:
 - SMB save failures
@@ -158,6 +166,11 @@ Bell icon in the top navigation shows:
 - Backup failures
 - Review completions
 - Overdue reviews
+
+### Contract Timeline
+- Calendar-style view showing all reviews for a selected month across all contracts
+- Displays review status, email delivery, SMB save state, and linked invoice per contract
+- Accessible at `/contract-timeline` (role-restricted by `contractTimeline.access` permission)
 
 ### Reports
 - Monthly report export as PDF (Puppeteer) or XLSX (ExcelJS)
@@ -170,15 +183,37 @@ Bell icon in the top navigation shows:
 - All UI strings use translation keys — no hardcoded text
 - Backend returns machine-readable error keys only
 
+### Backup & Restore
+- On-demand backup triggered from the Settings page (admin only)
+- Scheduled automatic backup via configurable cron expression
+- Backup bundle = `pg_dump` SQL + `uploads/` directory archived as `.tar.gz`
+- Optional automatic copy of each backup to SMB/NAS after creation
+- Download the latest backup SQL directly from the UI
+- Restore by uploading a `.sql` file via the Settings page — runs `psql` against the configured database
+- Backup failures create a notification and broadcast a WebSocket event
+
+### License
+- RSA-signed JWT license file verified against a built-in public key
+- License payload: `customer`, `seats`, `features[]`, `domain`, `perpetual`, `expiresAt`
+- Supplied via `LICENSE_KEY` env var, `license.key` file, or uploaded through the Settings page (stored in DB)
+- Uploaded license is validated before persisting — invalid/expired files are rejected
+- When no public key is configured (development), license enforcement is skipped
+
+### Permissions Editor
+- All per-action role assignments are defined in `packages/shared/src/permissions.ts` as the default
+- Admins can override the defaults from the Settings page — changes are persisted in the database
+- Backend loads the active permissions map at startup and uses it for all route guards
+- `ProtectedRoute` on the frontend reads the same permissions to show/hide UI elements
+
 ### Security
 - Helmet security headers
 - CORS restricted to frontend origin
-- Rate limiting: 5 login attempts per 15 minutes, 300 API requests per minute
+- Rate limiting: 5 login attempts per 15 minutes, 3 password reset requests per 15 minutes, 300 API requests per minute
 - JWT authentication (8-hour expiry)
-- Role-based route protection
+- Role-based and permission-based route protection
 - SMTP and SMB passwords encrypted at rest with AES-256-GCM
 - Full audit log for every mutating action
-- File upload validation (PDF only for reports, PNG/JPG/SVG for logos)
+- File upload validation (PDF only for reports, PNG/JPG/SVG for logos, `.key` for license, `.sql` for restore)
 - Max upload size: 50 MB
 
 ## API Endpoints
@@ -188,6 +223,8 @@ Bell icon in the top navigation shows:
 | POST | /api/auth/login | public | Login |
 | POST | /api/auth/logout | auth | Logout |
 | GET | /api/auth/me | auth | Current user |
+| POST | /api/auth/forgot-password | public | Request password reset email |
+| POST | /api/auth/reset-password | public | Reset password via token |
 | GET | /api/settings/public | public | App name, logo, language |
 | GET | /api/dashboard | auth | Dashboard stats |
 | GET/POST | /api/contracts | auth | List / create contracts |
@@ -202,7 +239,12 @@ Bell icon in the top navigation shows:
 | GET | /api/reports/monthly/xlsx | accountant+ | Download XLSX report |
 | GET/PATCH | /api/settings | admin | View / update settings |
 | POST | /api/settings/smtp/test | admin | Test SMTP connection |
+| POST | /api/settings/backup | admin | Trigger on-demand backup |
+| GET | /api/settings/backup/download | admin | Download latest backup SQL |
+| POST | /api/settings/restore | admin | Restore from uploaded .sql file |
 | POST | /api/smb/test | admin | Test SMB connection |
+| GET | /api/license/status | auth | Current license status |
+| POST | /api/license/upload | admin | Upload license key file |
 | GET | /api/notifications | auth | List notifications |
 | GET | /api/audit-logs | manager+ | Audit log (paginated) |
 | GET/POST | /api/users | admin | Manage users |
@@ -231,6 +273,8 @@ See [`.env.example`](.env.example) for the full list. Critical variables:
 | `ENCRYPTION_KEY` | 32-byte hex string (64 chars) for password encryption |
 | `FRONTEND_URL` | CORS origin for the frontend |
 | `PORT` | Backend port (default: 3001) |
+| `LICENSE_KEY` | License JWT string (optional — alternative to `license.key` file) |
+| `LICENSE_KEY_PATH` | Path to license key file (default: `./license.key`) |
 
 ## Development
 

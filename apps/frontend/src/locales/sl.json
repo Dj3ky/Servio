@@ -58,7 +58,20 @@
     "email": "E-poštni naslov",
     "password": "Geslo",
     "signIn": "Prijavi se",
-    "welcomeBack": "Dobrodošli nazaj"
+    "welcomeBack": "Dobrodošli nazaj",
+    "forgotPassword": "Pozabljeno geslo?",
+    "forgotPasswordTitle": "Ponastavitev gesla",
+    "forgotPasswordDesc": "Vnesite e-pošto in poslali vam bomo povezavo za ponastavitev.",
+    "forgotPasswordSuccess": "Če je e-pošta registrirana, boste kmalu prejeli povezavo za ponastavitev.",
+    "sendResetLink": "Pošlji povezavo",
+    "backToLogin": "Nazaj na prijavo",
+    "resetPasswordTitle": "Nastavi novo geslo",
+    "resetPasswordDesc": "Vnesite novo geslo spodaj.",
+    "newPassword": "Novo geslo",
+    "confirmPassword": "Potrdi geslo",
+    "passwordsNoMatch": "Gesli se ne ujemata",
+    "resetPasswordSuccess": "Geslo je bilo uspešno ponastavljeno. Lahko se prijavite.",
+    "resetPassword": "Ponastavi geslo"
   },
   "dashboard": {
     "title": "Nadzorna plošča",
@@ -495,6 +508,7 @@
     "rate_limited": "Preveč zahtevkov.",
     "internal": "Notranja napaka strežnika.",
     "unknown": "Neznana napaka.",
-    "license_invalid": "Licenca je obvezna. Prosimo naložite veljavno licenčno datoteko v Nastavitvah."
+    "license_invalid": "Licenca je obvezna. Prosimo naložite veljavno licenčno datoteko v Nastavitvah.",
+    "invalid_reset_token": "Povezava ni veljavna ali je potekla."
   }
 }

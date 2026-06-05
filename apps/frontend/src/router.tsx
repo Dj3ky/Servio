@@ -5,6 +5,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ContractsPage = lazy(() => import('@/pages/ContractsPage'));
 const FacilityDetailPage = lazy(() => import('@/pages/FacilityDetailPage'));
@@ -71,6 +73,14 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: withSuspense(<LoginPage />),
+  },
+  {
+    path: '/forgot-password',
+    element: withSuspense(<ForgotPasswordPage />),
+  },
+  {
+    path: '/reset-password',
+    element: withSuspense(<ResetPasswordPage />),
   },
   {
     path: '/',

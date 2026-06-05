@@ -10,6 +10,8 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').notNull().default('technician'),
   languagePreference: text('language_preference').notNull().default('sl'),
   isActive: boolean('is_active').notNull().default(true),
+  passwordResetToken: text('password_reset_token'),
+  passwordResetTokenExpiry: timestamp('password_reset_token_expiry'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
