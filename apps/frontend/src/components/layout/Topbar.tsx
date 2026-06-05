@@ -1,16 +1,64 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Menu, Sun, Moon, LogOut, Globe, Search, Building2, Users, FileText } from 'lucide-react';
+import { Menu, Sun, Moon, LogOut, Globe, Search, Building2, Users, FileText, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationCenter } from './NotificationCenter';
 import { InboxCenter } from './InboxCenter';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
+
+interface LicenseStatus {
+  valid: boolean;
+  configured: boolean;
+  perpetual?: boolean;
+  daysLeft?: number | null;
+}
+
+function LicenseWarning() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  const { data: license } = useQuery<LicenseStatus>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get<LicenseStatus>('/license/status'),
+    enabled: user?.role === 'admin',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!license || !user || user.role !== 'admin') return null;
+  if (license.perpetual) return null;
+  if (license.valid && (license.daysLeft === null || license.daysLeft === undefined || license.daysLeft > 30)) return null;
+
+  const expired = !license.valid && license.configured;
+  const label = expired
+    ? t('license.expired')
+    : t('license.expiringSoon', { days: license.daysLeft });
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/settings?tab=license')}
+            className={expired ? 'text-destructive hover:text-destructive' : 'text-yellow-500 hover:text-yellow-500'}
+          >
+            <KeyRound className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 interface SearchResults {
   customers: Array<{ id: string; name: string; email: string | null }>;
@@ -170,6 +218,7 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
+        <LicenseWarning />
         <InboxCenter />
         <NotificationCenter />
 

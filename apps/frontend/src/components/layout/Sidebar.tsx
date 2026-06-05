@@ -1,13 +1,23 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange,
+  LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { api } from '@/lib/api';
+
+interface LicenseStatus {
+  valid: boolean;
+  configured: boolean;
+  customer?: string;
+  perpetual?: boolean;
+  daysLeft?: number | null;
+}
 
 interface SidebarProps {
   open: boolean;
@@ -37,6 +47,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuthStore();
   const { settings } = useSettingsStore();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const { data: license } = useQuery<LicenseStatus>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get<LicenseStatus>('/license/status'),
+    enabled: user?.role === 'admin',
+    staleTime: 5 * 60 * 1000,
+  });
 
   const visibleItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -92,6 +110,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             })}
           </nav>
         </ScrollArea>
+
+        {user?.role === 'admin' && license && (
+          <button
+            onClick={() => { navigate('/settings?tab=license'); onClose(); }}
+            className="border-t border-sidebar-border px-4 py-2.5 w-full text-left hover:bg-sidebar-accent/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground truncate">
+                {license.valid
+                  ? (license.customer ?? t('license.tab'))
+                  : t('license.expired')}
+              </span>
+              <span className={cn(
+                'ml-auto h-2 w-2 rounded-full shrink-0',
+                !license.configured ? 'bg-muted-foreground' :
+                !license.valid ? 'bg-destructive' :
+                (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
+                'bg-green-500',
+              )} />
+            </div>
+          </button>
+        )}
 
         {user && (
           <div className="border-t border-sidebar-border px-4 py-3">
