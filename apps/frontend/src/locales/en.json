@@ -340,6 +340,7 @@
       "contracts": "Contracts",
       "contractsManage": "Create / edit",
       "contractsDelete": "Delete",
+      "contractTimelineAccess": "Contract Timeline",
       "reviews": "Reviews",
       "reviewsUpload": "Upload PDFs",
       "reviewsBackfill": "Backfill",

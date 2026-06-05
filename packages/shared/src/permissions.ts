@@ -19,6 +19,9 @@ export const permissions = {
     manage: r('admin', 'manager'),
     delete: r('admin'),
   },
+  contractTimeline: {
+    access: r('admin', 'manager', 'accountant', 'technician'),
+  },
   reviews: {
     upload:   r('admin', 'manager', 'technician'),
     backfill: r('admin'),

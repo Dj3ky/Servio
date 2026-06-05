@@ -1645,6 +1645,7 @@ function PermissionsTab() {
     { label: t('settings.perm.contracts'), rows: [
       { section: 'contracts', action: 'manage', label: t('settings.perm.contractsManage') },
       { section: 'contracts', action: 'delete', label: t('settings.perm.contractsDelete') },
+      { section: 'contractTimeline', action: 'access', label: t('settings.perm.contractTimelineAccess') },
     ]},
     { label: t('settings.perm.reviews'), rows: [
       { section: 'reviews', action: 'upload', label: t('settings.perm.reviewsUpload') },

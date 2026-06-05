@@ -340,6 +340,7 @@
       "contracts": "Pogodbe",
       "contractsManage": "Ustvari / uredi",
       "contractsDelete": "Izbriši",
+      "contractTimelineAccess": "Časovnica pogodb",
       "reviews": "Pregledi",
       "reviewsUpload": "Naloži PDF",
       "reviewsBackfill": "Retroaktivno dodaj",

@@ -83,7 +83,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: 'contracts', element: withSuspense(<ContractsPage />) },
-      { path: 'contract-timeline', element: withSuspense(<ContractTimelinePage />) },
+      { path: 'contract-timeline', element: withSuspense(<ProtectedRoute permKey="contractTimeline.access"><ContractTimelinePage /></ProtectedRoute>) },
       { path: 'facilities/:id', element: withSuspense(<FacilityDetailPage />) },
       {
         path: 'invoices',

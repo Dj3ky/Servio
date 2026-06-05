@@ -36,7 +36,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
-  { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline' },
+  { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline', permKey: 'contractTimeline.access' },
   { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', permKey: 'invoices.access' },
   { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', permKey: 'reports.access' },
   { labelKey: 'nav.users', icon: Users, path: '/users', permKey: 'users.view' },
