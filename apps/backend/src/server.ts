@@ -9,6 +9,7 @@ import { initWebSocket } from './ws';
 import { startScheduler } from './services/scheduler';
 import { startBackupScheduler } from './services/backup';
 import { checkForUpdates } from './services/update';
+import { setLicenseTokenFromDb } from './middleware/license';
 
 const server = createServer(app);
 
@@ -23,6 +24,10 @@ async function ensureSettingsColumns() {
       ADD COLUMN IF NOT EXISTS escalation_enabled boolean NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS escalation_days   integer  NOT NULL DEFAULT 3,
       ADD COLUMN IF NOT EXISTS imap_port         integer
+  `);
+  await db.execute(sql`
+    ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS license_key text
   `);
   await db.execute(sql`
     ALTER TABLE reviews
@@ -43,6 +48,9 @@ async function start() {
   }
   await ensureSettingsColumns();
   console.log('[server] Database up to date.');
+
+  const s = await db.query.settings.findFirst();
+  if (s?.licenseKey) setLicenseTokenFromDb(s.licenseKey);
 
   initWebSocket(server);
   startScheduler();

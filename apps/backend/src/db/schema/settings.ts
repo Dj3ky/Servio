@@ -27,6 +27,7 @@ export const settings = pgTable('settings', {
   digestEmail: text('digest_email'),
   escalationEnabled: boolean('escalation_enabled').notNull().default(false),
   escalationDays: integer('escalation_days').notNull().default(3),
+  licenseKey: text('license_key'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

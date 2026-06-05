@@ -18,6 +18,15 @@ iwIDAQAB
 const LICENSE_KEY_PATH = process.env.LICENSE_KEY_PATH ?? path.join(process.cwd(), 'license.key');
 const PUBLIC_KEY_IS_PLACEHOLDER = PUBLIC_KEY.includes('PASTE_YOUR_PUBLIC_KEY');
 
+let dbToken: string | null = null;
+
+function readLicenseToken(): string | null {
+  if (process.env.LICENSE_KEY) return process.env.LICENSE_KEY.trim();
+  if (dbToken) return dbToken;
+  if (fs.existsSync(LICENSE_KEY_PATH)) return fs.readFileSync(LICENSE_KEY_PATH, 'utf8').trim();
+  return null;
+}
+
 export interface LicensePayload {
   customer: string;
   seats: number;
@@ -49,15 +58,19 @@ export function invalidateLicenseCache(): void {
   cachedStatus = null;
 }
 
+export function setLicenseTokenFromDb(token: string | null): void {
+  dbToken = token;
+  cachedStatus = null;
+}
+
 export function getLicenseStatus(): LicenseStatus {
   if (cachedStatus) return cachedStatus;
 
-  if (!fs.existsSync(LICENSE_KEY_PATH)) {
+  const token = readLicenseToken();
+  if (!token) {
     cachedStatus = { valid: false, configured: false, error: 'License file not found' };
     return cachedStatus;
   }
-
-  const token = fs.readFileSync(LICENSE_KEY_PATH, 'utf8').trim();
 
   try {
     const payload = jwt.verify(token, PUBLIC_KEY, { algorithms: ['RS256'] }) as LicensePayload;

@@ -2,9 +2,12 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+import { eq } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { getLicenseStatus, invalidateLicenseCache } from '../middleware/license';
+import { getLicenseStatus, setLicenseTokenFromDb } from '../middleware/license';
+import { db } from '../db';
+import { settings } from '../db/schema';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 } });
@@ -15,7 +18,7 @@ router.get('/status', requireAuth, (_req: Request, res: Response) => {
   res.json(getLicenseStatus());
 });
 
-router.post('/upload', requireAuth, requireRole('admin'), upload.single('license'), (req: Request, res: Response) => {
+router.post('/upload', requireAuth, requireRole('admin'), upload.single('license'), async (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'errors.file_required' });
     return;
@@ -23,17 +26,19 @@ router.post('/upload', requireAuth, requireRole('admin'), upload.single('license
 
   const content = req.file.buffer.toString('utf8').trim();
 
-  fs.writeFileSync(LICENSE_KEY_PATH, content, 'utf8');
-  invalidateLicenseCache();
-
+  // Validate before persisting
+  setLicenseTokenFromDb(content);
   const status = getLicenseStatus();
 
   if (!status.valid) {
-    try { fs.unlinkSync(LICENSE_KEY_PATH); } catch { /* ignore */ }
-    invalidateLicenseCache();
+    setLicenseTokenFromDb(null);
     res.status(400).json({ error: 'errors.license_invalid' });
     return;
   }
+
+  // Persist to DB (survives container restarts) and file (bare-metal fallback)
+  await db.update(settings).set({ licenseKey: content }).where(eq(settings.id, 1));
+  try { fs.writeFileSync(LICENSE_KEY_PATH, content, 'utf8'); } catch { /* ignore on read-only fs */ }
 
   res.json(status);
 });
