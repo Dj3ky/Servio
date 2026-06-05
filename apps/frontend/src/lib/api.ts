@@ -2,6 +2,8 @@ import { useAuthStore } from '@/stores/authStore';
 
 const BASE_URL = '/api';
 
+let licensePending = false;
+
 class ApiError extends Error {
   constructor(
     public status: number,
@@ -57,6 +59,10 @@ async function request<T>(
     if (res.status === 401) {
       useAuthStore.getState().clearAuth();
       window.location.href = '/login';
+    }
+    if (res.status === 402 && !licensePending) {
+      licensePending = true;
+      window.location.href = '/settings?tab=license';
     }
     throw new ApiError(res.status, data?.error ?? 'errors.unknown', data?.details);
   }

@@ -460,6 +460,7 @@
     "review_already_completed": "Pregled je že bil dokončan.",
     "rate_limited": "Preveč zahtevkov.",
     "internal": "Notranja napaka strežnika.",
-    "unknown": "Neznana napaka."
+    "unknown": "Neznana napaka.",
+    "license_invalid": "Licenca je obvezna. Prosimo naložite veljavno licenčno datoteko v Nastavitvah."
   }
 }

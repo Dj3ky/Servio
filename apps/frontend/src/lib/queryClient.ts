@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { ApiError } from './api';
 import toast from 'react-hot-toast';
+import i18n from '@/locales/i18n';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,8 +14,8 @@ export const queryClient = new QueryClient({
     },
     mutations: {
       onError: (error) => {
-        if (error instanceof ApiError) {
-          toast.error(error.code);
+        if (error instanceof ApiError && error.status !== 402) {
+          toast.error(i18n.t(error.code));
         }
       },
     },

@@ -460,6 +460,7 @@
     "review_already_completed": "Review has already been completed.",
     "rate_limited": "Too many requests.",
     "internal": "Internal server error.",
-    "unknown": "Unknown error."
+    "unknown": "Unknown error.",
+    "license_invalid": "License required. Please upload a valid license file in Settings."
   }
 }

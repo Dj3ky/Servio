@@ -721,8 +721,8 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-0.5">{t('settings.pageDesc')}</p>
       </div>
 
-      <Tabs defaultValue="general">
-        <TabsList className="w-full justify-start">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') ?? 'general'}>
+        <TabsList className="w-full justify-start flex-wrap h-auto">
           <TabsTrigger value="general" className="gap-1.5">
             <Settings2 className="h-3.5 w-3.5" />{t('settings.general')}
           </TabsTrigger>
