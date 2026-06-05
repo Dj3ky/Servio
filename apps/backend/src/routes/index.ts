@@ -16,10 +16,16 @@ import schedulerRoutes from './scheduler';
 import searchRoutes from './search';
 import updateRoutes from './update';
 import inboxRoutes from './inbox';
+import licenseRoutes from './license';
+import { requireValidLicense } from '../middleware/license';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/license', licenseRoutes);
+
+// All routes below require a valid license (skipped automatically when public key is placeholder)
+router.use((req, res, next) => requireValidLicense(req, res, next));
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);

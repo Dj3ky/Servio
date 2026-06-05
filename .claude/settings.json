@@ -61,10 +61,17 @@
       "Bash(Format-Table FullName)",
       "Bash(Get-ChildItem -Path \"D:\\\\GitHub\\\\Servio\\\\apps\\\\backend\\\\src\\\\db\\\\schema\" -Filter \"*.ts\")",
       "Bash(cat)",
-      "Bash(python /tmp/check_keys.py)"
+      "Bash(python /tmp/check_keys.py)",
+      "Read(//d/GitHub/**)",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" install --prefix \"d:\\\\GitHub\\\\ServioKeygen\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\npx.cmd\" tsc --noEmit -p \"d:\\\\GitHub\\\\Servio\\\\apps\\\\backend\\\\tsconfig.json\" 2>&1)",
+      "Bash(node_modules/.bin/tsc --noEmit -p apps/backend/tsconfig.json)",
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/backend/tsconfig.json)",
+      "Bash(PATH='/c/Program Files/nodejs:__TRACKED_VAR__' node_modules/.bin/tsc --noEmit -p apps/frontend/tsconfig.json)"
     ],
     "additionalDirectories": [
-      "d:\\GitHub\\Servio\\apps\\frontend"
+      "d:\\GitHub\\Servio\\apps\\frontend",
+      "d:\\GitHub"
     ]
   }
 }
