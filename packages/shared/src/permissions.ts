@@ -3,13 +3,6 @@ import type { UserRole } from './enums';
 const r = (...roles: UserRole[]): UserRole[] => roles;
 
 export const permissions = {
-  pages: {
-    invoices: r('admin', 'manager', 'accountant'),
-    reports:  r('admin', 'manager', 'accountant'),
-    users:    r('admin', 'manager'),
-    auditLog: r('admin', 'manager'),
-    settings: r('admin'),
-  },
   users: {
     view:          r('admin', 'manager'),
     manage:        r('admin'),

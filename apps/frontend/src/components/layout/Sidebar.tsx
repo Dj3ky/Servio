@@ -30,18 +30,18 @@ interface NavItem {
   labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
-  pageKey?: string; // key into perms.pages — resolved at render time
+  permKey?: string; // "section.action" resolved against live permissions store
 }
 
 const navItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
   { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline' },
-  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', pageKey: 'invoices' },
-  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', pageKey: 'reports' },
-  { labelKey: 'nav.users', icon: Users, path: '/users', pageKey: 'users' },
-  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', pageKey: 'auditLog' },
-  { labelKey: 'nav.settings', icon: Settings, path: '/settings', pageKey: 'settings' },
+  { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', permKey: 'invoices.access' },
+  { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', permKey: 'reports.access' },
+  { labelKey: 'nav.users', icon: Users, path: '/users', permKey: 'users.view' },
+  { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', permKey: 'auditLog.access' },
+  { labelKey: 'nav.settings', icon: Settings, path: '/settings', permKey: 'settings.view' },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
@@ -60,8 +60,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   });
 
   const visibleItems = navItems.filter((item) => {
-    if (!item.pageKey) return true;
-    const roles: string[] = perms.pages?.[item.pageKey] ?? [];
+    if (!item.permKey) return true;
+    const [section, action] = item.permKey.split('.');
+    const roles: string[] = perms[section]?.[action] ?? [];
     return user ? roles.includes(user.role) : false;
   });
 

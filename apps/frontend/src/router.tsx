@@ -88,31 +88,31 @@ export const router = createBrowserRouter([
       {
         path: 'invoices',
         element: withSuspense(
-          <ProtectedRoute permKey="pages.invoices"><InvoiceQueuePage /></ProtectedRoute>,
+          <ProtectedRoute permKey="invoices.access"><InvoiceQueuePage /></ProtectedRoute>,
         ),
       },
       {
         path: 'reports',
         element: withSuspense(
-          <ProtectedRoute permKey="pages.reports"><ReportsPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="reports.access"><ReportsPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'users',
         element: withSuspense(
-          <ProtectedRoute permKey="pages.users"><UsersPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="users.view"><UsersPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'audit-log',
         element: withSuspense(
-          <ProtectedRoute permKey="pages.auditLog"><AuditLogPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="auditLog.access"><AuditLogPage /></ProtectedRoute>,
         ),
       },
       {
         path: 'settings',
         element: withSuspense(
-          <ProtectedRoute permKey="pages.settings"><SettingsPage /></ProtectedRoute>,
+          <ProtectedRoute permKey="settings.view"><SettingsPage /></ProtectedRoute>,
         ),
       },
     ],

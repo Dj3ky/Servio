@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -737,7 +738,9 @@ export default function SettingsPage() {
 
   const backupEnabled = backupForm.watch('backupEnabled');
 
-  const [activeTab, setActiveTab] = useState<string>(new URLSearchParams(window.location.search).get('tab') ?? 'general');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') ?? 'general';
+  const setActiveTab = (tab: string) => setSearchParams({ tab }, { replace: true });
 
   const navItems = [
     { value: 'general', icon: Settings2, label: t('settings.general') },
@@ -1627,13 +1630,6 @@ function PermissionsTab() {
   };
 
   const sections = [
-    { label: t('settings.perm.pages'), rows: [
-      { section: 'pages', action: 'invoices', label: t('settings.perm.pageInvoices') },
-      { section: 'pages', action: 'reports', label: t('settings.perm.pageReports') },
-      { section: 'pages', action: 'users', label: t('settings.perm.pageUsers') },
-      { section: 'pages', action: 'auditLog', label: t('settings.perm.pageAuditLog') },
-      { section: 'pages', action: 'settings', label: t('settings.perm.pageSettings') },
-    ]},
     { label: t('settings.perm.users'), rows: [
       { section: 'users', action: 'view', label: t('settings.perm.usersView') },
       { section: 'users', action: 'manage', label: t('settings.perm.usersManage') },
@@ -1660,6 +1656,9 @@ function PermissionsTab() {
     ]},
     { label: t('settings.perm.reports'), rows: [
       { section: 'reports', action: 'access', label: t('settings.perm.reportsAccess') },
+    ]},
+    { label: t('settings.perm.auditLog'), rows: [
+      { section: 'auditLog', action: 'access', label: t('settings.perm.auditLogAccess') },
     ]},
     { label: t('settings.perm.settingsSection'), rows: [
       { section: 'settings', action: 'view', label: t('settings.perm.settingsView') },
