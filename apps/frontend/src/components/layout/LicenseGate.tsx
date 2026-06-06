@@ -1,7 +1,8 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { KeyRound } from 'lucide-react';
+import { useRef } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { KeyRound, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/lib/api';
@@ -13,11 +14,10 @@ interface LicenseStatus {
 
 export function LicenseGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuthStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: license, isLoading } = useQuery<LicenseStatus>({
+  const { data: license, isLoading, refetch } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
     queryFn: () => api.get<LicenseStatus>('/license/status'),
     enabled: !!user,
@@ -25,10 +25,18 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
-  // Settings is always accessible — admin uploads the license there
-  if (location.pathname.startsWith('/settings')) {
-    return <>{children}</>;
-  }
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append('license', file);
+      return api.post<LicenseStatus>('/license/upload', form);
+    },
+    onSuccess: () => {
+      toast.success(t('license.uploadSuccess'));
+      refetch();
+    },
+    onError: () => toast.error(t('license.uploadError')),
+  });
 
   // While license status is loading, render nothing so page components
   // don't mount and fire API calls that would return 402
@@ -55,10 +63,26 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
           <p className="text-sm text-muted-foreground">{t('license.gateDesc')}</p>
         </div>
         {isAdmin ? (
-          <Button onClick={() => navigate('/settings?tab=license')}>
-            <KeyRound className="h-4 w-4 mr-2" />
-            {t('license.gateButton')}
-          </Button>
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".key"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadMutation.mutate(file);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {uploadMutation.isPending ? t('common.loading') : t('license.uploadHint')}
+            </Button>
+          </>
         ) : (
           <p className="text-sm text-muted-foreground rounded-lg border bg-muted/40 px-4 py-3">
             {t('license.gateNonAdmin')}

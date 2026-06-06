@@ -497,7 +497,7 @@
     "deleteConfirm": "S tem boste odstranili trenutno licenco. Aplikacija bo za nadaljnje delovanje zahtevala novo licenčno datoteko.",
     "deleteSuccess": "Licenca odstranjena.",
     "gateTitle": "Zahtevana licenca",
-    "gateDesc": "Za uporabo aplikacije je potrebna veljavna licenca. Stopite v stik s prodajalcem programske opreme.",
+    "gateDesc": "Za uporabo aplikacije je potrebna veljavna licenca. Naložite licenčno datoteko za nadaljevanje.",
     "gateButton": "Nastavi licenco",
     "gateNonAdmin": "Ta aplikacija zahteva veljavno licenco. Za aktivacijo se obrnite na skrbnika sistema."
   },
