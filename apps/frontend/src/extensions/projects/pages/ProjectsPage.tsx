@@ -161,19 +161,19 @@ export default function ProjectsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Iskanje po imenu / DN..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || 'all'} onValueChange={v => setStatusFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Vsi statusi" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Vsi statusi</SelectItem>
+            <SelectItem value="all">Vsi statusi</SelectItem>
             <SelectItem value="active">Aktivno</SelectItem>
             <SelectItem value="on_hold">Na čakanju</SelectItem>
             <SelectItem value="completed">Zaključeno</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+        <Select value={priorityFilter || 'all'} onValueChange={v => setPriorityFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Vse prioritete" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Vse prioritete</SelectItem>
+            <SelectItem value="all">Vse prioritete</SelectItem>
             <SelectItem value="high">Visoka</SelectItem>
             <SelectItem value="medium">Srednja</SelectItem>
             <SelectItem value="low">Nizka</SelectItem>
@@ -260,30 +260,30 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Zaposleni</label>
-                <Select value={form.employeeId} onValueChange={v => setForm(f => ({ ...f, employeeId: v }))}>
+                <Select value={form.employeeId || '__none__'} onValueChange={v => setForm(f => ({ ...f, employeeId: v === '__none__' ? '' : v }))}>
                   <SelectTrigger><SelectValue placeholder="Izberi zaposlenega" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="__none__">—</SelectItem>
                     {(usersData?.data ?? []).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Naročnik</label>
-                <Select value={form.pmCustomerId} onValueChange={v => setForm(f => ({ ...f, pmCustomerId: v, pmFacilityId: '' }))}>
+                <Select value={form.pmCustomerId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmCustomerId: v === '__none__' ? '' : v, pmFacilityId: '' }))}>
                   <SelectTrigger><SelectValue placeholder="Izberi naročnika" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="__none__">—</SelectItem>
                     {(customersData?.data ?? []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Objekt</label>
-                <Select value={form.pmFacilityId} onValueChange={v => setForm(f => ({ ...f, pmFacilityId: v }))}>
+                <Select value={form.pmFacilityId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmFacilityId: v === '__none__' ? '' : v }))}>
                   <SelectTrigger><SelectValue placeholder="Izberi objekt" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="__none__">—</SelectItem>
                     {facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
