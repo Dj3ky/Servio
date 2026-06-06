@@ -43,4 +43,11 @@ router.post('/upload', requireAuth, requireRole('license', 'access'), upload.sin
   res.json(status);
 });
 
+router.delete('/', requireAuth, requireRole('license', 'access'), async (_req: Request, res: Response) => {
+  await db.update(settings).set({ licenseKey: null }).where(eq(settings.id, 1));
+  setLicenseTokenFromDb(null);
+  try { if (fs.existsSync(LICENSE_KEY_PATH)) fs.unlinkSync(LICENSE_KEY_PATH); } catch { /* ignore */ }
+  res.status(204).end();
+});
+
 export default router;

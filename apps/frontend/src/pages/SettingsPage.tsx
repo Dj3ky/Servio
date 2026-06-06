@@ -362,6 +362,17 @@ function LicenseTab() {
     onError: () => toast.error(t('license.uploadError')),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete('/license'),
+    onSuccess: () => {
+      toast.success(t('license.deleteSuccess'));
+      refetch();
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) uploadMutation.mutate(file);
@@ -467,14 +478,35 @@ function LicenseTab() {
 
       <Card>
         <SectionHeader icon={Upload} title={t('license.upload')} description={t('license.uploadDesc')} />
-        <CardContent>
+        <CardContent className="flex items-center gap-3">
           <input ref={fileInputRef} type="file" accept=".key" className="hidden" onChange={handleFile} />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
             <Upload className="h-4 w-4 mr-2" />
             {uploadMutation.isPending ? t('common.loading') : t('license.uploadHint')}
           </Button>
+          {license?.configured && (
+            <Button variant="destructive" onClick={() => setConfirmDelete(true)} disabled={deleteMutation.isPending}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t('license.delete')}
+            </Button>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('license.deleteTitle')}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('license.deleteConfirm')}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</Button>
+            <Button variant="destructive" onClick={() => { deleteMutation.mutate(); setConfirmDelete(false); }} disabled={deleteMutation.isPending}>
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

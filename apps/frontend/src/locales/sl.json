@@ -489,7 +489,11 @@
     "uploadError": "Neveljavna ali potekla licenčna datoteka.",
     "expiringSoon": "Licenca poteče čez {{days}} dan(i). Stopite v stik s prodajalcem za podaljšanje.",
     "invalidDesc": "Ni veljavne licence. Naložite licenčno datoteko za aktivacijo programske opreme.",
-    "notConfigured": "Uveljavljanje licence razvijalec še ni konfiguriral."
+    "notConfigured": "Uveljavljanje licence razvijalec še ni konfiguriral.",
+    "delete": "Odstrani licenco",
+    "deleteTitle": "Odstrani licenco",
+    "deleteConfirm": "S tem boste odstranili trenutno licenco. Aplikacija bo za nadaljnje delovanje zahtevala novo licenčno datoteko.",
+    "deleteSuccess": "Licenca odstranjena."
   },
   "errors": {
     "unauthorized": "Nimate dovoljenja za dostop.",

@@ -489,7 +489,11 @@
     "uploadError": "Invalid or expired license file.",
     "expiringSoon": "License expires in {{days}} day(s). Please contact your vendor to renew.",
     "invalidDesc": "No valid license found. Please upload a license file to activate the software.",
-    "notConfigured": "License enforcement is not yet configured by the developer."
+    "notConfigured": "License enforcement is not yet configured by the developer.",
+    "delete": "Remove License",
+    "deleteTitle": "Remove License",
+    "deleteConfirm": "This will remove the current license. The app will require a new license file to continue working.",
+    "deleteSuccess": "License removed."
   },
   "errors": {
     "unauthorized": "You are not authorized to access this.",
