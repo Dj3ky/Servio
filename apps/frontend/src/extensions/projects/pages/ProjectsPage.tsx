@@ -39,9 +39,7 @@ interface PmCustomer { id: string; name: string; }
 interface PmFacility { id: string; name: string; pmCustomerId: string | null; }
 interface User { id: string; name: string; }
 
-const PRIORITY_LABELS: Record<string, string> = { high: 'Visoka', medium: 'Srednja', low: 'Nizka' };
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
-const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', on_hold: 'Na čakanju', completed: 'Zaključeno' };
 const STATUS_COLORS: Record<string, string> = { active: 'default', on_hold: 'outline', completed: 'secondary' };
 
 function formatCurrency(v: string | null | undefined) {
@@ -117,10 +115,10 @@ export default function ProjectsPage() {
         : api.post('/pm/projects', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
-      toast.success(editingId ? 'Projekt posodobljen' : 'Projekt ustvarjen');
+      toast.success(editingId ? t('pm.projects.savedOk') : t('pm.projects.createdOk'));
       setDialogOpen(false);
     },
-    onError: () => toast.error('Napaka pri shranjevanju'),
+    onError: () => toast.error(t('pm.projects.saveError')),
   });
 
   function openCreate() {
@@ -149,34 +147,34 @@ export default function ProjectsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Projekti</h1>
-          <p className="text-sm text-muted-foreground">Upravljanje projektov in delovnih nalogov</p>
+          <h1 className="text-2xl font-bold">{t('pm.projects.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('pm.projects.subtitle')}</p>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Nov projekt</Button>
+        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Iskanje po imenu / DN..." value={search} onChange={e => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder={t('pm.projects.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter || 'all'} onValueChange={v => setStatusFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Vsi statusi" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('pm.projects.allStatuses')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Vsi statusi</SelectItem>
-            <SelectItem value="active">Aktivno</SelectItem>
-            <SelectItem value="on_hold">Na čakanju</SelectItem>
-            <SelectItem value="completed">Zaključeno</SelectItem>
+            <SelectItem value="all">{t('pm.projects.allStatuses')}</SelectItem>
+            <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+            <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+            <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter || 'all'} onValueChange={v => setPriorityFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Vse prioritete" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('pm.projects.allPriorities')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Vse prioritete</SelectItem>
-            <SelectItem value="high">Visoka</SelectItem>
-            <SelectItem value="medium">Srednja</SelectItem>
-            <SelectItem value="low">Nizka</SelectItem>
+            <SelectItem value="all">{t('pm.projects.allPriorities')}</SelectItem>
+            <SelectItem value="high">{t('pm.priority.high')}</SelectItem>
+            <SelectItem value="medium">{t('pm.priority.medium')}</SelectItem>
+            <SelectItem value="low">{t('pm.priority.low')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -186,15 +184,15 @@ export default function ProjectsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-muted-foreground">
-              <th className="text-left px-4 py-3 font-medium">DN / Ime</th>
-              <th className="text-left px-4 py-3 font-medium">Naročnik</th>
-              <th className="text-left px-4 py-3 font-medium">Zaposleni</th>
-              <th className="text-left px-4 py-3 font-medium">Prioriteta</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-right px-4 py-3 font-medium">Vrednost</th>
-              <th className="text-right px-4 py-3 font-medium">Fakturirano</th>
-              <th className="text-right px-4 py-3 font-medium">Ostalo</th>
-              <th className="text-left px-4 py-3 font-medium">Rok</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.projects.colWorkOrder')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.fields.customer')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.fields.employee')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.fields.priority')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('common.status')}</th>
+              <th className="text-right px-4 py-3 font-medium">{t('pm.fields.value')}</th>
+              <th className="text-right px-4 py-3 font-medium">{t('pm.fields.invoiced')}</th>
+              <th className="text-right px-4 py-3 font-medium">{t('pm.fields.remaining')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.fields.deadline')}</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -217,10 +215,10 @@ export default function ProjectsPage() {
                   <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={PRIORITY_COLORS[p.priority] as any}>{PRIORITY_LABELS[p.priority]}</Badge>
+                    <Badge variant={PRIORITY_COLORS[p.priority] as any}>{t(`pm.priority.${p.priority}`)}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={STATUS_COLORS[p.status] as any}>{STATUS_LABELS[p.status]}</Badge>
+                    <Badge variant={STATUS_COLORS[p.status] as any}>{t(`pm.status.${p.status}`)}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.contractValue)}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.invoicedAmount)}</td>
@@ -242,26 +240,26 @@ export default function ProjectsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Uredi projekt' : 'Nov projekt'}</DialogTitle>
+            <DialogTitle>{editingId ? t('pm.projects.edit') : t('pm.projects.new')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Delovni nalog *</label>
+                <label className="text-sm font-medium">{t('pm.fields.workOrder')} *</label>
                 <Input placeholder="npr. DN-2024-001" value={form.projectNumber} onChange={e => setForm(f => ({ ...f, projectNumber: e.target.value }))} required />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Naziv projekta *</label>
-                <Input placeholder="Naziv projekta" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                <label className="text-sm font-medium">{t('pm.fields.projectName')} *</label>
+                <Input placeholder={t('pm.fields.projectName')} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Datum naročila</label>
+                <label className="text-sm font-medium">{t('pm.fields.orderDate')}</label>
                 <Input type="date" value={form.orderDate} onChange={e => setForm(f => ({ ...f, orderDate: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Zaposleni</label>
+                <label className="text-sm font-medium">{t('pm.fields.employee')}</label>
                 <Select value={form.employeeId || '__none__'} onValueChange={v => setForm(f => ({ ...f, employeeId: v === '__none__' ? '' : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Izberi zaposlenega" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('pm.projects.selectEmployee')} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">—</SelectItem>
                     {(usersData?.data ?? []).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -269,9 +267,9 @@ export default function ProjectsPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Naročnik</label>
+                <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
                 <Select value={form.pmCustomerId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmCustomerId: v === '__none__' ? '' : v, pmFacilityId: '' }))}>
-                  <SelectTrigger><SelectValue placeholder="Izberi naročnika" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('pm.projects.selectCustomer')} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">—</SelectItem>
                     {(customersData?.data ?? []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -279,9 +277,9 @@ export default function ProjectsPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Objekt</label>
+                <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
                 <Select value={form.pmFacilityId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmFacilityId: v === '__none__' ? '' : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Izberi objekt" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('pm.projects.selectFacility')} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">—</SelectItem>
                     {facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
@@ -289,47 +287,47 @@ export default function ProjectsPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Prioriteta</label>
+                <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
                 <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">Visoka</SelectItem>
-                    <SelectItem value="medium">Srednja</SelectItem>
-                    <SelectItem value="low">Nizka</SelectItem>
+                    <SelectItem value="high">{t('pm.priority.high')}</SelectItem>
+                    <SelectItem value="medium">{t('pm.priority.medium')}</SelectItem>
+                    <SelectItem value="low">{t('pm.priority.low')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Status</label>
+                <label className="text-sm font-medium">{t('common.status')}</label>
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Aktivno</SelectItem>
-                    <SelectItem value="on_hold">Na čakanju</SelectItem>
-                    <SelectItem value="completed">Zaključeno</SelectItem>
+                    <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+                    <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+                    <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Datum začetka</label>
+                <label className="text-sm font-medium">{t('pm.fields.startDate')}</label>
                 <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Rok (datum konca)</label>
+                <label className="text-sm font-medium">{t('pm.fields.endDate')}</label>
                 <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Vrednost pogodbe (€)</label>
+                <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>
                 <Input type="number" step="0.01" placeholder="0.00" value={form.contractValue} onChange={e => setForm(f => ({ ...f, contractValue: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Fakturirano (€)</label>
+                <label className="text-sm font-medium">{t('pm.fields.invoicedAmount')}</label>
                 <Input type="number" step="0.01" placeholder="0.00" value={form.invoicedAmount} onChange={e => setForm(f => ({ ...f, invoicedAmount: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Opombe</label>
-              <Textarea placeholder="Opombe..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
+              <label className="text-sm font-medium">{t('pm.fields.notes')}</label>
+              <Textarea placeholder={t('pm.fields.notes') + '...'} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>

@@ -29,8 +29,6 @@ interface OverdueProject {
   employeeName: string | null; customerName: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', on_hold: 'Na čakanju', completed: 'Zaključeno' };
-const PRIORITY_LABELS: Record<string, string> = { high: 'Visoka', medium: 'Srednja', low: 'Nizka' };
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
 
 function fmt(v: string | null | undefined) {
@@ -59,23 +57,23 @@ export default function ProjectReportsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Poročila projektov</h1>
-        <p className="text-sm text-muted-foreground">Pregled stanja, obremenitev in prihodkov</p>
+        <h1 className="text-2xl font-bold">{t('pm.reports.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('pm.reports.subtitle')}</p>
       </div>
 
       {/* Summary cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Skupna vrednost pogodb</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalValue')}</CardTitle></CardHeader>
             <CardContent><p className="text-2xl font-bold font-mono">{fmt(summary.totals.totalContractValue)}</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Skupaj fakturirano</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalInvoiced')}</CardTitle></CardHeader>
             <CardContent><p className="text-2xl font-bold font-mono text-primary">{fmt(summary.totals.totalInvoiced)}</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ostalo za fakturiranje</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalRemaining')}</CardTitle></CardHeader>
             <CardContent><p className="text-2xl font-bold font-mono text-green-600">{fmt(summary.totals.totalRemaining)}</p></CardContent>
           </Card>
         </div>
@@ -83,10 +81,10 @@ export default function ProjectReportsPage() {
 
       <Tabs defaultValue="workload">
         <TabsList>
-          <TabsTrigger value="workload">Obremenitev zaposlenih</TabsTrigger>
-          <TabsTrigger value="status">Po statusu</TabsTrigger>
-          <TabsTrigger value="overdue">Zamude {overdue && overdue.length > 0 && `(${overdue.length})`}</TabsTrigger>
-          <TabsTrigger value="employee">Po zaposlenih</TabsTrigger>
+          <TabsTrigger value="workload">{t('pm.reports.tabWorkload')}</TabsTrigger>
+          <TabsTrigger value="status">{t('pm.reports.tabStatus')}</TabsTrigger>
+          <TabsTrigger value="overdue">{t('pm.reports.tabOverdue')} {overdue && overdue.length > 0 && `(${overdue.length})`}</TabsTrigger>
+          <TabsTrigger value="employee">{t('pm.reports.tabEmployee')}</TabsTrigger>
         </TabsList>
 
         {/* Workload */}
@@ -94,17 +92,20 @@ export default function ProjectReportsPage() {
           {loadingWorkload && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
           {(workload ?? []).map(group => (
             <div key={group.employeeId ?? 'unassigned'} className="space-y-2">
-              <h3 className="font-semibold text-sm">{group.employeeName ?? 'Nedodeljeno'} <span className="text-muted-foreground font-normal">({group.projects.length})</span></h3>
+              <h3 className="font-semibold text-sm">
+                {group.employeeName ?? t('pm.reports.unassigned')}
+                <span className="text-muted-foreground font-normal"> ({group.projects.length})</span>
+              </h3>
               <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50 text-muted-foreground">
-                      <th className="text-left px-3 py-2 font-medium">DN / Ime</th>
-                      <th className="text-left px-3 py-2 font-medium">Naročnik</th>
-                      <th className="text-left px-3 py-2 font-medium">Prioriteta</th>
-                      <th className="text-left px-3 py-2 font-medium">Rok</th>
-                      <th className="text-right px-3 py-2 font-medium">Vrednost</th>
-                      <th className="text-right px-3 py-2 font-medium">Ostalo</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colWorkOrder')}</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colCustomer')}</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colPriority')}</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colDeadline')}</th>
+                      <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colValue')}</th>
+                      <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colRemaining')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -119,7 +120,7 @@ export default function ProjectReportsPage() {
                           </td>
                           <td className="px-3 py-2 text-muted-foreground text-xs">{p.customerName ?? '—'}</td>
                           <td className="px-3 py-2">
-                            <Badge variant={PRIORITY_COLORS[p.priority] as any} className="text-xs">{PRIORITY_LABELS[p.priority]}</Badge>
+                            <Badge variant={PRIORITY_COLORS[p.priority] as any} className="text-xs">{t(`pm.priority.${p.priority}`)}</Badge>
                           </td>
                           <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{p.endDate ?? '—'}</td>
                           <td className="px-3 py-2 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
@@ -142,14 +143,14 @@ export default function ProjectReportsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-muted-foreground">
-                    <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="text-right px-4 py-3 font-medium">Število projektov</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colStatus')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colProjectCount')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summary.statusCounts.map(s => (
                     <tr key={s.status} className="border-b last:border-0">
-                      <td className="px-4 py-3">{STATUS_LABELS[s.status] ?? s.status}</td>
+                      <td className="px-4 py-3">{t(`pm.status.${s.status}`, { defaultValue: s.status })}</td>
                       <td className="px-4 py-3 text-right font-semibold">{s.count}</td>
                     </tr>
                   ))}
@@ -163,18 +164,18 @@ export default function ProjectReportsPage() {
         <TabsContent value="overdue" className="mt-4">
           {loadingOverdue && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
           {(overdue ?? []).length === 0 && !loadingOverdue && (
-            <p className="text-sm text-muted-foreground">Ni projektov z zamudo.</p>
+            <p className="text-sm text-muted-foreground">{t('pm.reports.noOverdue')}</p>
           )}
           {(overdue ?? []).length > 0 && (
             <div className="rounded-md border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-muted-foreground">
-                    <th className="text-left px-4 py-3 font-medium">DN / Ime</th>
-                    <th className="text-left px-4 py-3 font-medium">Zaposleni</th>
-                    <th className="text-left px-4 py-3 font-medium">Naročnik</th>
-                    <th className="text-left px-4 py-3 font-medium">Rok</th>
-                    <th className="text-right px-4 py-3 font-medium">Ostalo</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colWorkOrder')}</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colEmployee')}</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colCustomer')}</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colDeadline')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colRemaining')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,11 +208,11 @@ export default function ProjectReportsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50 text-muted-foreground">
-                    <th className="text-left px-4 py-3 font-medium">Zaposleni</th>
-                    <th className="text-right px-4 py-3 font-medium">Projekti</th>
-                    <th className="text-right px-4 py-3 font-medium">Skupna vrednost</th>
-                    <th className="text-right px-4 py-3 font-medium">Fakturirano</th>
-                    <th className="text-right px-4 py-3 font-medium">Ostalo</th>
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colEmployee')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colProjects')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colTotalValue')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colInvoiced')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colRemaining')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -219,7 +220,7 @@ export default function ProjectReportsPage() {
                     const remaining = parseFloat(e.totalValue ?? '0') - parseFloat(e.totalInvoiced ?? '0');
                     return (
                       <tr key={e.employeeId ?? 'unassigned'} className="border-b last:border-0">
-                        <td className="px-4 py-3 font-medium">{e.employeeName ?? 'Nedodeljeno'}</td>
+                        <td className="px-4 py-3 font-medium">{e.employeeName ?? t('pm.reports.unassigned')}</td>
                         <td className="px-4 py-3 text-right">{e.count}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalValue)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalInvoiced)}</td>

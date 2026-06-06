@@ -32,7 +32,6 @@ interface EntryDraft {
   entryStatus: string; notes: string;
 }
 
-const ENTRY_STATUS_LABELS: Record<string, string> = { done: 'Dokončano', in_progress: 'V teku', blocked: 'Blokirano' };
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
 
 export default function MeetingsPage() {
@@ -69,7 +68,6 @@ export default function MeetingsPage() {
     setNewOpen(true);
   }
 
-  // When active projects load, initialize entries
   function initEntries(projects: ActiveProject[]) {
     setEntries(projects.map(p => ({
       projectId: p.id,
@@ -81,7 +79,6 @@ export default function MeetingsPage() {
     })));
   }
 
-  // Load active projects into entries when dialog opens
   if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
     initEntries(activeProjects);
   }
@@ -98,19 +95,19 @@ export default function MeetingsPage() {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-meetings'] });
-      toast.success('Sestanek shranjen');
+      toast.success(t('pm.meetings.savedOk'));
       setNewOpen(false);
     },
-    onError: () => toast.error('Napaka pri shranjevanju'),
+    onError: () => toast.error(t('pm.meetings.saveError')),
   });
 
   const deleteMeeting = useMutation({
     mutationFn: (id: string) => api.delete(`/pm/meetings/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-meetings'] });
-      toast.success('Sestanek izbrisan');
+      toast.success(t('pm.meetings.deletedOk'));
     },
-    onError: () => toast.error('Napaka'),
+    onError: () => toast.error(t('pm.meetings.error')),
   });
 
   const meetings = data?.data ?? [];
@@ -119,10 +116,10 @@ export default function MeetingsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Tedni sestanki</h1>
-          <p className="text-sm text-muted-foreground">Pregled napredka projektov po tednih</p>
+          <h1 className="text-2xl font-bold">{t('pm.meetings.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('pm.meetings.subtitle')}</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Nov sestanek</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>
       </div>
 
       {/* Meetings list */}
@@ -130,9 +127,9 @@ export default function MeetingsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-muted-foreground">
-              <th className="text-left px-4 py-3 font-medium">Datum</th>
-              <th className="text-left px-4 py-3 font-medium">Opombe</th>
-              <th className="text-left px-4 py-3 font-medium">Ustvaril</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colDate')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colNotes')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colCreatedBy')}</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -160,30 +157,30 @@ export default function MeetingsPage() {
       {/* New meeting dialog */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nov tedenski sestanek</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('pm.meetings.newTitle')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Datum sestanka *</label>
+                <label className="text-sm font-medium">{t('pm.meetings.fieldDate')} *</label>
                 <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Splošne opombe</label>
-              <Textarea placeholder="Opombe za sestanek..." value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} />
+              <label className="text-sm font-medium">{t('pm.meetings.fieldNotes')}</label>
+              <Textarea placeholder={t('pm.meetings.notesPlaceholder')} value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} />
             </div>
 
             {/* Projects grid */}
             <div className="space-y-2">
-              <p className="text-sm font-medium">Projekti ({entries.length})</p>
-              {entries.length === 0 && <p className="text-sm text-muted-foreground">Ni aktivnih projektov.</p>}
+              <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({entries.length})</p>
+              {entries.length === 0 && <p className="text-sm text-muted-foreground">{t('pm.meetings.noActiveProjects')}</p>}
               <div className="rounded-md border overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50 text-muted-foreground">
-                      <th className="text-left px-3 py-2 font-medium">DN / Projekt</th>
-                      <th className="text-left px-3 py-2 font-medium w-[160px]">Status</th>
-                      <th className="text-left px-3 py-2 font-medium">Opomba</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
+                      <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
+                      <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -197,16 +194,16 @@ export default function MeetingsPage() {
                           <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
                             <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="in_progress">V teku</SelectItem>
-                              <SelectItem value="done">Dokončano</SelectItem>
-                              <SelectItem value="blocked">Blokirano</SelectItem>
+                              <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
+                              <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
+                              <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </td>
                         <td className="px-3 py-2">
                           <Input
                             className="h-7 text-xs"
-                            placeholder="Kaj je bilo narejenega..."
+                            placeholder={t('pm.meetings.notePlaceholder')}
                             value={entry.notes}
                             onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
                           />
@@ -221,7 +218,7 @@ export default function MeetingsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending || !meetingDate}>
-              {createMeeting.isPending ? t('common.loading') : 'Shrani sestanek'}
+              {createMeeting.isPending ? t('common.loading') : t('pm.meetings.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -231,7 +228,7 @@ export default function MeetingsPage() {
       <Dialog open={!!detailId} onOpenChange={v => { if (!v) setDetailId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Sestanek — {detail?.meetingDate}</DialogTitle>
+            <DialogTitle>{t('pm.meetings.dialogTitle', { date: detail?.meetingDate ?? '' })}</DialogTitle>
           </DialogHeader>
           {detail && (
             <div className="space-y-4">
@@ -246,7 +243,7 @@ export default function MeetingsPage() {
                     </div>
                     <div className="flex-1">
                       <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
-                        {ENTRY_STATUS_LABELS[entry.entryStatus]}
+                        {t(`pm.entryStatus.${entry.entryStatus}`)}
                       </Badge>
                       {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
                     </div>
@@ -258,7 +255,7 @@ export default function MeetingsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
             {detail && (
-              <Button variant="destructive" onClick={() => { if (confirm('Izbriši sestanek?')) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
+              <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
                 {t('common.delete')}
               </Button>
             )}

@@ -27,9 +27,6 @@ interface Project {
   phases: Phase[]; documents: Document[];
 }
 
-const PRIORITY_LABELS: Record<string, string> = { high: 'Visoka', medium: 'Srednja', low: 'Nizka' };
-const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', on_hold: 'Na čakanju', completed: 'Zaključeno' };
-const ENTRY_STATUS_LABELS: Record<string, string> = { done: 'Dokončano', in_progress: 'V teku', blocked: 'Blokirano' };
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
 
 function formatCurrency(v: string | null | undefined) {
@@ -72,28 +69,28 @@ export default function ProjectDetailPage() {
       : api.post(`/pm/projects/${id}/phases`, { name, orderIndex: (project?.phases.length ?? 0) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
-      toast.success(editPhase ? 'Faza posodobljena' : 'Faza dodana');
+      toast.success(editPhase ? t('pm.phases.updatedOk') : t('pm.phases.addedOk'));
       setPhaseDialogOpen(false);
       setPhaseName('');
       setEditPhase(null);
     },
-    onError: () => toast.error('Napaka'),
+    onError: () => toast.error(t('pm.phases.error')),
   });
 
   const updatePhaseStatus = useMutation({
     mutationFn: ({ phaseId, status }: { phaseId: string; status: string }) =>
       api.patch(`/pm/projects/${id}/phases/${phaseId}`, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pm-project', id] }),
-    onError: () => toast.error('Napaka'),
+    onError: () => toast.error(t('pm.phases.error')),
   });
 
   const deletePhase = useMutation({
     mutationFn: (phaseId: string) => api.delete(`/pm/projects/${id}/phases/${phaseId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
-      toast.success('Faza izbrisana');
+      toast.success(t('pm.phases.deletedOk'));
     },
-    onError: () => toast.error('Napaka'),
+    onError: () => toast.error(t('pm.phases.error')),
   });
 
   const uploadDocument = useMutation({
@@ -104,22 +101,22 @@ export default function ProjectDetailPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
-      toast.success('Dokument naložen');
+      toast.success(t('pm.documents.uploadOk'));
     },
-    onError: () => toast.error('Napaka pri nalaganju'),
+    onError: () => toast.error(t('pm.documents.uploadError')),
   });
 
   const deleteDocument = useMutation({
     mutationFn: (docId: string) => api.delete(`/pm/projects/${id}/documents/${docId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
-      toast.success('Dokument izbrisan');
+      toast.success(t('pm.documents.deletedOk'));
     },
-    onError: () => toast.error('Napaka'),
+    onError: () => toast.error(t('pm.documents.error')),
   });
 
   if (isLoading) return <div className="p-6 text-muted-foreground">{t('common.loading')}</div>;
-  if (!project) return <div className="p-6 text-destructive">Projekt ne obstaja.</div>;
+  if (!project) return <div className="p-6 text-destructive">{t('pm.projects.notFound')}</div>;
 
   const contractVal = parseFloat(project.contractValue ?? '0');
   const invoiced = parseFloat(project.invoicedAmount ?? '0');
@@ -135,9 +132,9 @@ export default function ProjectDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{project.projectNumber}</h1>
-            <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>{STATUS_LABELS[project.status]}</Badge>
-            <Badge variant={project.priority === 'high' ? 'destructive' : 'outline'}>{PRIORITY_LABELS[project.priority]}</Badge>
-            {isOverdue && <Badge variant="destructive">Zamuda!</Badge>}
+            <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>{t(`pm.status.${project.status}`)}</Badge>
+            <Badge variant={project.priority === 'high' ? 'destructive' : 'outline'}>{t(`pm.priority.${project.priority}`)}</Badge>
+            {isOverdue && <Badge variant="destructive">{t('pm.projects.overdue')}</Badge>}
           </div>
           <p className="text-muted-foreground">{project.name}</p>
         </div>
@@ -147,29 +144,29 @@ export default function ProjectDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Zaposleni</span><span className="font-medium">{project.employeeName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Naročnik</span><span className="font-medium">{project.customerName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Objekt</span><span className="font-medium">{project.facilityName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Datum naročila</span><span>{project.orderDate ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.employee')}</span><span className="font-medium">{project.employeeName ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.customer')}</span><span className="font-medium">{project.customerName ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.facility')}</span><span className="font-medium">{project.facilityName ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.orderDate')}</span><span>{project.orderDate ?? '—'}</span></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Začetek</span><span>{project.startDate ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Rok</span><span className={isOverdue ? 'text-destructive font-medium' : ''}>{project.endDate ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.startDateShort')}</span><span>{project.startDate ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.deadline')}</span><span className={isOverdue ? 'text-destructive font-medium' : ''}>{project.endDate ?? '—'}</span></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Vrednost</span><span className="font-mono font-medium">{formatCurrency(project.contractValue)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Fakturirano</span><span className="font-mono">{formatCurrency(project.invoicedAmount)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Ostalo</span><span className={`font-mono font-medium ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.value')}</span><span className="font-mono font-medium">{formatCurrency(project.contractValue)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.invoiced')}</span><span className="font-mono">{formatCurrency(project.invoicedAmount)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.remaining')}</span><span className={`font-mono font-medium ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</span></div>
             {contractVal > 0 && (
               <div className="mt-2">
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${invoicedPct}%` }} />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{invoicedPct.toFixed(0)}% fakturirano</p>
+                <p className="text-xs text-muted-foreground mt-1">{invoicedPct.toFixed(0)}{t('pm.projects.invoicedPct')}</p>
               </div>
             )}
           </CardContent>
@@ -183,16 +180,16 @@ export default function ProjectDetailPage() {
       {/* Tabs */}
       <Tabs defaultValue="phases">
         <TabsList>
-          <TabsTrigger value="phases">Faze ({project.phases.length})</TabsTrigger>
-          <TabsTrigger value="meetings">Sestanki ({meetingHistory?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="documents">Dokumenti ({project.documents.length})</TabsTrigger>
+          <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
+          <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
         </TabsList>
 
         {/* Phases */}
         <TabsContent value="phases" className="space-y-3 mt-4">
           <div className="flex justify-end">
             <Button size="sm" onClick={() => { setEditPhase(null); setPhaseName(''); setPhaseDialogOpen(true); }}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Dodaj fazo
+              <Plus className="h-3.5 w-3.5 mr-1" />{t('pm.phases.add')}
             </Button>
           </div>
           {project.phases.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
@@ -204,15 +201,15 @@ export default function ProjectDetailPage() {
                 <Select value={phase.status} onValueChange={v => updatePhaseStatus.mutate({ phaseId: phase.id, status: v })}>
                   <SelectTrigger className="w-[130px] h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Čaka</SelectItem>
-                    <SelectItem value="in_progress">V teku</SelectItem>
-                    <SelectItem value="completed">Zaključeno</SelectItem>
+                    <SelectItem value="pending">{t('pm.phaseStatus.pending')}</SelectItem>
+                    <SelectItem value="in_progress">{t('pm.phaseStatus.in_progress')}</SelectItem>
+                    <SelectItem value="completed">{t('pm.phaseStatus.completed')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditPhase(phase); setPhaseName(phase.name); setPhaseDialogOpen(true); }}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('Izbriši fazo?')) deletePhase.mutate(phase.id); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(t('pm.phases.deleteConfirm'))) deletePhase.mutate(phase.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -229,7 +226,7 @@ export default function ProjectDetailPage() {
                 <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{entry.meetingDate}</div>
                 <div className="flex-1">
                   <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
-                    {ENTRY_STATUS_LABELS[entry.entryStatus]}
+                    {t(`pm.entryStatus.${entry.entryStatus}`)}
                   </Badge>
                   {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
                 </div>
@@ -243,7 +240,7 @@ export default function ProjectDetailPage() {
           <div className="flex justify-end">
             <label>
               <Button size="sm" asChild>
-                <span><Upload className="h-3.5 w-3.5 mr-1" />Naloži dokument</span>
+                <span><Upload className="h-3.5 w-3.5 mr-1" />{t('pm.documents.upload')}</span>
               </Button>
               <input type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) uploadDocument.mutate(e.target.files[0]); e.target.value = ''; }} />
             </label>
@@ -257,7 +254,7 @@ export default function ProjectDetailPage() {
                 <span className="text-xs text-muted-foreground shrink-0">
                   {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ''} · {doc.uploaderName}
                 </span>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm('Izbriši dokument?')) deleteDocument.mutate(doc.id); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -269,10 +266,10 @@ export default function ProjectDetailPage() {
       {/* Phase Dialog */}
       <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editPhase ? 'Uredi fazo' : 'Nova faza'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editPhase ? t('pm.phases.edit') : t('pm.phases.new')}</DialogTitle></DialogHeader>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Ime faze *</label>
-            <Input value={phaseName} onChange={e => setPhaseName(e.target.value)} placeholder="npr. Načrtovanje" autoFocus />
+            <label className="text-sm font-medium">{t('pm.phases.nameLabel')} *</label>
+            <Input value={phaseName} onChange={e => setPhaseName(e.target.value)} placeholder={t('pm.phases.namePlaceholder')} autoFocus />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhaseDialogOpen(false)}>{t('common.cancel')}</Button>
