@@ -3,11 +3,10 @@ import { eq, ilike, and, sql } from 'drizzle-orm';
 import { createPmFacilitySchema, updatePmFacilitySchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmFacilities, pmCustomers } from '../schema';
-import { requireAuth } from '../../../middleware/auth';
 import { requireRole } from '../../../middleware/role';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireRole('projects', 'access'));
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const search = req.query.search as string | undefined;
@@ -67,7 +66,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(facility);
 });
 
-router.post('/', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmFacilitySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -81,7 +80,7 @@ router.post('/', requireRole('records', 'manage'), async (req: Request, res: Res
   res.status(201).json(facility);
 });
 
-router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updatePmFacilitySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -91,7 +90,7 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
   res.json(updated);
 });
 
-router.delete('/:id', requireRole('records', 'delete'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.update(pmFacilities).set({ isActive: false, updatedAt: new Date() }).where(eq(pmFacilities.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });

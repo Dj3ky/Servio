@@ -3,10 +3,10 @@ import { eq, sql, and, gte, lte, desc } from 'drizzle-orm';
 import { db } from '../../../db';
 import { pmProjects, pmWeeklyMeetings, pmMeetingEntries } from '../schema';
 import { users } from '../../../db/schema/users';
-import { requireAuth } from '../../../middleware/auth';
+import { requireRole } from '../../../middleware/role';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireRole('projects', 'access'));
 
 // Summary by status
 router.get('/summary', async (_req: Request, res: Response): Promise<void> => {

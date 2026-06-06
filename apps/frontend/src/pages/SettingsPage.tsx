@@ -1822,6 +1822,11 @@ function PermissionsTab() {
       { section: 'records', action: 'delete', label: t('settings.perm.recordsDelete') },
       { section: 'contractTimeline', action: 'access', label: t('settings.perm.contractTimelineAccess') },
     ]},
+    { label: t('settings.perm.projects'), rows: [
+      { section: 'projects', action: 'access', label: t('settings.perm.projectsAccess') },
+      { section: 'projects', action: 'manage', label: t('settings.perm.projectsManage') },
+      { section: 'projects', action: 'delete', label: t('settings.perm.projectsDelete') },
+    ]},
     { label: t('settings.perm.reviews'), rows: [
       { section: 'reviews', action: 'upload', label: t('settings.perm.reviewsUpload') },
       { section: 'reviews', action: 'backfill', label: t('settings.perm.reviewsBackfill') },

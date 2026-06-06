@@ -11,7 +11,7 @@ import path from 'path';
 import fs from 'fs/promises';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireRole('projects', 'access'));
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'pm-documents');
 
@@ -122,7 +122,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Create project
-router.post('/', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmProjectSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -146,7 +146,7 @@ router.post('/', requireRole('records', 'manage'), async (req: Request, res: Res
 });
 
 // Update project
-router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updatePmProjectSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -162,7 +162,7 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
 });
 
 // Delete project
-router.delete('/:id', requireRole('records', 'delete'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.delete(pmProjects).where(eq(pmProjects.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });
@@ -170,7 +170,7 @@ router.delete('/:id', requireRole('records', 'delete'), async (req: Request, res
 
 // --- Phases ---
 
-router.post('/:id/phases', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/phases', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmPhaseSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -184,7 +184,7 @@ router.post('/:id/phases', requireRole('records', 'manage'), async (req: Request
   res.status(201).json(phase);
 });
 
-router.patch('/:id/phases/:phaseId', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id/phases/:phaseId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updatePmPhaseSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -197,7 +197,7 @@ router.patch('/:id/phases/:phaseId', requireRole('records', 'manage'), async (re
   res.json(updated);
 });
 
-router.delete('/:id/phases/:phaseId', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id/phases/:phaseId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.delete(pmProjectPhases)
     .where(and(eq(pmProjectPhases.id, req.params.phaseId), eq(pmProjectPhases.projectId, req.params.id)))
     .returning();
@@ -207,7 +207,7 @@ router.delete('/:id/phases/:phaseId', requireRole('records', 'manage'), async (r
 
 // --- Documents ---
 
-router.post('/:id/documents', requireRole('records', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/documents', requireRole('projects', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.validation' }); return; }
 
   await ensureUploadsDir();
@@ -228,7 +228,7 @@ router.post('/:id/documents', requireRole('records', 'manage'), documentUpload.s
   res.status(201).json(doc);
 });
 
-router.delete('/:id/documents/:docId', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id/documents/:docId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const [doc] = await db.delete(pmProjectDocuments)
     .where(and(eq(pmProjectDocuments.id, req.params.docId), eq(pmProjectDocuments.projectId, req.params.id)))
     .returning();
@@ -250,7 +250,7 @@ router.get('/:id/invoices', async (req: Request, res: Response): Promise<void> =
   res.json(invoices);
 });
 
-router.post('/:id/invoices', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/invoices', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmInvoiceSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -270,7 +270,7 @@ router.post('/:id/invoices', requireRole('records', 'manage'), async (req: Reque
   res.status(201).json(invoice);
 });
 
-router.delete('/:id/invoices/:invoiceId', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id/invoices/:invoiceId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.delete(pmProjectInvoices)
     .where(and(eq(pmProjectInvoices.id, req.params.invoiceId), eq(pmProjectInvoices.projectId, req.params.id)))
     .returning();

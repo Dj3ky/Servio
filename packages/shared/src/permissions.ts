@@ -23,6 +23,11 @@ export const permissions = {
     access: r('admin', 'manager', 'accountant'),
     reset:  r('admin'),
   },
+  projects: {
+    access: r('admin', 'manager', 'technician'),
+    manage: r('admin', 'manager'),
+    delete: r('admin'),
+  },
   reports: {
     access: r('admin', 'manager', 'accountant'),
   },

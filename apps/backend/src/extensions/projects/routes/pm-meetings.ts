@@ -4,11 +4,10 @@ import { createPmMeetingSchema, updatePmMeetingSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects } from '../schema';
 import { users } from '../../../db/schema/users';
-import { requireAuth } from '../../../middleware/auth';
 import { requireRole } from '../../../middleware/role';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireRole('projects', 'access'));
 
 // List meetings (paginated, newest first)
 router.get('/', async (req: Request, res: Response): Promise<void> => {
@@ -76,7 +75,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Create meeting with entries
-router.post('/', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -101,7 +100,7 @@ router.post('/', requireRole('records', 'manage'), async (req: Request, res: Res
 });
 
 // Update meeting (notes + entries)
-router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updatePmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
@@ -131,7 +130,7 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
 });
 
 // Delete meeting
-router.delete('/:id', requireRole('records', 'delete'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.delete(pmWeeklyMeetings).where(eq(pmWeeklyMeetings.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });
