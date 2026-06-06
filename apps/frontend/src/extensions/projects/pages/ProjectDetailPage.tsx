@@ -11,7 +11,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface User { id: string; name: string; }
 
 interface Phase { id: string; name: string; orderIndex: number; status: string; }
 interface Document { id: string; originalName: string; filePath: string; fileSize: number | null; uploaderName: string | null; createdAt: string; }
@@ -53,6 +56,8 @@ export default function ProjectDetailPage() {
   const [phaseName, setPhaseName] = useState('');
   const [editPhase, setEditPhase] = useState<Phase | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ invoiceDate: '', amount: '', notes: '' });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ['pm-project', id],
@@ -71,6 +76,51 @@ export default function ProjectDetailPage() {
     queryFn: () => api.get(`/pm/projects/${id}/invoices`),
     enabled: !!id,
   });
+
+  const { data: usersData } = useQuery<User[]>({
+    queryKey: ['pm-employees'],
+    queryFn: () => api.get('/pm/employees'),
+    enabled: editDialogOpen,
+  });
+
+  const updateProject = useMutation({
+    mutationFn: (body: Record<string, string>) => api.patch(`/pm/projects/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      toast.success(t('pm.projects.savedOk'));
+      setEditDialogOpen(false);
+    },
+    onError: () => toast.error(t('pm.projects.saveError')),
+  });
+
+  const quickStatusChange = useMutation({
+    mutationFn: (status: string) => api.patch(`/pm/projects/${id}`, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+    },
+    onError: () => toast.error(t('pm.projects.saveError')),
+  });
+
+  function openEdit() {
+    if (!project) return;
+    setEditForm({
+      projectNumber: project.projectNumber,
+      name: project.name,
+      orderDate: project.orderDate ?? '',
+      employeeId: project.employeeId ?? '',
+      customerName: project.customerName ?? '',
+      facilityName: project.facilityName ?? '',
+      priority: project.priority,
+      status: project.status,
+      startDate: project.startDate ?? '',
+      endDate: project.endDate ?? '',
+      contractValue: project.contractValue ?? '',
+      notes: project.notes ?? '',
+    });
+    setEditDialogOpen(true);
+  }
 
   const addInvoice = useMutation({
     mutationFn: (body: typeof invoiceForm) => api.post(`/pm/projects/${id}/invoices`, body),
@@ -162,14 +212,26 @@ export default function ProjectDetailPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate('/pm/projects')}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.projectNumber}</h1>
-            <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>{t(`pm.status.${project.status}`)}</Badge>
+            <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={quickStatusChange.isPending}>
+              <SelectTrigger className="h-7 w-auto text-xs px-2 gap-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+                <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+                <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
+              </SelectContent>
+            </Select>
             <Badge variant={project.priority === 'high' ? 'destructive' : 'outline'}>{t(`pm.priority.${project.priority}`)}</Badge>
             {isOverdue && <Badge variant="destructive">{t('pm.projects.overdue')}</Badge>}
           </div>
           <p className="text-muted-foreground">{project.name}</p>
         </div>
+        <Button variant="outline" size="sm" onClick={openEdit}>
+          <Pencil className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.edit')}
+        </Button>
       </div>
 
       {/* Info cards */}
@@ -375,6 +437,89 @@ export default function ProjectDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{t('pm.projects.edit')}</DialogTitle></DialogHeader>
+          <form onSubmit={e => { e.preventDefault(); updateProject.mutate({ ...editForm, employeeId: editForm.employeeId || null as any, customerName: editForm.customerName || null as any, facilityName: editForm.facilityName || null as any, orderDate: editForm.orderDate || null as any, startDate: editForm.startDate || null as any, endDate: editForm.endDate || null as any, contractValue: editForm.contractValue || null as any, }); }} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.workOrder')} *</label>
+                <Input value={editForm.projectNumber ?? ''} onChange={e => setEditForm(f => ({ ...f, projectNumber: e.target.value }))} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.projectName')} *</label>
+                <Input value={editForm.name ?? ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.orderDate')}</label>
+                <Input type="date" value={editForm.orderDate ?? ''} onChange={e => setEditForm(f => ({ ...f, orderDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.employee')}</label>
+                <Select value={editForm.employeeId || '__none__'} onValueChange={v => setEditForm(f => ({ ...f, employeeId: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">—</SelectItem>
+                    {(usersData ?? []).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
+                <Input value={editForm.customerName ?? ''} onChange={e => setEditForm(f => ({ ...f, customerName: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
+                <Input value={editForm.facilityName ?? ''} onChange={e => setEditForm(f => ({ ...f, facilityName: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
+                <Select value={editForm.priority ?? 'medium'} onValueChange={v => setEditForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">{t('pm.priority.high')}</SelectItem>
+                    <SelectItem value="medium">{t('pm.priority.medium')}</SelectItem>
+                    <SelectItem value="low">{t('pm.priority.low')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('common.status')}</label>
+                <Select value={editForm.status ?? 'active'} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+                    <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+                    <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.startDate')}</label>
+                <Input type="date" value={editForm.startDate ?? ''} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.fields.endDate')}</label>
+                <Input type="date" value={editForm.endDate ?? ''} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>
+                <Input type="number" step="0.01" placeholder="0.00" value={editForm.contractValue ?? ''} onChange={e => setEditForm(f => ({ ...f, contractValue: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('pm.fields.notes')}</label>
+              <Textarea rows={3} value={editForm.notes ?? ''} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={updateProject.isPending}>{updateProject.isPending ? t('common.loading') : t('common.save')}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Phase Dialog */}
       <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
