@@ -25,10 +25,12 @@ interface MeetingEntry {
 }
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
+  employeeId: string | null; employeeName: string | null;
 }
 interface EntryDraft {
   projectId: string; projectNumber: string; projectName: string; priority: string;
   entryStatus: string; notes: string;
+  employeeId: string | null; employeeName: string | null;
 }
 
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
@@ -55,6 +57,7 @@ export default function MeetingsPage() {
   const [entries, setEntries] = useState<EntryDraft[]>([]);
   const [groupByEmployee, setGroupByEmployee] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedDialogGroups, setCollapsedDialogGroups] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings'],
@@ -88,8 +91,34 @@ export default function MeetingsPage() {
       priority: p.priority,
       entryStatus: 'in_progress',
       notes: '',
+      employeeId: p.employeeId,
+      employeeName: p.employeeName,
     })));
+    setCollapsedDialogGroups(new Set());
   }
+
+  function toggleDialogGroup(key: string) {
+    setCollapsedDialogGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Group entries by employee for the dialog
+  const entriesByEmployee = useMemo(() => {
+    const groups: { key: string; employeeName: string | null; entries: EntryDraft[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const e of entries) {
+      const key = e.employeeId ?? '__none__';
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, employeeName: e.employeeName, entries: [] });
+      }
+      groups[seen.get(key)!].entries.push(e);
+    }
+    return groups;
+  }, [entries]);
 
   if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
     initEntries(activeProjects);
@@ -262,44 +291,65 @@ export default function MeetingsPage() {
             <div className="space-y-2">
               <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({entries.length})</p>
               {entries.length === 0 && <p className="text-sm text-muted-foreground">{t('pm.meetings.noActiveProjects')}</p>}
-              <div className="rounded-md border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-muted-foreground">
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                      <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entries.map(entry => (
-                      <tr key={entry.projectId} className="border-b">
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{entry.projectNumber}</div>
-                          <div className="text-xs text-muted-foreground">{entry.projectName}</div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
-                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
-                              <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
-                              <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            className="h-7 text-xs"
-                            placeholder={t('pm.meetings.notePlaceholder')}
-                            value={entry.notes}
-                            onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-2">
+                {entriesByEmployee.map((group, idx) => {
+                  const collapsed = collapsedDialogGroups.has(group.key);
+                  return (
+                    <div key={group.key} className="rounded-md border overflow-hidden">
+                      <button
+                        type="button"
+                        className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                        onClick={() => toggleDialogGroup(group.key)}
+                      >
+                        <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
+                        <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                        <span className="font-normal text-muted-foreground">({group.entries.length})</span>
+                        {collapsed
+                          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </button>
+                      {!collapsed && (
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50 text-muted-foreground">
+                              <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
+                              <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
+                              <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.entries.map(entry => (
+                              <tr key={entry.projectId} className="border-b">
+                                <td className="px-3 py-2">
+                                  <div className="font-medium">{entry.projectNumber}</div>
+                                  <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
+                                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
+                                      <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
+                                      <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Input
+                                    className="h-7 text-xs"
+                                    placeholder={t('pm.meetings.notePlaceholder')}
+                                    value={entry.notes}
+                                    onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

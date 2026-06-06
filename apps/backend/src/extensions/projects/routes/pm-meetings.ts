@@ -144,10 +144,13 @@ router.get('/active-projects/list', async (_req: Request, res: Response): Promis
     name: pmProjects.name,
     priority: pmProjects.priority,
     status: pmProjects.status,
+    employeeId: pmProjects.employeeId,
+    employeeName: users.name,
   })
     .from(pmProjects)
+    .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(eq(pmProjects.status, 'active'))
-    .orderBy(pmProjects.projectNumber);
+    .orderBy(users.name, pmProjects.projectNumber);
 
   res.json(projects);
 });
