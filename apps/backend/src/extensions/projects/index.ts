@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { settings } from '../../db/schema';
+import { users } from '../../db/schema/users';
 import { requireAuth } from '../../middleware/auth';
 import { requireRole } from '../../middleware/role';
 import { isExtensionLicensed } from '../../middleware/license';
@@ -50,8 +51,8 @@ async function ensurePmTables() {
         name TEXT NOT NULL,
         order_date DATE,
         employee_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        pm_customer_id UUID REFERENCES pm_customers(id) ON DELETE SET NULL,
-        pm_facility_id UUID REFERENCES pm_facilities(id) ON DELETE SET NULL,
+        customer_name TEXT,
+        facility_name TEXT,
         priority TEXT NOT NULL DEFAULT 'medium',
         status TEXT NOT NULL DEFAULT 'active',
         start_date DATE,
@@ -63,6 +64,9 @@ async function ensurePmTables() {
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    // Ensure text columns exist on tables that may have been created with the old FK structure
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS customer_name TEXT`);
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS facility_name TEXT`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS pm_project_phases (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -179,6 +183,15 @@ router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'),
   await db.update(settings).set({ extensionsConfig: updated, updatedAt: new Date() }).where(eq(settings.id, 1));
 
   res.json({ success: true });
+});
+
+// Employees list for project assignment — any authenticated user can read this
+router.get('/employees', requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  const result = await db.select({ id: users.id, name: users.name })
+    .from(users)
+    .where(eq(users.isActive, true))
+    .orderBy(users.name);
+  res.json(result);
 });
 
 // All data routes — gated behind requireExtension

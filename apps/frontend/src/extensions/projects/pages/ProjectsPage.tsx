@@ -27,16 +27,12 @@ interface PmProject {
   notes: string | null;
   employeeId: string | null;
   employeeName: string | null;
-  pmCustomerId: string | null;
   customerName: string | null;
-  pmFacilityId: string | null;
   facilityName: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-interface PmCustomer { id: string; name: string; }
-interface PmFacility { id: string; name: string; pmCustomerId: string | null; }
 interface User { id: string; name: string; }
 
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
@@ -52,8 +48,8 @@ const emptyForm = {
   name: '',
   orderDate: '',
   employeeId: '',
-  pmCustomerId: '',
-  pmFacilityId: '',
+  customerName: '',
+  facilityName: '',
   priority: 'medium',
   status: 'active',
   startDate: '',
@@ -86,27 +82,11 @@ export default function ProjectsPage() {
     queryFn: () => api.get(`/pm/projects?${params}`),
   });
 
-  const { data: customersData } = useQuery<{ data: PmCustomer[] }>({
-    queryKey: ['pm-customers-list'],
-    queryFn: () => api.get('/pm/customers?limit=200'),
+  const { data: usersData } = useQuery<User[]>({
+    queryKey: ['pm-employees'],
+    queryFn: () => api.get('/pm/employees'),
     enabled: dialogOpen,
   });
-
-  const { data: facilitiesData } = useQuery<{ data: PmFacility[] }>({
-    queryKey: ['pm-facilities-list'],
-    queryFn: () => api.get('/pm/facilities?limit=200'),
-    enabled: dialogOpen,
-  });
-
-  const { data: usersData } = useQuery<{ data: User[] }>({
-    queryKey: ['users-list'],
-    queryFn: () => api.get('/users?limit=200'),
-    enabled: dialogOpen,
-  });
-
-  const facilities = (facilitiesData?.data ?? []).filter(f =>
-    !form.pmCustomerId || f.pmCustomerId === form.pmCustomerId
-  );
 
   const mutation = useMutation({
     mutationFn: (body: typeof form) =>
@@ -132,8 +112,8 @@ export default function ProjectsPage() {
     mutation.mutate({
       ...form,
       employeeId: form.employeeId || null as any,
-      pmCustomerId: form.pmCustomerId || null as any,
-      pmFacilityId: form.pmFacilityId || null as any,
+      customerName: form.customerName || null as any,
+      facilityName: form.facilityName || null as any,
       orderDate: form.orderDate || null as any,
       startDate: form.startDate || null as any,
       endDate: form.endDate || null as any,
@@ -262,29 +242,17 @@ export default function ProjectsPage() {
                   <SelectTrigger><SelectValue placeholder={t('pm.projects.selectEmployee')} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">—</SelectItem>
-                    {(usersData?.data ?? []).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                    {(usersData ?? []).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
-                <Select value={form.pmCustomerId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmCustomerId: v === '__none__' ? '' : v, pmFacilityId: '' }))}>
-                  <SelectTrigger><SelectValue placeholder={t('pm.projects.selectCustomer')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {(customersData?.data ?? []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Input placeholder={t('pm.fields.customer')} value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
-                <Select value={form.pmFacilityId || '__none__'} onValueChange={v => setForm(f => ({ ...f, pmFacilityId: v === '__none__' ? '' : v }))}>
-                  <SelectTrigger><SelectValue placeholder={t('pm.projects.selectFacility')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Input placeholder={t('pm.fields.facility')} value={form.facilityName} onChange={e => setForm(f => ({ ...f, facilityName: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.priority')}</label>

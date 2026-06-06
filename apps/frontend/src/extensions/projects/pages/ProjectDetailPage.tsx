@@ -23,7 +23,8 @@ interface Project {
   id: string; projectNumber: string; name: string; orderDate: string | null;
   priority: string; status: string; startDate: string | null; endDate: string | null;
   contractValue: string | null; invoicedAmount: string; notes: string | null;
-  employeeName: string | null; customerName: string | null; facilityName: string | null;
+  employeeId: string | null; employeeName: string | null;
+  customerName: string | null; facilityName: string | null;
   phases: Phase[]; documents: Document[];
 }
 

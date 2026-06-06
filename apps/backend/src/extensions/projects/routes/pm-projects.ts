@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { eq, ilike, sql, and, or } from 'drizzle-orm';
 import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema } from '@servio/shared';
 import { db } from '../../../db';
-import { pmProjects, pmCustomers, pmFacilities, pmProjectPhases, pmProjectDocuments } from '../schema';
+import { pmProjects, pmProjectPhases, pmProjectDocuments } from '../schema';
 import { users } from '../../../db/schema/users';
 import { requireAuth } from '../../../middleware/auth';
 import { requireRole } from '../../../middleware/role';
@@ -53,18 +53,14 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
     employeeName: users.name,
-    pmCustomerId: pmProjects.pmCustomerId,
-    customerName: pmCustomers.name,
-    pmFacilityId: pmProjects.pmFacilityId,
-    facilityName: pmFacilities.name,
+    customerName: pmProjects.customerName,
+    facilityName: pmProjects.facilityName,
   };
 
   const [data, [{ count }]] = await Promise.all([
     db.select(baseSelect)
       .from(pmProjects)
       .leftJoin(users, eq(pmProjects.employeeId, users.id))
-      .leftJoin(pmCustomers, eq(pmProjects.pmCustomerId, pmCustomers.id))
-      .leftJoin(pmFacilities, eq(pmProjects.pmFacilityId, pmFacilities.id))
       .where(where)
       .orderBy(pmProjects.createdAt)
       .limit(limit)
@@ -93,15 +89,11 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
     employeeName: users.name,
-    pmCustomerId: pmProjects.pmCustomerId,
-    customerName: pmCustomers.name,
-    pmFacilityId: pmProjects.pmFacilityId,
-    facilityName: pmFacilities.name,
+    customerName: pmProjects.customerName,
+    facilityName: pmProjects.facilityName,
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .leftJoin(pmCustomers, eq(pmProjects.pmCustomerId, pmCustomers.id))
-    .leftJoin(pmFacilities, eq(pmProjects.pmFacilityId, pmFacilities.id))
     .where(eq(pmProjects.id, req.params.id))
     .limit(1);
 
@@ -139,8 +131,8 @@ router.post('/', requireRole('records', 'manage'), async (req: Request, res: Res
     name: parsed.data.name,
     orderDate: parsed.data.orderDate ?? null,
     employeeId: parsed.data.employeeId ?? null,
-    pmCustomerId: parsed.data.pmCustomerId ?? null,
-    pmFacilityId: parsed.data.pmFacilityId ?? null,
+    customerName: parsed.data.customerName ?? null,
+    facilityName: parsed.data.facilityName ?? null,
     priority: parsed.data.priority,
     status: parsed.data.status,
     startDate: parsed.data.startDate ?? null,

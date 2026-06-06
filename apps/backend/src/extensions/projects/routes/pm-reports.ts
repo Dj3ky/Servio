@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql, and, gte, lte, desc } from 'drizzle-orm';
 import { db } from '../../../db';
-import { pmProjects, pmCustomers, pmFacilities, pmWeeklyMeetings, pmMeetingEntries } from '../schema';
+import { pmProjects, pmWeeklyMeetings, pmMeetingEntries } from '../schema';
 import { users } from '../../../db/schema/users';
 import { requireAuth } from '../../../middleware/auth';
 
@@ -61,11 +61,10 @@ router.get('/by-employee', async (req: Request, res: Response): Promise<void> =>
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
     employeeName: users.name,
-    customerName: pmCustomers.name,
+    customerName: pmProjects.customerName,
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .leftJoin(pmCustomers, eq(pmProjects.pmCustomerId, pmCustomers.id))
     .where(where)
     .orderBy(users.name, pmProjects.projectNumber);
 
@@ -125,11 +124,10 @@ router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
     employeeName: users.name,
-    customerName: pmCustomers.name,
+    customerName: pmProjects.customerName,
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .leftJoin(pmCustomers, eq(pmProjects.pmCustomerId, pmCustomers.id))
     .where(and(
       lte(pmProjects.endDate, today),
       sql`${pmProjects.status} != 'completed'`,
@@ -153,11 +151,10 @@ router.get('/workload', async (_req: Request, res: Response): Promise<void> => {
     invoicedAmount: pmProjects.invoicedAmount,
     employeeId: pmProjects.employeeId,
     employeeName: users.name,
-    customerName: pmCustomers.name,
+    customerName: pmProjects.customerName,
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .leftJoin(pmCustomers, eq(pmProjects.pmCustomerId, pmCustomers.id))
     .where(eq(pmProjects.status, 'active'))
     .orderBy(users.name, pmProjects.priority);
 
