@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ interface PmProject {
   employeeName: string | null;
   customerName: string | null;
   facilityName: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,6 +75,7 @@ export default function ProjectsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [archiveMode, setArchiveMode] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -93,13 +95,14 @@ export default function ProjectsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const params = new URLSearchParams();
+  params.set('archived', archiveMode ? 'true' : 'false');
   if (debouncedSearch) params.set('search', debouncedSearch);
-  if (statusFilter) params.set('status', statusFilter);
+  if (!archiveMode && statusFilter) params.set('status', statusFilter);
   if (priorityFilter) params.set('priority', priorityFilter);
   params.set('limit', '200');
 
   const { data, isLoading } = useQuery<{ data: PmProject[] }>({
-    queryKey: ['pm-projects', debouncedSearch, statusFilter, priorityFilter],
+    queryKey: ['pm-projects', archiveMode, debouncedSearch, statusFilter, priorityFilter],
     queryFn: () => api.get(`/pm/projects?${params}`),
   });
 
@@ -159,7 +162,17 @@ export default function ProjectsPage() {
     return groups;
   }, [projects]);
 
-  const tableHeaders = (
+  const tableHeaders = archiveMode ? (
+    <tr className="border-b bg-muted/50 text-muted-foreground">
+      <th className="text-left px-4 py-3 font-medium">{t('pm.projects.colWorkOrder')}</th>
+      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.customer')}</th>
+      {!groupByEmployee && <th className="text-left px-4 py-3 font-medium">{t('pm.fields.employee')}</th>}
+      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.completedAt')}</th>
+      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.value')}</th>
+      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.invoiced')}</th>
+      <th className="px-4 py-3" />
+    </tr>
+  ) : (
     <tr className="border-b bg-muted/50 text-muted-foreground">
       <th className="text-left px-4 py-3 font-medium">{t('pm.projects.colWorkOrder')}</th>
       <th className="text-left px-4 py-3 font-medium">{t('pm.fields.customer')}</th>
@@ -185,18 +198,30 @@ export default function ProjectsPage() {
         </td>
         <td className="px-4 py-3 text-muted-foreground text-sm">{p.customerName ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground text-sm">{p.employeeName ?? '—'}</td>}
-        <td className="px-4 py-3">
-          <Badge variant={PRIORITY_COLORS[p.priority] as any}>{t(`pm.priority.${p.priority}`)}</Badge>
-        </td>
-        <td className="px-4 py-3">
-          <Badge variant={STATUS_COLORS[p.status] as any}>{t(`pm.status.${p.status}`)}</Badge>
-        </td>
+        {archiveMode ? (
+          <td className="px-4 py-3 text-sm text-green-600 font-medium">
+            {p.completedAt ? new Date(p.completedAt).toLocaleDateString() : '—'}
+          </td>
+        ) : (
+          <>
+            <td className="px-4 py-3">
+              <Badge variant={PRIORITY_COLORS[p.priority] as any}>{t(`pm.priority.${p.priority}`)}</Badge>
+            </td>
+            <td className="px-4 py-3">
+              <Badge variant={STATUS_COLORS[p.status] as any}>{t(`pm.status.${p.status}`)}</Badge>
+            </td>
+          </>
+        )}
         <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.contractValue)}</td>
         <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.invoicedAmount)}</td>
-        <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</td>
-        <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-          {p.endDate ?? '—'}
-        </td>
+        {!archiveMode && (
+          <>
+            <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</td>
+            <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+              {p.endDate ?? '—'}
+            </td>
+          </>
+        )}
         <td className="px-4 py-3 text-right">
           <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
         </td>
@@ -208,10 +233,31 @@ export default function ProjectsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{t('pm.projects.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('pm.projects.subtitle')}</p>
+          <h1 className="text-2xl font-bold">
+            {archiveMode ? t('pm.projects.archiveTitle') : t('pm.projects.title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {archiveMode ? t('pm.projects.archiveSubtitle') : t('pm.projects.subtitle')}
+          </p>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>
+        <div className="flex items-center gap-3">
+          {/* Active / Archive toggle */}
+          <div className="flex rounded-md border overflow-hidden">
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${!archiveMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              onClick={() => { setArchiveMode(false); setStatusFilter(''); }}
+            >
+              <FolderOpen className="h-3.5 w-3.5" />{t('pm.projects.activeTab')}
+            </button>
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l transition-colors ${archiveMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              onClick={() => { setArchiveMode(true); setStatusFilter(''); }}
+            >
+              <Archive className="h-3.5 w-3.5" />{t('pm.projects.archiveTab')}
+            </button>
+          </div>
+          {!archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
+        </div>
       </div>
 
       {/* Filters + view toggle */}
@@ -220,15 +266,16 @@ export default function ProjectsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder={t('pm.projects.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        {!archiveMode && (
         <Select value={statusFilter || 'all'} onValueChange={v => setStatusFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('pm.projects.allStatuses')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('pm.projects.allStatuses')}</SelectItem>
             <SelectItem value="active">{t('pm.status.active')}</SelectItem>
             <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
-            <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
           </SelectContent>
         </Select>
+        )}
         <Select value={priorityFilter || 'all'} onValueChange={v => setPriorityFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('pm.projects.allPriorities')} /></SelectTrigger>
           <SelectContent>

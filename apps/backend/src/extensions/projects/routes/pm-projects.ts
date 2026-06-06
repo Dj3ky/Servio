@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, ilike, sql, and, or, desc } from 'drizzle-orm';
+import { eq, ne, ilike, sql, and, or, desc } from 'drizzle-orm';
 import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices } from '../schema';
@@ -25,13 +25,19 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const status = req.query.status as string | undefined;
   const priority = req.query.priority as string | undefined;
   const employeeId = req.query.employeeId as string | undefined;
+  const archived = req.query.archived as string | undefined;
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
   const offset = (page - 1) * limit;
 
   const conditions = [];
+  if (archived === 'true') {
+    conditions.push(eq(pmProjects.status, 'completed'));
+  } else if (archived === 'false') {
+    conditions.push(ne(pmProjects.status, 'completed'));
+  }
   if (search) conditions.push(or(ilike(pmProjects.name, `%${search}%`), ilike(pmProjects.projectNumber, `%${search}%`)));
-  if (status) conditions.push(eq(pmProjects.status, status));
+  if (status && archived !== 'true') conditions.push(eq(pmProjects.status, status));
   if (priority) conditions.push(eq(pmProjects.priority, priority));
   if (employeeId) conditions.push(eq(pmProjects.employeeId, employeeId));
 
@@ -63,7 +69,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       .from(pmProjects)
       .leftJoin(users, eq(pmProjects.employeeId, users.id))
       .where(where)
-      .orderBy(pmProjects.createdAt)
+      .orderBy(archived === 'true' ? desc(pmProjects.completedAt) : pmProjects.createdAt)
       .limit(limit)
       .offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(pmProjects).where(where),
