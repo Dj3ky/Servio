@@ -95,6 +95,7 @@ router.get('/', requireRole('settings', 'view'), async (_req: Request, res: Resp
     smbShare: s.smbShare,
     smbUsername: s.smbUsername,
     smbBasePath: s.smbBasePath,
+    smbPathTemplate: s.smbPathTemplate,
     smbPassSet: !!s.smbPassEncrypted,
     defaultLanguage: s.defaultLanguage,
     backupEnabled: s.backupEnabled,
@@ -167,6 +168,7 @@ router.patch('/smb', requireRole('settings', 'manage'), async (req: Request, res
     smbShare: parsed.data.smbShare,
     smbUsername: parsed.data.smbUsername,
     smbBasePath: parsed.data.smbBasePath,
+    smbPathTemplate: parsed.data.smbPathTemplate,
     updatedAt: new Date(),
   };
 

@@ -28,6 +28,7 @@ export const updateSmbSettingsSchema = z.object({
   smbUsername: z.string().min(1),
   smbPassword: z.string().optional(),
   smbBasePath: z.string(),
+  smbPathTemplate: z.string().min(1),
 });
 
 export const updateBackupSettingsSchema = z.object({
@@ -59,6 +60,7 @@ export const settingsSchema = z.object({
   smbShare: z.string().nullable(),
   smbUsername: z.string().nullable(),
   smbBasePath: z.string().nullable(),
+  smbPathTemplate: z.string().nullable(),
   defaultLanguage: z.enum(['sl', 'en']),
   backupEnabled: z.boolean(),
   backupSchedule: z.string().nullable(),

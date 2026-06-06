@@ -168,6 +168,7 @@ router.post(
     const yearMonth = format(scheduledDate, 'yyyy-MM');
     const settings = await db.query.settings.findFirst();
     const basePath = settings?.smbBasePath ?? '';
+    const pathTemplate = settings?.smbPathTemplate ?? '{year}/{contract_number}/{year_month}_{filename}';
 
     type FileEntry = { path: string; filename: string; size: number; buffer: Buffer; mimetype: string };
     const fileEntries: FileEntry[] = [];
@@ -177,7 +178,7 @@ router.post(
     try {
       for (const f of uploadedFiles) {
         const fn = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const sp = buildSmbPath(basePath, year, contract.contractNumber, yearMonth, fn);
+        const sp = buildSmbPath(basePath, year, contract.contractNumber, yearMonth, fn, pathTemplate);
         await saveToSmb(sp, f.buffer);
         fileEntries.push({ path: sp, filename: fn, size: f.size, buffer: f.buffer, mimetype: f.mimetype });
       }

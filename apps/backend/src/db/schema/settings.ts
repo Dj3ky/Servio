@@ -16,6 +16,7 @@ export const settings = pgTable('settings', {
   smbUsername: text('smb_username'),
   smbPassEncrypted: text('smb_pass_encrypted'),
   smbBasePath: text('smb_base_path').notNull().default(''),
+  smbPathTemplate: text('smb_path_template').notNull().default('{year}/{contract_number}/{year_month}_{filename}'),
   defaultLanguage: text('default_language').notNull().default('sl'),
   backupEnabled: boolean('backup_enabled').notNull().default(false),
   backupSchedule: text('backup_schedule').default('0 2 * * *'),

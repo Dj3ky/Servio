@@ -234,6 +234,8 @@
     "smbHostHint": "IP address or hostname of the file server",
     "smbShareHint": "Share name — the part after //server/",
     "smbBasePathHint": "Subfolder within the share — files are organized by customer and facility",
+    "smbPathTemplate": "Path Template",
+    "smbPathTemplateHint": "Tokens: {year}, {contract_number}, {year_month}, {filename}. Example: {year}/{contract_number}/{year_month}_{filename}",
     "smbUsernameHint": "User with write access to the share",
     "smbPassHint": "Stored encrypted on the server",
     "templates": "Templates",

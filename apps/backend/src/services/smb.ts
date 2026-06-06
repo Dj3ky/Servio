@@ -146,8 +146,12 @@ export function buildSmbPath(
   contractNumber: string,
   yearMonth: string,
   filename: string,
+  template = '{year}/{contract_number}/{year_month}_{filename}',
 ): string {
-  return [basePath, String(year), contractNumber, `${yearMonth}_${filename}`]
-    .filter(Boolean)
-    .join('/');
+  const relative = template
+    .replace(/\{year\}/g, String(year))
+    .replace(/\{contract_number\}/g, contractNumber)
+    .replace(/\{year_month\}/g, yearMonth)
+    .replace(/\{filename\}/g, filename);
+  return [basePath, relative].filter(Boolean).join('/');
 }

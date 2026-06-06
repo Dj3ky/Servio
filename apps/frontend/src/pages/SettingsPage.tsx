@@ -48,6 +48,7 @@ interface FullSettings {
   smbShare: string | null;
   smbUsername: string | null;
   smbBasePath: string | null;
+  smbPathTemplate: string | null;
   smbPassSet: boolean;
   defaultLanguage: 'sl' | 'en';
   backupEnabled: boolean;
@@ -612,6 +613,7 @@ export default function SettingsPage() {
       smbUsername: settings?.smbUsername ?? '',
       smbPassword: '',
       smbBasePath: settings?.smbBasePath ?? '',
+      smbPathTemplate: settings?.smbPathTemplate ?? '{year}/{contract_number}/{year_month}_{filename}',
     },
     resetOptions: { keepDirtyValues: true },
   });
@@ -1095,6 +1097,15 @@ export default function SettingsPage() {
                       <FormLabel>{t('settings.smbBasePath')}</FormLabel>
                       <FormControl><Input placeholder="Servio/Reports" {...field} /></FormControl>
                       <FormDescription>{t('settings.smbBasePathHint')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={smbForm.control} name="smbPathTemplate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.smbPathTemplate')}</FormLabel>
+                      <FormControl><Input placeholder="{year}/{contract_number}/{year_month}_{filename}" {...field} /></FormControl>
+                      <FormDescription>{t('settings.smbPathTemplateHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />

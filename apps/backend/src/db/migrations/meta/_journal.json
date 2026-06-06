@@ -65,5 +65,12 @@
       "tag": "0008_add_password_reset",
       "breakpoints": true
     }
+    ,{
+      "idx": 9,
+      "version": "7",
+      "when": 1749225600000,
+      "tag": "0009_add_smb_path_template",
+      "breakpoints": true
+    }
   ]
 }

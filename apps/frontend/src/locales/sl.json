@@ -234,6 +234,8 @@
     "smbHostHint": "IP naslov ali ime gostitelja datotečnega strežnika",
     "smbShareHint": "Ime skupne rabe — del za //strežnik/",
     "smbBasePathHint": "Podmapa v skupni rabi — datoteke so organizirane po stranki in objektu",
+    "smbPathTemplate": "Predloga poti",
+    "smbPathTemplateHint": "Žetoni: {year}, {contract_number}, {year_month}, {filename}. Primer: {year}/{contract_number}/{year_month}_{filename}",
     "smbUsernameHint": "Uporabnik s pravico pisanja v skupno rabo",
     "smbPassHint": "Shranjeno šifrirano na strežniku",
     "templates": "Predloge",
