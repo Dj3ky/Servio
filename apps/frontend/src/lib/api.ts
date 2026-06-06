@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/authStore';
+import { router } from '@/router';
 
 const BASE_URL = '/api';
 
@@ -62,7 +63,7 @@ async function request<T>(
     }
     if (res.status === 402 && !licensePending && !window.location.pathname.startsWith('/settings')) {
       licensePending = true;
-      window.location.href = '/settings?tab=license';
+      router.navigate('/settings?tab=license');
     }
     throw new ApiError(res.status, data?.error ?? 'errors.unknown', data?.details);
   }
