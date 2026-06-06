@@ -474,7 +474,7 @@
     "statusDesc": "Current license details for this installation",
     "valid": "Valid",
     "expired": "Expired",
-    "notFound": "Not Found",
+    "notFound": "License Not Found",
     "perpetual": "Perpetual",
     "customer": "Licensed To",
     "seats": "Seats",

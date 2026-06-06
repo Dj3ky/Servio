@@ -474,7 +474,7 @@
     "statusDesc": "Trenutne podrobnosti licence za to namestitev",
     "valid": "Veljavna",
     "expired": "Potekla",
-    "notFound": "Ni najdena",
+    "notFound": "Licenca ni najdena",
     "perpetual": "Trajna",
     "customer": "Licencirano za",
     "seats": "Mesta",
