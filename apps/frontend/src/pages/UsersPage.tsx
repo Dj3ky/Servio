@@ -30,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { createUserSchema, updateUserSchema } from '@servio/shared';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { useAuthStore } from '@/stores/authStore';
 
 interface UserRow {
   id: string;
@@ -63,6 +64,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function UsersPage() {
   const { t } = useTranslation();
+  const { user: currentUser } = useAuthStore();
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState<UserRow | null>(null);
   const [resetOpen, setResetOpen] = useState<UserRow | null>(null);
@@ -239,19 +241,21 @@ export default function UsersPage() {
               </TooltipTrigger>
               <TooltipContent>{row.original.isActive ? t('users.deactivate') : t('users.activate')}</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t('users.deleteUser')}</TooltipContent>
-            </Tooltip>
+            {row.original.id !== currentUser?.id && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(row.original)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('users.deleteUser')}</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TooltipProvider>
       ),
