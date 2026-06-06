@@ -130,7 +130,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('license.tab')}</span>
                       <span className={cn(
                         'ml-auto h-2 w-2 rounded-full shrink-0',
-                        !license.configured ? 'bg-muted-foreground' :
                         !license.valid ? 'bg-destructive' :
                         (!license.perpetual && license.daysLeft !== null && license.daysLeft !== undefined && license.daysLeft <= 30) ? 'bg-yellow-500' :
                         'bg-green-500',
@@ -139,7 +138,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     <span className="text-xs text-muted-foreground truncate pl-4">
                       {license.valid
                         ? (license.customer ?? '—')
-                        : t('license.expired')}
+                        : license.configured
+                        ? t('license.expired')
+                        : t('license.notFound')}
                     </span>
                   </div>
                 </button>
