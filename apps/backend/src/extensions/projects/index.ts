@@ -47,9 +47,9 @@ router.patch('/config', requireAuth, requireRole('settings', 'manage'), async (r
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
   const [current] = await db.select({ extensionsConfig: settings.extensionsConfig }).from(settings).where(eq(settings.id, 1)).limit(1);
-  const existing = (current?.extensionsConfig as Record<string, unknown>) ?? {};
+  const existing = (current?.extensionsConfig ?? {}) as Record<string, { enabled: boolean }>;
 
-  const updated = {
+  const updated: Record<string, { enabled: boolean }> = {
     ...existing,
     [parsed.data.extension]: { enabled: parsed.data.enabled },
   };
@@ -72,8 +72,8 @@ router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'),
 
   // Clear extension config
   const [current] = await db.select({ extensionsConfig: settings.extensionsConfig }).from(settings).where(eq(settings.id, 1)).limit(1);
-  const existing = (current?.extensionsConfig as Record<string, unknown>) ?? {};
-  const updated = { ...existing, projects: { enabled: false } };
+  const existing = (current?.extensionsConfig ?? {}) as Record<string, { enabled: boolean }>;
+  const updated: Record<string, { enabled: boolean }> = { ...existing, projects: { enabled: false } };
   await db.update(settings).set({ extensionsConfig: updated, updatedAt: new Date() }).where(eq(settings.id, 1));
 
   res.json({ success: true });

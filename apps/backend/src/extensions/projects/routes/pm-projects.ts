@@ -158,7 +158,12 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
   const parsed = updatePmProjectSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  const [updated] = await db.update(pmProjects).set({ ...parsed.data, updatedAt: new Date() }).where(eq(pmProjects.id, req.params.id)).returning();
+  const { invoicedAmount, ...rest } = parsed.data;
+  const [updated] = await db.update(pmProjects).set({
+    ...rest,
+    ...(invoicedAmount != null ? { invoicedAmount } : {}),
+    updatedAt: new Date(),
+  }).where(eq(pmProjects.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
   res.json(updated);

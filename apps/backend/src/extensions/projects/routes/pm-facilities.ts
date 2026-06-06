@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, ilike, sql } from 'drizzle-orm';
+import { eq, ilike, and, sql } from 'drizzle-orm';
 import { createPmFacilitySchema, updatePmFacilitySchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmFacilities, pmCustomers } from '../schema';
@@ -16,34 +16,30 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
   const offset = (page - 1) * limit;
 
-  let baseQuery = db
-    .select({
-      id: pmFacilities.id,
-      pmCustomerId: pmFacilities.pmCustomerId,
-      name: pmFacilities.name,
-      address: pmFacilities.address,
-      notes: pmFacilities.notes,
-      isActive: pmFacilities.isActive,
-      createdAt: pmFacilities.createdAt,
-      updatedAt: pmFacilities.updatedAt,
-      customerName: pmCustomers.name,
-    })
-    .from(pmFacilities)
-    .leftJoin(pmCustomers, eq(pmFacilities.pmCustomerId, pmCustomers.id))
-    .where(eq(pmFacilities.isActive, true));
+  const conditions = [eq(pmFacilities.isActive, true) as any];
+  if (customerId) conditions.push(eq(pmFacilities.pmCustomerId, customerId));
+  if (search) conditions.push(ilike(pmFacilities.name, `%${search}%`));
+  const where = and(...conditions);
 
-  if (customerId) {
-    baseQuery = baseQuery.where(eq(pmFacilities.pmCustomerId, customerId)) as typeof baseQuery;
-  }
-
-  if (search) {
-    baseQuery = baseQuery.where(ilike(pmFacilities.name, `%${search}%`)) as typeof baseQuery;
-  }
-
-  const countQ = db.select({ count: sql<number>`count(*)` }).from(pmFacilities).where(eq(pmFacilities.isActive, true));
   const [data, [{ count }]] = await Promise.all([
-    baseQuery.limit(limit).offset(offset).orderBy(pmFacilities.name),
-    countQ,
+    db.select({
+        id: pmFacilities.id,
+        pmCustomerId: pmFacilities.pmCustomerId,
+        name: pmFacilities.name,
+        address: pmFacilities.address,
+        notes: pmFacilities.notes,
+        isActive: pmFacilities.isActive,
+        createdAt: pmFacilities.createdAt,
+        updatedAt: pmFacilities.updatedAt,
+        customerName: pmCustomers.name,
+      })
+      .from(pmFacilities)
+      .leftJoin(pmCustomers, eq(pmFacilities.pmCustomerId, pmCustomers.id))
+      .where(where)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(pmFacilities.name),
+    db.select({ count: sql<number>`count(*)` }).from(pmFacilities).where(where),
   ]);
 
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });

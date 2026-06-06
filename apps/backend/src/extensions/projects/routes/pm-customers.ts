@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { eq, ilike, or, and, sql } from 'drizzle-orm';
 import { createPmCustomerSchema, updatePmCustomerSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmCustomers } from '../schema';
@@ -15,18 +15,13 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
   const offset = (page - 1) * limit;
 
-  let query = db.select().from(pmCustomers).where(eq(pmCustomers.isActive, true));
-  let countQuery = db.select({ count: sql<number>`count(*)` }).from(pmCustomers).where(eq(pmCustomers.isActive, true));
-
-  if (search) {
-    const condition = or(ilike(pmCustomers.name, `%${search}%`), ilike(pmCustomers.email, `%${search}%`));
-    query = query.where(condition) as typeof query;
-    countQuery = countQuery.where(condition) as typeof countQuery;
-  }
+  const conditions = [eq(pmCustomers.isActive, true) as any];
+  if (search) conditions.push(or(ilike(pmCustomers.name, `%${search}%`), ilike(pmCustomers.email, `%${search}%`)));
+  const where = and(...conditions);
 
   const [data, [{ count }]] = await Promise.all([
-    query.limit(limit).offset(offset).orderBy(pmCustomers.name),
-    countQuery,
+    db.select().from(pmCustomers).where(where).limit(limit).offset(offset).orderBy(pmCustomers.name),
+    db.select({ count: sql<number>`count(*)` }).from(pmCustomers).where(where),
   ]);
 
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
