@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Phase { id: string; name: string; orderIndex: number; status: string; }
 interface Document { id: string; originalName: string; filePath: string; fileSize: number | null; uploaderName: string | null; createdAt: string; }
+interface Invoice { id: string; projectId: string; invoiceDate: string; amount: string; notes: string | null; createdAt: string; }
 interface MeetingEntry {
   id: string; entryStatus: string; notes: string | null;
   meetingId: string; meetingDate: string; meetingNotes: string | null; createdAt: string;
@@ -51,6 +52,7 @@ export default function ProjectDetailPage() {
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [phaseName, setPhaseName] = useState('');
   const [editPhase, setEditPhase] = useState<Phase | null>(null);
+  const [invoiceForm, setInvoiceForm] = useState({ invoiceDate: '', amount: '', notes: '' });
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ['pm-project', id],
@@ -62,6 +64,35 @@ export default function ProjectDetailPage() {
     queryKey: ['pm-project-meetings', id],
     queryFn: () => api.get(`/pm/reports/project/${id}/meetings`),
     enabled: !!id,
+  });
+
+  const { data: invoices } = useQuery<Invoice[]>({
+    queryKey: ['pm-project-invoices', id],
+    queryFn: () => api.get(`/pm/projects/${id}/invoices`),
+    enabled: !!id,
+  });
+
+  const addInvoice = useMutation({
+    mutationFn: (body: typeof invoiceForm) => api.post(`/pm/projects/${id}/invoices`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      toast.success(t('pm.invoices.addedOk'));
+      setInvoiceForm({ invoiceDate: '', amount: '', notes: '' });
+    },
+    onError: () => toast.error(t('pm.invoices.error')),
+  });
+
+  const deleteInvoice = useMutation({
+    mutationFn: (invoiceId: string) => api.delete(`/pm/projects/${id}/invoices/${invoiceId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      toast.success(t('pm.invoices.deletedOk'));
+    },
+    onError: () => toast.error(t('pm.invoices.error')),
   });
 
   const addPhase = useMutation({
@@ -184,6 +215,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
+          <TabsTrigger value="invoices">{t('pm.invoices.tab')} ({invoices?.length ?? 0})</TabsTrigger>
         </TabsList>
 
         {/* Phases */}
@@ -261,6 +293,86 @@ export default function ProjectDetailPage() {
               </div>
             ))}
           </div>
+        </TabsContent>
+
+        {/* Invoices */}
+        <TabsContent value="invoices" className="space-y-4 mt-4">
+          {/* Add invoice form */}
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm font-medium mb-3">{t('pm.invoices.add')}</p>
+              <form
+                className="flex flex-wrap gap-3 items-end"
+                onSubmit={e => { e.preventDefault(); addInvoice.mutate(invoiceForm); }}
+              >
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldDate')} *</label>
+                  <Input
+                    type="date"
+                    className="w-[160px]"
+                    value={invoiceForm.invoiceDate}
+                    onChange={e => setInvoiceForm(f => ({ ...f, invoiceDate: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldAmount')} *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="w-[140px]"
+                    value={invoiceForm.amount}
+                    onChange={e => setInvoiceForm(f => ({ ...f, amount: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[180px]">
+                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldNotes')}</label>
+                  <Input
+                    placeholder={t('pm.invoices.fieldNotes') + '...'}
+                    value={invoiceForm.notes}
+                    onChange={e => setInvoiceForm(f => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+                <Button type="submit" size="sm" disabled={addInvoice.isPending}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />{t('pm.invoices.add')}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Invoice list */}
+          {(invoices ?? []).length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
+          <div className="space-y-2">
+            {(invoices ?? []).map(inv => (
+              <div key={inv.id} className="flex items-center gap-3 p-3 rounded-md border bg-card text-sm">
+                <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{inv.invoiceDate}</span>
+                <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
+                <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
+                  onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) deleteInvoice.mutate(inv.id); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Running total */}
+          {(invoices ?? []).length > 0 && (
+            <div className="flex justify-end">
+              <div className="text-sm font-medium flex gap-2">
+                <span className="text-muted-foreground">{t('pm.invoices.total')}:</span>
+                <span className="font-mono text-green-600">
+                  {formatCurrency(String((invoices ?? []).reduce((s, i) => s + parseFloat(i.amount), 0)))}
+                </span>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

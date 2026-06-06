@@ -85,6 +85,15 @@ export const pmProjectDocuments = pgTable('pm_project_documents', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const pmProjectInvoices = pgTable('pm_project_invoices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
+  invoiceDate: date('invoice_date').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export type DbPmCustomer = typeof pmCustomers.$inferSelect;
 export type DbPmFacility = typeof pmFacilities.$inferSelect;
 export type DbPmProject = typeof pmProjects.$inferSelect;

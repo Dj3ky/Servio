@@ -69,6 +69,13 @@ export const updatePmMeetingSchema = z.object({
   })).optional(),
 });
 
+// PM Project Invoices
+export const createPmInvoiceSchema = z.object({
+  invoiceDate: z.string().min(1),
+  amount: z.string().min(1),
+  notes: z.string().optional().nullable(),
+});
+
 // Extension config
 export const updateExtensionConfigSchema = z.object({
   extension: z.string().min(1),
@@ -85,3 +92,4 @@ export type CreatePmPhase = z.infer<typeof createPmPhaseSchema>;
 export type UpdatePmPhase = z.infer<typeof updatePmPhaseSchema>;
 export type CreatePmMeeting = z.infer<typeof createPmMeetingSchema>;
 export type UpdatePmMeeting = z.infer<typeof updatePmMeetingSchema>;
+export type CreatePmInvoice = z.infer<typeof createPmInvoiceSchema>;

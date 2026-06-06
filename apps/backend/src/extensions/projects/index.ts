@@ -112,6 +112,16 @@ async function ensurePmTables() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_project_invoices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+        invoice_date DATE NOT NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);

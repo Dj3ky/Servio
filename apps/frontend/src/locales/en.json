@@ -637,6 +637,23 @@
       "saveError": "Error saving",
       "error": "Error"
     },
+    "invoices": {
+      "tab": "Invoices",
+      "add": "Add invoice",
+      "addTitle": "New invoice",
+      "fieldDate": "Invoice date",
+      "fieldAmount": "Amount (€)",
+      "fieldNotes": "Notes",
+      "addedOk": "Invoice added",
+      "deletedOk": "Invoice deleted",
+      "deleteConfirm": "Delete invoice?",
+      "error": "Error",
+      "total": "Total invoiced"
+    },
+    "groupBy": {
+      "list": "List",
+      "employee": "By employee"
+    },
     "reports": {
       "title": "Project Reports",
       "subtitle": "Status overview, workload and revenue",

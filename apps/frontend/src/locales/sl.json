@@ -637,6 +637,23 @@
       "saveError": "Napaka pri shranjevanju",
       "error": "Napaka"
     },
+    "invoices": {
+      "tab": "Fakture",
+      "add": "Dodaj fakturo",
+      "addTitle": "Nova faktura",
+      "fieldDate": "Datum fakture",
+      "fieldAmount": "Znesek (€)",
+      "fieldNotes": "Opombe",
+      "addedOk": "Faktura dodana",
+      "deletedOk": "Faktura izbrisana",
+      "deleteConfirm": "Izbriši fakturo?",
+      "error": "Napaka",
+      "total": "Skupaj fakturirano"
+    },
+    "groupBy": {
+      "list": "Seznam",
+      "employee": "Po zaposlenih"
+    },
     "reports": {
       "title": "Poročila projektov",
       "subtitle": "Pregled stanja, obremenitev in prihodkov",
