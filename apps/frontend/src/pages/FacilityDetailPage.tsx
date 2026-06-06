@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit, Eye, EyeOff } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit, Eye, EyeOff, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,11 +54,14 @@ interface FacilityDetail {
   id: string;
   name: string;
   address: string | null;
-  customer: { id: string; name: string; email: string | null };
+  notes: string | null;
+  customer: { id: string; name: string; email: string | null; contactName: string | null; phone: string | null };
   contracts: Array<{
     id: string;
     contractNumber: string;
+    workOrderNumber: string | null;
     reviewFrequency: string;
+    customMonths: number[] | null;
     isActive: boolean;
     customerEmail: string | null;
     invoiceEmail: string | null;
@@ -69,6 +72,8 @@ interface FacilityDetail {
     endDate: string | null;
     valueWithoutVat: string | null;
     valueWithoutVatPerYear: string | null;
+    smbPath: string | null;
+    notes: string | null;
   }>;
 }
 
@@ -630,26 +635,71 @@ export default function FacilityDetailPage() {
 
         {/* ── CONTRACT TAB ── */}
         <TabsContent value="contract" className="space-y-4">
-          {facility.contracts.map((c) => (
-            <Card key={c.id}>
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{c.contractNumber}</div>
-                    <div className="text-sm text-muted-foreground">{t(`frequency.${c.reviewFrequency}` as any)}</div>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{t('facility.basicInfo')}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.customer')}</dt><dd className="text-sm">{facility.customer.name}</dd></div>
+                {facility.customer.contactName && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.contactName')}</dt><dd className="text-sm">{facility.customer.contactName}</dd></div>}
+                {facility.customer.phone && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('common.phone')}</dt><dd className="text-sm">{facility.customer.phone}</dd></div>}
+                <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.facility')}</dt><dd className="text-sm">{facility.name}</dd></div>
+                {facility.address && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('common.address')}</dt><dd className="text-sm">{facility.address}</dd></div>}
+                {facility.notes && <div className="col-span-2"><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('facility.facilityNotes')}</dt><dd className="text-sm whitespace-pre-wrap">{facility.notes}</dd></div>}
+              </dl>
+            </CardContent>
+          </Card>
+
+          {facility.contracts.map((c) => {
+            const months = c.reviewFrequency === 'biannual' ? [1, 7]
+              : c.reviewFrequency === 'quadannual' ? [1, 4, 7, 10]
+              : c.reviewFrequency === 'custom' ? (c.customMonths ?? [])
+              : null;
+            const monthsStr = months && months.length > 0
+              ? months.map((m) => new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2024, m - 1, 1))).join(', ')
+              : null;
+            const fmtVal = (v: string | null | undefined) => {
+              if (!v) return null;
+              const n = parseFloat(v);
+              return isNaN(n) ? null : `€ ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            };
+            return (
+              <Card key={c.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-base">{c.contractNumber}</CardTitle>
+                    <Badge variant={c.isActive ? 'success' : 'secondary'} className="ml-auto">
+                      {c.isActive ? t('common.active') : t('common.inactive')}
+                    </Badge>
                   </div>
-                  <Badge variant={c.isActive ? 'success' : 'secondary'}>
-                    {c.isActive ? t('common.active') : t('common.inactive')}
-                  </Badge>
-                </div>
-                {(c.startDate || c.endDate) && (
-                  <div className="text-sm text-muted-foreground">
-                    {c.startDate} {c.endDate ? `→ ${c.endDate}` : ''}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.contractNumber')}</dt><dd className="text-sm font-mono">{c.contractNumber}</dd></div>
+                    {c.workOrderNumber && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.workOrderNumber')}</dt><dd className="text-sm font-mono">{c.workOrderNumber}</dd></div>}
+                    <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.startDate')}</dt><dd className="text-sm">{c.startDate || '—'}</dd></div>
+                    {c.endDate && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.endDate')}</dt><dd className="text-sm">{c.endDate}</dd></div>}
+                    <div>
+                      <dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.frequency')}</dt>
+                      <dd className="text-sm">{t(`frequency.${c.reviewFrequency}` as any)}{monthsStr && <span className="text-muted-foreground ml-1 text-xs">({monthsStr})</span>}</dd>
+                    </div>
+                    <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.invoiceDelivery')}</dt><dd className="text-sm">{t(`invoiceDelivery.${c.invoiceDelivery}` as any)}</dd></div>
+                    {c.customerEmail && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('facility.reviewEmail')}</dt><dd className="text-sm">{c.customerEmail}</dd></div>}
+                    {c.invoiceEmail && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('facility.invoiceEmail')}</dt><dd className="text-sm">{c.invoiceEmail}</dd></div>}
+                    {c.valueWithoutVat && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.valueExclVat')}</dt><dd className="text-sm font-mono">{fmtVal(c.valueWithoutVat) ?? c.valueWithoutVat}</dd></div>}
+                    {c.valueWithoutVatPerYear && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.valueExclVatYear')}</dt><dd className="text-sm font-mono">{fmtVal(c.valueWithoutVatPerYear) ?? c.valueWithoutVatPerYear}</dd></div>}
+                    {c.notes && <div className="col-span-2"><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.contractNotes')}</dt><dd className="text-sm whitespace-pre-wrap">{c.notes}</dd></div>}
+                    {c.smbPath && <div className="col-span-2"><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('facility.smbPath')}</dt><dd className="text-sm font-mono text-muted-foreground">{c.smbPath}</dd></div>}
+                  </dl>
+                </CardContent>
+              </Card>
+            );
+          })}
 
           {/* Contract documents */}
           <Card>
