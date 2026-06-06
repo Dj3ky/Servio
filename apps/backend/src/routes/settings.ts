@@ -36,10 +36,19 @@ const downloadTokens = new Map<string, { filename: string; expires: number }>();
 
 router.get('/public', async (_req: Request, res: Response): Promise<void> => {
   const s = await db.query.settings.findFirst();
+  const extCfg = (s?.extensionsConfig ?? {}) as Record<string, { enabled: boolean }>;
+  const { isExtensionLicensed } = await import('../middleware/license');
+  const projectsLicensed = isExtensionLicensed('projects_extension');
   res.json({
     appName: s?.appName ?? 'Servio',
     logoUrl: s?.logoUrl ?? null,
     defaultLanguage: s?.defaultLanguage ?? 'sl',
+    extensions: {
+      projects: {
+        licensed: projectsLicensed,
+        enabled: projectsLicensed && extCfg?.projects?.enabled === true,
+      },
+    },
   });
 });
 

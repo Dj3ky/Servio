@@ -50,7 +50,13 @@
     "reports": "Reports",
     "settings": "Settings",
     "users": "Users",
-    "auditLog": "Audit Log"
+    "auditLog": "Audit Log",
+    "pmProjects": "Projects",
+    "pmMeetings": "Meetings",
+    "pmReports": "Project Reports",
+    "sectionMaintenance": "Maintenance",
+    "sectionProjects": "Projects",
+    "sectionSystem": "System"
   },
   "auth": {
     "login": "Login",
@@ -524,5 +530,29 @@
     "unknown": "Unknown error.",
     "license_invalid": "License required. Please upload a valid license file in Settings.",
     "invalid_reset_token": "This link is invalid or has expired."
+  },
+  "extensions": {
+    "tab": "Extensions",
+    "title": "Extensions",
+    "desc": "Manage installed Servio extensions.",
+    "licensed": "Licensed",
+    "notLicensed": "Not licensed",
+    "requiresLicense": "This extension is not included in your license. Contact your vendor to activate it.",
+    "saved": "Extension settings saved",
+    "saveFailed": "Failed to save settings",
+    "dangerZone": "Danger Zone",
+    "removeData": "Remove extension data",
+    "removeDataDesc": "Permanently deletes all Projects extension tables and data (pm_*). This action is irreversible.",
+    "removeBtn": "Remove data",
+    "removeSuccess": "Extension data removed successfully",
+    "removeFailed": "Failed to remove extension data",
+    "removeConfirmTitle": "Remove all project data?",
+    "removeConfirmDesc": "This will permanently delete all projects, meetings, phases, and documents. This cannot be undone.",
+    "removeConfirmType": "Type to confirm:",
+    "removeConfirmWord": "REMOVE",
+    "projects": {
+      "name": "Projects Extension",
+      "desc": "Manage projects and work orders, weekly meetings with notes, revenue tracking."
+    }
   }
 }

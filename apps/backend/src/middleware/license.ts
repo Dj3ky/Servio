@@ -104,6 +104,13 @@ export function getLicenseStatus(): LicenseStatus {
   return cachedStatus!;
 }
 
+export function isExtensionLicensed(feature: string): boolean {
+  if (PUBLIC_KEY_IS_PLACEHOLDER) return true; // dev mode — all extensions available
+  const status = getLicenseStatus();
+  if (!status.valid) return false;
+  return (status.features ?? []).includes(feature);
+}
+
 export function requireValidLicense(req: Request, res: Response, next: NextFunction): void {
   // If no public key configured yet (development), skip enforcement
   if (PUBLIC_KEY_IS_PLACEHOLDER) {

@@ -50,7 +50,13 @@
     "reports": "Poročila",
     "settings": "Nastavitve",
     "users": "Uporabniki",
-    "auditLog": "Revizijski dnevnik"
+    "auditLog": "Revizijski dnevnik",
+    "pmProjects": "Projekti",
+    "pmMeetings": "Sestanki",
+    "pmReports": "Poročila projektov",
+    "sectionMaintenance": "Vzdrževanje",
+    "sectionProjects": "Projekti",
+    "sectionSystem": "Sistem"
   },
   "auth": {
     "login": "Prijava",
@@ -524,5 +530,29 @@
     "unknown": "Neznana napaka.",
     "license_invalid": "Licenca je obvezna. Prosimo naložite veljavno licenčno datoteko v Nastavitvah.",
     "invalid_reset_token": "Povezava ni veljavna ali je potekla."
+  },
+  "extensions": {
+    "tab": "Razširitve",
+    "title": "Razširitve",
+    "desc": "Upravljanje nameščenih razširitev aplikacije Servio.",
+    "licensed": "Licencirano",
+    "notLicensed": "Ni licencirano",
+    "requiresLicense": "Ta razširitev ni vključena v vašo licenco. Kontaktirajte prodajalca za aktivacijo.",
+    "saved": "Nastavitve razširitve shranjene",
+    "saveFailed": "Napaka pri shranjevanju",
+    "dangerZone": "Nevarno območje",
+    "removeData": "Odstrani podatke razširitve",
+    "removeDataDesc": "Trajno izbriše vse tabele in podatke razširitve Projekti (pm_*). To dejanje je nepovratno.",
+    "removeBtn": "Odstrani podatke",
+    "removeSuccess": "Podatki razširitve so bili odstranjeni",
+    "removeFailed": "Napaka pri odstranjevanju",
+    "removeConfirmTitle": "Odstrani vse podatke projektov?",
+    "removeConfirmDesc": "To bo trajno izbrisalo vse projekte, sestanke, faze in dokumente. Dejanje je nepovratno.",
+    "removeConfirmType": "Za potrditev vpišite:",
+    "removeConfirmWord": "IZBRIŠI",
+    "projects": {
+      "name": "Razširitev Projekti",
+      "desc": "Upravljanje projektov in delovnih nalogov, tedni sestanki z opombami, sledenje prihodkov."
+    }
   }
 }

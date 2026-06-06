@@ -2,6 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
+  FolderKanban, CalendarCheck, PieChart,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { usePermissionsStore } from '@/stores/permissionsStore';
@@ -30,18 +31,32 @@ interface NavItem {
   labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
-  permKey?: string; // "section.action" resolved against live permissions store
+  permKey?: string;
 }
 
-const navItems: NavItem[] = [
+interface NavSection {
+  labelKey: string;
+  items: NavItem[];
+}
+
+const maintenanceItems: NavItem[] = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/' },
   { labelKey: 'nav.contracts', icon: FileText, path: '/contracts' },
   { labelKey: 'nav.contractTimeline', icon: CalendarRange, path: '/contract-timeline', permKey: 'contractTimeline.access' },
   { labelKey: 'nav.invoices', icon: Receipt, path: '/invoices', permKey: 'invoices.access' },
   { labelKey: 'nav.reports', icon: BarChart3, path: '/reports', permKey: 'reports.access' },
+];
+
+const systemItems: NavItem[] = [
   { labelKey: 'nav.users', icon: Users, path: '/users', permKey: 'users.view' },
   { labelKey: 'nav.auditLog', icon: ClipboardList, path: '/audit-log', permKey: 'auditLog.access' },
   { labelKey: 'nav.settings', icon: Settings, path: '/settings', permKey: 'settings.view' },
+];
+
+const pmItems: NavItem[] = [
+  { labelKey: 'nav.pmProjects', icon: FolderKanban, path: '/pm/projects' },
+  { labelKey: 'nav.pmMeetings', icon: CalendarCheck, path: '/pm/meetings' },
+  { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports' },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
@@ -52,6 +67,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const projectsEnabled = useSettingsStore(s => s.settings.extensions.projects.enabled);
+
   const { data: license } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
     queryFn: () => api.get<LicenseStatus>('/license/status'),
@@ -59,12 +76,44 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const visibleItems = navItems.filter((item) => {
-    if (!item.permKey) return true;
-    const [section, action] = item.permKey.split('.');
-    const roles: string[] = perms[section]?.[action] ?? [];
-    return user ? roles.includes(user.role) : false;
-  });
+  function filterItems(items: NavItem[]) {
+    return items.filter(item => {
+      if (!item.permKey) return true;
+      const [section, action] = item.permKey.split('.');
+      const roles: string[] = perms[section]?.[action] ?? [];
+      return user ? roles.includes(user.role) : false;
+    });
+  }
+
+  const sections: NavSection[] = [
+    { labelKey: 'nav.sectionMaintenance', items: filterItems(maintenanceItems) },
+    ...(projectsEnabled ? [{ labelKey: 'nav.sectionProjects', items: filterItems(pmItems) }] : []),
+    { labelKey: 'nav.sectionSystem', items: filterItems(systemItems) },
+  ].filter(s => s.items.length > 0);
+
+  function renderItem(item: NavItem) {
+    const Icon = item.icon;
+    const isActive = item.path === '/'
+      ? location.pathname === '/'
+      : location.pathname.startsWith(item.path);
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        onClick={onClose}
+        className={cn(
+          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          isActive
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {t(item.labelKey as any)}
+      </NavLink>
+    );
+  }
 
   return (
     <>
@@ -88,31 +137,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-1">
-            {visibleItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.path === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
-
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {t(item.labelKey as any)}
-                </NavLink>
-              );
-            })}
+        <ScrollArea className="flex-1 px-3 py-3">
+          <nav className="space-y-4">
+            {sections.map((section, i) => (
+              <div key={section.labelKey}>
+                {i > 0 && <div className="border-t border-sidebar-border mb-3" />}
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 select-none">
+                  {t(section.labelKey as any)}
+                </p>
+                <div className="space-y-0.5">
+                  {section.items.map(renderItem)}
+                </div>
+              </div>
+            ))}
           </nav>
         </ScrollArea>
 

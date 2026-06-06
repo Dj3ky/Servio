@@ -31,6 +31,7 @@ export const settings = pgTable('settings', {
   escalationDays: integer('escalation_days').notNull().default(3),
   licenseKey: text('license_key'),
   permissionsConfig: jsonb('permissions_config').$type<Record<string, Record<string, string[]>>>(),
+  extensionsConfig: jsonb('extensions_config').$type<Record<string, { enabled: boolean }>>(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

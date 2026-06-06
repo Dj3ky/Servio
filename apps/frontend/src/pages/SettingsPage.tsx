@@ -8,7 +8,7 @@ import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
   GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff, KeyRound,
-  ShieldCheck,
+  ShieldCheck, Puzzle, FolderKanban,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ import {
 } from '@servio/shared';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { formatDateTime, cn } from '@/lib/utils';
 
 interface FullSettings {
@@ -107,6 +108,128 @@ interface UpdateLog {
   lines: string[];
   done: boolean;
   success: boolean;
+}
+
+function ExtensionsTab() {
+  const { t } = useTranslation();
+  const ext = useSettingsStore(s => s.settings.extensions.projects);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removeInput, setRemoveInput] = useState('');
+
+  const toggle = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.patch('/pm/config', { extension: 'projects', enabled }),
+    onSuccess: async () => {
+      const pub = await api.get<any>('/settings/public');
+      useSettingsStore.getState().setSettings(pub);
+      toast.success(t('extensions.saved'));
+    },
+    onError: () => toast.error(t('extensions.saveFailed')),
+  });
+
+  const removeData = useMutation({
+    mutationFn: () => api.delete('/pm/extension-data'),
+    onSuccess: async () => {
+      const pub = await api.get<any>('/settings/public');
+      useSettingsStore.getState().setSettings(pub);
+      toast.success(t('extensions.removeSuccess'));
+      setRemoveConfirmOpen(false);
+      setRemoveInput('');
+    },
+    onError: () => toast.error(t('extensions.removeFailed')),
+  });
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Puzzle className="h-4 w-4" />
+            {t('extensions.title')}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">{t('extensions.desc')}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Projects Extension Card */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-md bg-muted p-2">
+                  <FolderKanban className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{t('extensions.projects.name')}</p>
+                    {ext.licensed
+                      ? <Badge variant="default" className="text-xs">{t('extensions.licensed')}</Badge>
+                      : <Badge variant="outline" className="text-xs text-muted-foreground">{t('extensions.notLicensed')}</Badge>
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('extensions.projects.desc')}</p>
+                </div>
+              </div>
+              <Switch
+                checked={ext.enabled}
+                disabled={!ext.licensed || toggle.isPending}
+                onCheckedChange={v => toggle.mutate(v)}
+              />
+            </div>
+            {!ext.licensed && (
+              <p className="text-xs text-muted-foreground border-t pt-3">{t('extensions.requiresLicense')}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Danger zone — only visible when extension has been set up */}
+      {ext.licensed && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-destructive text-base">{t('extensions.dangerZone')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">{t('extensions.removeData')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('extensions.removeDataDesc')}</p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={() => { setRemoveInput(''); setRemoveConfirmOpen(true); }}>
+                {t('extensions.removeBtn')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Confirm remove dialog */}
+      <Dialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">{t('extensions.removeConfirmTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>{t('extensions.removeConfirmDesc')}</p>
+            <p className="text-muted-foreground">{t('extensions.removeConfirmType')} <strong>{t('extensions.removeConfirmWord')}</strong></p>
+            <Input
+              value={removeInput}
+              onChange={e => setRemoveInput(e.target.value)}
+              placeholder={t('extensions.removeConfirmWord')}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveConfirmOpen(false)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={removeInput !== t('extensions.removeConfirmWord') || removeData.isPending}
+              onClick={() => removeData.mutate()}
+            >
+              {removeData.isPending ? t('common.loading') : t('extensions.removeBtn')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 function UpdatesTab() {
@@ -789,6 +912,7 @@ export default function SettingsPage() {
     { value: 'updates', icon: RefreshCw, label: t('settings.updates') },
     { value: 'license', icon: KeyRound, label: t('license.tab') },
     { value: 'roles', icon: ShieldCheck, label: t('settings.roles') },
+    { value: 'extensions', icon: Puzzle, label: t('extensions.tab') },
   ];
 
   return (
@@ -1487,6 +1611,7 @@ export default function SettingsPage() {
         {activeTab === 'updates' && <UpdatesTab />}
         {activeTab === 'license' && <LicenseTab />}
         {activeTab === 'roles' && <PermissionsTab />}
+        {activeTab === 'extensions' && <ExtensionsTab />}
 
         </div>
       </div>
