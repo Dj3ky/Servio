@@ -7,11 +7,10 @@ import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Phase { id: string; name: string; orderIndex: number; status: string; }
@@ -30,7 +29,6 @@ interface Project {
 
 const PRIORITY_LABELS: Record<string, string> = { high: 'Visoka', medium: 'Srednja', low: 'Nizka' };
 const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', on_hold: 'Na čakanju', completed: 'Zaključeno' };
-const PHASE_STATUS_LABELS: Record<string, string> = { pending: 'Čaka', in_progress: 'V teku', completed: 'Zaključeno' };
 const ENTRY_STATUS_LABELS: Record<string, string> = { done: 'Dokončano', in_progress: 'V teku', blocked: 'Blokirano' };
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
 

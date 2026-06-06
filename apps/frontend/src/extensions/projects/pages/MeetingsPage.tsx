@@ -32,7 +32,6 @@ interface EntryDraft {
   entryStatus: string; notes: string;
 }
 
-const PRIORITY_LABELS: Record<string, string> = { high: 'Visoka', medium: 'Srednja', low: 'Nizka' };
 const ENTRY_STATUS_LABELS: Record<string, string> = { done: 'Dokončano', in_progress: 'V teku', blocked: 'Blokirano' };
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
 
