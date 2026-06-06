@@ -50,6 +50,10 @@ async function ensureSettingsColumns() {
     ALTER TABLE invoices
       ADD COLUMN IF NOT EXISTS email_bounced boolean NOT NULL DEFAULT false
   `);
+  await db.execute(sql`
+    ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS smb_path_template text NOT NULL DEFAULT '{year}/{contract_number}/{year_month}_{filename}'
+  `);
 }
 
 async function start() {
