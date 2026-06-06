@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, inArray } from 'drizzle-orm';
 import { createPmMeetingSchema, updatePmMeetingSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects } from '../schema';
@@ -94,6 +94,14 @@ router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Re
         notes: e.notes ?? null,
       }))
     );
+
+    // Auto-complete projects whose entry was marked done
+    const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'done').map(e => e.projectId);
+    if (doneIds.length > 0) {
+      await db.update(pmProjects)
+        .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+        .where(inArray(pmProjects.id, doneIds));
+    }
   }
 
   res.status(201).json(meeting);
@@ -123,6 +131,14 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
           notes: e.notes ?? null,
         }))
       );
+
+      // Auto-complete projects whose entry was marked done
+      const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'done').map(e => e.projectId);
+      if (doneIds.length > 0) {
+        await db.update(pmProjects)
+          .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+          .where(inArray(pmProjects.id, doneIds));
+      }
     }
   }
 
