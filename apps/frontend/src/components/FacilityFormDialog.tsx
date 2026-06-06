@@ -144,7 +144,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
   }, [open]);
 
   useEffect(() => {
-    if (!facilityData) return;
+    if (!facilityData || !open) return;
     const contract = facilityData.contracts.find((c) => c.isActive) ?? facilityData.contracts[0];
     form.reset({
       customerName: facilityData.customer.name,
@@ -166,7 +166,7 @@ export function FacilityFormDialog({ open, onClose, facilityId }: FacilityFormDi
       smbPath: contract?.smbPath ?? '',
       notes: contract?.notes ?? '',
     });
-  }, [facilityData]);
+  }, [facilityData, open]);
 
   const reviewFrequency = form.watch('reviewFrequency');
   const customMonths = form.watch('customMonths') ?? [];
