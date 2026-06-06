@@ -573,7 +573,8 @@
       "invoiced": "Fakturirano",
       "remaining": "Ostalo",
       "deadline": "Rok",
-      "startDateShort": "Začetek"
+      "startDateShort": "Začetek",
+      "completedAt": "Zaključeno"
     },
     "projects": {
       "title": "Projekti",

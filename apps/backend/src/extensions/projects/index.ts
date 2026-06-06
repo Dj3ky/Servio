@@ -67,6 +67,7 @@ async function ensurePmTables() {
     // Ensure text columns exist on tables that may have been created with the old FK structure
     await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS customer_name TEXT`);
     await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS facility_name TEXT`);
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS pm_project_phases (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

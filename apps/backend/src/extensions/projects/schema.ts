@@ -39,6 +39,7 @@ export const pmProjects = pgTable('pm_projects', {
   contractValue: numeric('contract_value', { precision: 12, scale: 2 }),
   invoicedAmount: numeric('invoiced_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   notes: text('notes'),
+  completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

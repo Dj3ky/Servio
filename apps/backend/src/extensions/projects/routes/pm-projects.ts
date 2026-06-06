@@ -49,6 +49,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
     notes: pmProjects.notes,
+    completedAt: pmProjects.completedAt,
     createdAt: pmProjects.createdAt,
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
@@ -85,6 +86,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
     notes: pmProjects.notes,
+    completedAt: pmProjects.completedAt,
     createdAt: pmProjects.createdAt,
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
@@ -151,9 +153,13 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
   const { invoicedAmount, ...rest } = parsed.data;
+  const completedAtUpdate = 'status' in parsed.data
+    ? { completedAt: parsed.data.status === 'completed' ? new Date() : null }
+    : {};
   const [updated] = await db.update(pmProjects).set({
     ...rest,
     ...(invoicedAmount != null ? { invoicedAmount } : {}),
+    ...completedAtUpdate,
     updatedAt: new Date(),
   }).where(eq(pmProjects.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }

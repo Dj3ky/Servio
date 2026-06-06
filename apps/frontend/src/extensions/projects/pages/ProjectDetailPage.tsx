@@ -29,6 +29,7 @@ interface Project {
   contractValue: string | null; invoicedAmount: string; notes: string | null;
   employeeId: string | null; employeeName: string | null;
   customerName: string | null; facilityName: string | null;
+  completedAt: string | null;
   phases: Phase[]; documents: Document[];
 }
 
@@ -248,6 +249,12 @@ export default function ProjectDetailPage() {
           <CardContent className="p-4 space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.startDateShort')}</span><span>{project.startDate ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.deadline')}</span><span className={isOverdue ? 'text-destructive font-medium' : ''}>{project.endDate ?? '—'}</span></div>
+            {project.completedAt && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('pm.fields.completedAt')}</span>
+                <span className="text-green-600 font-medium">{new Date(project.completedAt).toLocaleDateString()}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>

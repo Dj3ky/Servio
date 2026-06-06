@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +26,23 @@ interface MeetingEntry {
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
 }
-
 interface EntryDraft {
   projectId: string; projectNumber: string; projectName: string; priority: string;
   entryStatus: string; notes: string;
 }
 
 const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
+
+const GROUP_COLORS = [
+  'bg-blue-500/10 border-l-4 border-l-blue-500',
+  'bg-emerald-500/10 border-l-4 border-l-emerald-500',
+  'bg-violet-500/10 border-l-4 border-l-violet-500',
+  'bg-amber-500/10 border-l-4 border-l-amber-500',
+  'bg-rose-500/10 border-l-4 border-l-rose-500',
+  'bg-cyan-500/10 border-l-4 border-l-cyan-500',
+  'bg-orange-500/10 border-l-4 border-l-orange-500',
+  'bg-teal-500/10 border-l-4 border-l-teal-500',
+];
 
 export default function MeetingsPage() {
   const { t } = useTranslation();
@@ -43,6 +53,8 @@ export default function MeetingsPage() {
   const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0]);
   const [meetingNotes, setMeetingNotes] = useState('');
   const [entries, setEntries] = useState<EntryDraft[]>([]);
+  const [groupByEmployee, setGroupByEmployee] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings'],
@@ -87,6 +99,15 @@ export default function MeetingsPage() {
     setEntries(prev => prev.map(e => e.projectId === projectId ? { ...e, [field]: value } : e));
   }
 
+  function toggleGroup(key: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   const createMeeting = useMutation({
     mutationFn: () => api.post('/pm/meetings', {
       meetingDate,
@@ -112,6 +133,42 @@ export default function MeetingsPage() {
 
   const meetings = data?.data ?? [];
 
+  const grouped = useMemo(() => {
+    const groups: { key: string; name: string | null; meetings: Meeting[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const m of meetings) {
+      const key = m.createdByName ?? '__none__';
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, name: m.createdByName, meetings: [] });
+      }
+      groups[seen.get(key)!].meetings.push(m);
+    }
+    return groups;
+  }, [meetings]);
+
+  const tableHead = (
+    <tr className="border-b bg-muted/50 text-muted-foreground">
+      <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colDate')}</th>
+      <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colNotes')}</th>
+      {!groupByEmployee && <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colCreatedBy')}</th>}
+      <th className="px-4 py-3" />
+    </tr>
+  );
+
+  function renderRow(m: Meeting) {
+    return (
+      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => setDetailId(m.id)}>
+        <td className="px-4 py-3 font-mono">{m.meetingDate}</td>
+        <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
+        {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>}
+        <td className="px-4 py-3 text-right">
+          <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -119,40 +176,73 @@ export default function MeetingsPage() {
           <h1 className="text-2xl font-bold">{t('pm.meetings.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('pm.meetings.subtitle')}</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>
+        <div className="flex items-center gap-3">
+          {/* View toggle */}
+          <div className="flex rounded-md border overflow-hidden">
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${!groupByEmployee ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              onClick={() => setGroupByEmployee(false)}
+            >
+              <LayoutList className="h-3.5 w-3.5" />{t('pm.groupBy.list')}
+            </button>
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l transition-colors ${groupByEmployee ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              onClick={() => setGroupByEmployee(true)}
+            >
+              <Users className="h-3.5 w-3.5" />{t('pm.groupBy.employee')}
+            </button>
+          </div>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>
+        </div>
       </div>
 
-      {/* Meetings list */}
-      <div className="rounded-md border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-muted-foreground">
-              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colDate')}</th>
-              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colNotes')}</th>
-              <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colCreatedBy')}</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.loading')}</td></tr>
-            )}
-            {!isLoading && meetings.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.noData')}</td></tr>
-            )}
-            {meetings.map(m => (
-              <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => setDetailId(m.id)}>
-                <td className="px-4 py-3 font-mono">{m.meetingDate}</td>
-                <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
-                <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>
-                <td className="px-4 py-3 text-right">
-                  <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Flat list */}
+      {!groupByEmployee && (
+        <div className="rounded-md border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>{tableHead}</thead>
+            <tbody>
+              {isLoading && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.loading')}</td></tr>}
+              {!isLoading && meetings.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.noData')}</td></tr>}
+              {meetings.map(renderRow)}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Grouped by employee */}
+      {groupByEmployee && (
+        <div className="space-y-3">
+          {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</p>}
+          {!isLoading && grouped.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>}
+          {grouped.map((group, idx) => {
+            const collapsed = collapsedGroups.has(group.key);
+            return (
+              <div key={group.key} className="rounded-md border overflow-hidden">
+                {/* Group header — click to collapse */}
+                <button
+                  className={`w-full px-4 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                  onClick={() => toggleGroup(group.key)}
+                >
+                  <Users className="h-4 w-4 opacity-70 shrink-0" />
+                  <span className="flex-1">{group.name ?? t('pm.reports.unassigned')}</span>
+                  <span className="font-normal text-muted-foreground">({group.meetings.length})</span>
+                  {collapsed
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                {/* Rows */}
+                {!collapsed && (
+                  <table className="w-full text-sm">
+                    <thead>{tableHead}</thead>
+                    <tbody>{group.meetings.map(renderRow)}</tbody>
+                  </table>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* New meeting dialog */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
@@ -169,8 +259,6 @@ export default function MeetingsPage() {
               <label className="text-sm font-medium">{t('pm.meetings.fieldNotes')}</label>
               <Textarea placeholder={t('pm.meetings.notesPlaceholder')} value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} />
             </div>
-
-            {/* Projects grid */}
             <div className="space-y-2">
               <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({entries.length})</p>
               {entries.length === 0 && <p className="text-sm text-muted-foreground">{t('pm.meetings.noActiveProjects')}</p>}

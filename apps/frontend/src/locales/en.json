@@ -573,7 +573,8 @@
       "invoiced": "Invoiced",
       "remaining": "Remaining",
       "deadline": "Deadline",
-      "startDateShort": "Start"
+      "startDateShort": "Start",
+      "completedAt": "Completed on"
     },
     "projects": {
       "title": "Projects",

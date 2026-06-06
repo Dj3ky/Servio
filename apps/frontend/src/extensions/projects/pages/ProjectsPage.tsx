@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users } from 'lucide-react';
+import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +78,15 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [groupByEmployee, setGroupByEmployee] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(key: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
   const debouncedSearch = useDebounce(search, 300);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -266,21 +275,32 @@ export default function ProjectsPage() {
       {groupByEmployee && !isLoading && (
         <div className="space-y-4">
           {grouped.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>}
-          {grouped.map((group, idx) => (
-            <div key={group.key} className="rounded-md border overflow-hidden">
-              <div className={`px-4 py-2 text-sm font-semibold flex items-center gap-2 ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}>
-                <Users className="h-4 w-4 opacity-70" />
-                {group.employeeName ?? t('pm.reports.unassigned')}
-                <span className="font-normal text-muted-foreground ml-1">({group.projects.length})</span>
+          {grouped.map((group, idx) => {
+            const collapsed = collapsedGroups.has(group.key);
+            return (
+              <div key={group.key} className="rounded-md border overflow-hidden">
+                <button
+                  className={`w-full px-4 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                  onClick={() => toggleGroup(group.key)}
+                >
+                  <Users className="h-4 w-4 opacity-70 shrink-0" />
+                  <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                  <span className="font-normal text-muted-foreground">({group.projects.length})</span>
+                  {collapsed
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                {!collapsed && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>{tableHeaders}</thead>
+                      <tbody>{group.projects.map(renderProjectRow)}</tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>{tableHeaders}</thead>
-                  <tbody>{group.projects.map(renderProjectRow)}</tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
