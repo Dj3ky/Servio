@@ -383,6 +383,8 @@
     "resetPassword": "Reset Password",
     "deactivate": "Deactivate",
     "activate": "Activate",
+    "deleteUser": "Delete User",
+    "deleteUserConfirm": "This action is permanent and cannot be undone. The user will be permanently removed.",
     "lastLogin": "Last Login",
     "actions": "Actions",
     "roles": {

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users, Activity, Pencil } from 'lucide-react';
+import { Plus, Key, UserX, UserCheck, Search, SlidersHorizontal, Users, Activity, Pencil, Trash2 } from 'lucide-react';
 import {
   createColumnHelper,
   flexRender,
@@ -66,6 +66,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState<UserRow | null>(null);
   const [resetOpen, setResetOpen] = useState<UserRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -116,6 +117,15 @@ export default function UsersPage() {
   const resetMutation = useMutation({
     mutationFn: ({ id, password }: { id: string; password: string }) => api.post(`/users/${id}/reset-password`, { password }),
     onSuccess: () => { toast.success(t('common.save')); setResetOpen(null); resetForm.reset(); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      toast.success(t('common.delete'));
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setDeleteTarget(null);
+    },
   });
 
   const columns = useMemo(() => [
@@ -228,6 +238,19 @@ export default function UsersPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{row.original.isActive ? t('users.deactivate') : t('users.activate')}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('users.deleteUser')}</TooltipContent>
             </Tooltip>
           </div>
         </TooltipProvider>
@@ -452,6 +475,27 @@ export default function UsersPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete user dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('users.deleteUser')}</DialogTitle>
+            {deleteTarget && <p className="text-sm text-muted-foreground">{deleteTarget.name} · {deleteTarget.email}</p>}
+          </DialogHeader>
+          <p className="text-sm">{t('users.deleteUserConfirm')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

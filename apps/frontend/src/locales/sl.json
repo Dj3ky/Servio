@@ -383,6 +383,8 @@
     "resetPassword": "Ponastavi geslo",
     "deactivate": "Deaktiviraj",
     "activate": "Aktiviraj",
+    "deleteUser": "Izbriši uporabnika",
+    "deleteUserConfirm": "To dejanje je trajno in ga ni mogoče razveljaviti. Uporabnik bo trajno odstranjen.",
     "lastLogin": "Zadnja prijava",
     "actions": "Dejanja",
     "roles": {

@@ -127,6 +127,36 @@ router.patch('/:id', requireRole('users', 'manage'), async (req: Request, res: R
   res.json({ id: updated.id, email: updated.email, name: updated.name, role: updated.role, isActive: updated.isActive });
 });
 
+router.delete('/:id', requireRole('users', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  if (id === req.auth!.userId) {
+    res.status(400).json({ error: 'errors.cannot_delete_self' });
+    return;
+  }
+
+  const user = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, id) });
+  if (!user) {
+    res.status(404).json({ error: 'errors.not_found' });
+    return;
+  }
+
+  await db.update(auditLogs).set({ userId: null }).where(eq(auditLogs.userId, id));
+  await db.delete(users).where(eq(users.id, id));
+
+  await createAuditLog({
+    userId: req.auth!.userId,
+    userEmail: req.auth!.email,
+    action: 'delete',
+    entityType: 'user',
+    entityId: id,
+    payload: { email: user.email, name: user.name },
+    req,
+  });
+
+  res.json({ success: true });
+});
+
 router.post('/:id/reset-password', requireRole('users', 'resetPassword'), async (req: Request, res: Response): Promise<void> => {
   const parsed = resetPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
