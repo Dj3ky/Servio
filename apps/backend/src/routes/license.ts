@@ -32,7 +32,7 @@ router.post('/upload', requireAuth, requireRole('license', 'access'), upload.sin
 
   if (!status.valid) {
     setLicenseTokenFromDb(null);
-    res.status(400).json({ error: 'errors.license_invalid' });
+    res.status(400).json({ error: 'errors.license_invalid', detail: status.error });
     return;
   }
 

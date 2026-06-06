@@ -96,7 +96,8 @@ export function getLicenseStatus(): LicenseStatus {
     if (err.name === 'TokenExpiredError') {
       cachedStatus = { valid: false, configured: true, error: 'License has expired' };
     } else {
-      cachedStatus = { valid: false, configured: true, error: 'Invalid license file' };
+      console.error('[license] JWT verification failed:', err.name, err.message);
+      cachedStatus = { valid: false, configured: true, error: `Invalid license: ${err.message}` };
     }
   }
 
