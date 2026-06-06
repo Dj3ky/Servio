@@ -60,7 +60,7 @@ async function request<T>(
       useAuthStore.getState().clearAuth();
       window.location.href = '/login';
     }
-    if (res.status === 402 && !licensePending) {
+    if (res.status === 402 && !licensePending && !window.location.pathname.startsWith('/settings')) {
       licensePending = true;
       window.location.href = '/settings?tab=license';
     }

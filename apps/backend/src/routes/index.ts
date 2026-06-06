@@ -24,7 +24,13 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/license', licenseRoutes);
 
-// All routes below require a valid license (skipped automatically when public key is placeholder)
+// Settings GET is allowed without a license so admins can reach the license upload page
+router.use('/settings', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  return requireValidLicense(req, res, next);
+}, settingsRoutes);
+
+// All other routes require a valid license (skipped automatically when public key is placeholder)
 router.use((req, res, next) => requireValidLicense(req, res, next));
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
@@ -33,7 +39,6 @@ router.use('/facilities', facilityRoutes);
 router.use('/contracts', contractRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/invoices', invoiceRoutes);
-router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/reports', reportRoutes);
