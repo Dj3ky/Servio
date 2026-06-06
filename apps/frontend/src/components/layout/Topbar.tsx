@@ -36,18 +36,24 @@ function LicenseWarning() {
   if (license.perpetual) return null;
   if (license.valid && (license.daysLeft === null || license.daysLeft === undefined || license.daysLeft > 30)) return null;
 
+  const notConfigured = !license.configured;
   const expired = !license.valid && license.configured;
   const isAdmin = user.role === 'admin';
-  const label = expired
+
+  const label = notConfigured
+    ? t('license.notFound')
+    : expired
     ? t('license.expired')
     : t('license.expiringSoon', { days: license.daysLeft });
 
+  const isRed = notConfigured || expired;
+
   const className = cn(
     'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium border',
-    expired
+    isRed
       ? 'border-destructive/50 bg-destructive/10 text-destructive'
       : 'border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-    isAdmin && (expired ? 'hover:bg-destructive/20 cursor-pointer' : 'hover:bg-yellow-500/20 cursor-pointer'),
+    isAdmin && (isRed ? 'hover:bg-destructive/20 cursor-pointer' : 'hover:bg-yellow-500/20 cursor-pointer'),
     !isAdmin && 'cursor-default',
   );
 
