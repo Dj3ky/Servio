@@ -25,6 +25,12 @@ export function NotificationCenter() {
   const { t } = useTranslation();
   const { setNotifications, markRead, markAllRead, unreadCount } = useNotificationStore();
 
+  const { data: licenseStatus } = useQuery<{ valid: boolean }>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get('/license/status'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
@@ -33,6 +39,7 @@ export function NotificationCenter() {
       return result;
     },
     refetchInterval: 60000,
+    enabled: licenseStatus?.valid === true,
   });
 
   const markReadMutation = useMutation({

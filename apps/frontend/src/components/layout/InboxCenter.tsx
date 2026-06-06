@@ -30,6 +30,12 @@ export function InboxCenter() {
   const { enabled, unreadCount, messages, setInbox, markSeen } = useInboxStore();
   const [openUid, setOpenUid] = useState<number | null>(null);
 
+  const { data: licenseStatus } = useQuery<{ valid: boolean }>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get('/license/status'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   useQuery({
     queryKey: ['inbox'],
     queryFn: async () => {
@@ -38,6 +44,7 @@ export function InboxCenter() {
       return result;
     },
     refetchInterval: 5 * 60 * 1000,
+    enabled: licenseStatus?.valid === true,
   });
 
   const { data: messageDetail, isLoading: messageLoading, isError: messageError } = useQuery({

@@ -495,7 +495,11 @@
     "delete": "Remove License",
     "deleteTitle": "Remove License",
     "deleteConfirm": "This will remove the current license. The app will require a new license file to continue working.",
-    "deleteSuccess": "License removed."
+    "deleteSuccess": "License removed.",
+    "gateTitle": "License Required",
+    "gateDesc": "A valid license is required to use this application. Please contact your software vendor.",
+    "gateButton": "Configure License",
+    "gateNonAdmin": "This application requires a valid license. Please contact your system administrator to activate it."
   },
   "errors": {
     "unauthorized": "You are not authorized to access this.",

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { LicenseGate } from './LicenseGate';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { usePermissionsStore, type PermMap } from '@/stores/permissionsStore';
 import { api } from '@/lib/api';
@@ -49,7 +50,9 @@ export function Layout() {
           onToggleDark={() => setDarkMode((d) => !d)}
         />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <Outlet />
+          <LicenseGate>
+            <Outlet />
+          </LicenseGate>
         </main>
       </div>
     </div>
