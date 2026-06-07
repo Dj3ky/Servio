@@ -147,6 +147,7 @@ export default function MeetingsPage() {
       qc.invalidateQueries({ queryKey: ['pm-meetings'] });
       qc.invalidateQueries({ queryKey: ['pm-active-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(t('pm.meetings.savedOk'));
       setNewOpen(false);
     },

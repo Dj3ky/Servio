@@ -89,6 +89,7 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(t('pm.projects.savedOk'));
       setEditDialogOpen(false);
     },
@@ -100,6 +101,7 @@ export default function ProjectDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
     },
     onError: () => toast.error(t('pm.projects.saveError')),
   });
@@ -129,6 +131,7 @@ export default function ProjectDetailPage() {
       qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(t('pm.invoices.addedOk'));
       setInvoiceForm({ invoiceDate: '', amount: '', notes: '' });
     },
@@ -141,6 +144,7 @@ export default function ProjectDetailPage() {
       qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(t('pm.invoices.deletedOk'));
     },
     onError: () => toast.error(t('pm.invoices.error')),

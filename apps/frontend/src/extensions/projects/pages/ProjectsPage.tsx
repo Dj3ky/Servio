@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen } from 'lucide-react';
+import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,7 +79,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [groupByEmployee, setGroupByEmployee] = useState(false);
+  const [groupByEmployee, setGroupByEmployee] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   function toggleGroup(key: string) {
@@ -119,6 +119,7 @@ export default function ProjectsPage() {
         : api.post('/pm/projects', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(editingId ? t('pm.projects.savedOk') : t('pm.projects.createdOk'));
       setDialogOpen(false);
     },
@@ -161,6 +162,90 @@ export default function ProjectsPage() {
     }
     return groups;
   }, [projects]);
+
+  function printProjects() {
+    const date = new Date().toLocaleDateString('sl-SI');
+    const title = archiveMode ? t('pm.projects.archiveTitle') : t('pm.projects.title');
+
+    const groupsToRender = groupByEmployee ? grouped : [{
+      key: '__all__',
+      employeeName: null,
+      projects,
+    }];
+
+    const PRINT_GROUP_COLORS = [
+      '#dbeafe', '#d1fae5', '#ede9fe', '#fef3c7',
+      '#fee2e2', '#cffafe', '#ffedd5', '#ccfbf1',
+    ];
+
+    const groupHtml = groupsToRender.map((g, idx) => {
+      const bgColor = groupByEmployee ? PRINT_GROUP_COLORS[idx % PRINT_GROUP_COLORS.length] : 'transparent';
+      const rows = g.projects.map(p => {
+        const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+        const fmtEur = (v: number | string | null | undefined) => {
+          const n = parseFloat(String(v ?? 0));
+          return isNaN(n) ? '—' : new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
+        };
+        const priorityLabel = t(`pm.priority.${p.priority}`);
+        const statusLabel = t(`pm.status.${p.status}`);
+        const deadline = p.endDate ?? '—';
+        const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
+        return `<tr>
+          <td>${p.projectNumber}<br><span style="font-size:10px;color:#555">${p.name}</span></td>
+          <td>${p.customerName ?? '—'}</td>
+          <td>${p.facilityName ?? '—'}</td>
+          ${!archiveMode ? `<td>${priorityLabel}</td><td>${statusLabel}</td>` : ''}
+          <td style="text-align:right">${fmtEur(p.contractValue)}</td>
+          <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
+          ${!archiveMode ? `<td style="text-align:right;${remaining > 0 ? 'color:#15803d' : ''}">${fmtEur(remaining)}</td>
+          <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>` : ''}
+          ${archiveMode ? `<td style="color:#15803d">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>` : ''}
+        </tr>`;
+      }).join('');
+
+      const headerRow = !archiveMode
+        ? `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Prioriteta</th><th>Status</th><th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">Ostalo</th><th>Rok</th>`
+        : `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th>Zaključeno</th>`;
+
+      const groupHeader = groupByEmployee
+        ? `<div style="background:${bgColor};border-left:4px solid #6366f1;padding:6px 10px;font-weight:700;font-size:12px;margin-top:16px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
+        : '';
+
+      return `${groupHeader}
+        <table>
+          <thead><tr>${headerRow}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:#888">Opombe / Notes:</div>
+        <div style="border:1px solid #ccc;height:60px;margin-bottom:16px"></div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        @page { size: A4 landscape; margin: 15mm; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+        h2 { font-size: 14px; margin: 0 0 2px 0; }
+        .meta { font-size: 10px; color: #666; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
+        th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
+        td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        @media print { button { display: none; } }
+      </style>
+    </head><body>
+      <h2>${title}</h2>
+      <div class="meta">${date} · ${projects.length} projektov</div>
+      ${groupHtml}
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  }
 
   const tableHeaders = archiveMode ? (
     <tr className="border-b bg-muted/50 text-muted-foreground">
@@ -256,6 +341,7 @@ export default function ProjectsPage() {
               <Archive className="h-3.5 w-3.5" />{t('pm.projects.archiveTab')}
             </button>
           </div>
+          <Button variant="outline" size="icon" onClick={printProjects} title={t('pm.projects.print')}><Printer className="h-4 w-4" /></Button>
           {!archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
         </div>
       </div>

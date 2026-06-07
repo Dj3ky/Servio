@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,17 @@ interface OverdueProject {
 
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
 
+const GROUP_COLORS = [
+  'bg-blue-500/10 border-l-4 border-l-blue-500',
+  'bg-emerald-500/10 border-l-4 border-l-emerald-500',
+  'bg-violet-500/10 border-l-4 border-l-violet-500',
+  'bg-amber-500/10 border-l-4 border-l-amber-500',
+  'bg-rose-500/10 border-l-4 border-l-rose-500',
+  'bg-cyan-500/10 border-l-4 border-l-cyan-500',
+  'bg-orange-500/10 border-l-4 border-l-orange-500',
+  'bg-teal-500/10 border-l-4 border-l-teal-500',
+];
+
 function fmt(v: string | null | undefined) {
   if (!v) return '—';
   return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(parseFloat(v));
@@ -38,19 +51,28 @@ function fmt(v: string | null | undefined) {
 
 export default function ProjectReportsPage() {
   const { t } = useTranslation();
+  const [collapsedWorkload, setCollapsedWorkload] = useState<Set<string>>(new Set());
+
+  function toggleWorkload(key: string) {
+    setCollapsedWorkload(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   const { data: summary, isLoading: loadingSummary } = useQuery<SummaryData>({
-    queryKey: ['pm-report-summary'],
+    queryKey: ['pm-report', 'summary'],
     queryFn: () => api.get('/pm/reports/summary'),
   });
 
   const { data: workload, isLoading: loadingWorkload } = useQuery<WorkloadGroup[]>({
-    queryKey: ['pm-report-workload'],
+    queryKey: ['pm-report', 'workload'],
     queryFn: () => api.get('/pm/reports/workload'),
   });
 
   const { data: overdue, isLoading: loadingOverdue } = useQuery<OverdueProject[]>({
-    queryKey: ['pm-report-overdue'],
+    queryKey: ['pm-report', 'overdue'],
     queryFn: () => api.get('/pm/reports/overdue'),
   });
 
@@ -90,52 +112,68 @@ export default function ProjectReportsPage() {
           <TabsTrigger value="employee">{t('pm.reports.tabEmployee')}</TabsTrigger>
         </TabsList>
 
-        {/* Workload */}
-        <TabsContent value="workload" className="mt-4 space-y-6">
+        {/* Workload — collapsible by employee */}
+        <TabsContent value="workload" className="mt-4 space-y-3">
           {loadingWorkload && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
-          {(workload ?? []).map(group => (
-            <div key={group.employeeId ?? 'unassigned'} className="space-y-2">
-              <h3 className="font-semibold text-sm">
-                {group.employeeName ?? t('pm.reports.unassigned')}
-                <span className="text-muted-foreground font-normal"> ({group.projects.length})</span>
-              </h3>
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-muted-foreground">
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colWorkOrder')}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colCustomer')}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colPriority')}</th>
-                      <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colDeadline')}</th>
-                      <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colValue')}</th>
-                      <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colRemaining')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.projects.map(p => {
-                      const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
-                      const isOverdue = p.endDate && new Date(p.endDate) < new Date();
-                      return (
-                        <tr key={p.id} className="border-b last:border-0">
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{p.projectNumber}</div>
-                            <div className="text-xs text-muted-foreground">{p.name}</div>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">{p.customerName ?? '—'}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant={PRIORITY_COLORS[p.priority] as any} className="text-xs">{t(`pm.priority.${p.priority}`)}</Badge>
-                          </td>
-                          <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{p.endDate ?? '—'}</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
-                          <td className={`px-3 py-2 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(String(remaining))}</td>
+          {(workload ?? []).length === 0 && !loadingWorkload && (
+            <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
+          )}
+          {(workload ?? []).map((group, idx) => {
+            const key = group.employeeId ?? '__unassigned__';
+            const collapsed = collapsedWorkload.has(key);
+            return (
+              <div key={key} className="rounded-md border overflow-hidden">
+                <button
+                  className={`w-full px-4 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                  onClick={() => toggleWorkload(key)}
+                >
+                  <Users className="h-4 w-4 opacity-70 shrink-0" />
+                  <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                  <span className="font-normal text-muted-foreground">({group.projects.length})</span>
+                  {collapsed
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                {!collapsed && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-muted-foreground">
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colWorkOrder')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colCustomer')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colPriority')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colDeadline')}</th>
+                          <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colValue')}</th>
+                          <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colRemaining')}</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {group.projects.map(p => {
+                          const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+                          const isOverdue = p.endDate && new Date(p.endDate) < new Date();
+                          return (
+                            <tr key={p.id} className="border-b last:border-0">
+                              <td className="px-3 py-2">
+                                <div className="font-medium">{p.projectNumber}</div>
+                                <div className="text-xs text-muted-foreground">{p.name}</div>
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground text-xs">{p.customerName ?? '—'}</td>
+                              <td className="px-3 py-2">
+                                <Badge variant={PRIORITY_COLORS[p.priority] as any} className="text-xs">{t(`pm.priority.${p.priority}`)}</Badge>
+                              </td>
+                              <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{p.endDate ?? '—'}</td>
+                              <td className="px-3 py-2 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
+                              <td className={`px-3 py-2 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(String(remaining))}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </TabsContent>
 
         {/* By status */}
@@ -203,7 +241,7 @@ export default function ProjectReportsPage() {
           )}
         </TabsContent>
 
-        {/* By employee */}
+        {/* By employee summary */}
         <TabsContent value="employee" className="mt-4">
           {loadingSummary && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
           {summary && (
