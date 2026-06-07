@@ -9,11 +9,35 @@ import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
 import path from 'path';
 import fs from 'fs/promises';
+import crypto from 'crypto';
 
 const router = Router();
-router.use(requireRole('projects', 'access'));
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'pm-documents');
+
+// Short-lived one-time download tokens (30s TTL) — same pattern as settings backup downloads
+const docDownloadTokens = new Map<string, { docId: string; projectId: string; filename: string; originalName: string; expires: number }>();
+
+// Token-authenticated file download — no Bearer header needed, secured by one-time token.
+// Must be registered BEFORE requireRole so browser/PWA navigations (window.open) work.
+router.get('/:id/documents/:docId/file/:filename', async (req: Request, res: Response): Promise<void> => {
+  const { token } = req.query as { token?: string };
+  if (!token) { res.status(401).json({ error: 'errors.unauthorized' }); return; }
+  const entry = docDownloadTokens.get(token);
+  docDownloadTokens.delete(token);
+  if (!entry || entry.docId !== req.params.docId || entry.projectId !== req.params.id || entry.expires < Date.now()) {
+    res.status(401).json({ error: 'errors.unauthorized' }); return;
+  }
+  const filePath = path.join(UPLOADS_DIR, entry.filename);
+  try {
+    await fs.access(filePath);
+    res.download(filePath, entry.originalName);
+  } catch {
+    res.status(404).json({ error: 'errors.not_found' });
+  }
+});
+
+router.use(requireRole('projects', 'access'));
 
 async function ensureUploadsDir() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
@@ -243,6 +267,22 @@ router.post('/:id/documents', requireRole('projects', 'manage'), documentUpload.
   }).returning();
 
   res.status(201).json(doc);
+});
+
+router.post('/:id/documents/:docId/download-token', async (req: Request, res: Response): Promise<void> => {
+  const [doc] = await db.select({
+    id: pmProjectDocuments.id,
+    projectId: pmProjectDocuments.projectId,
+    filename: pmProjectDocuments.filename,
+    originalName: pmProjectDocuments.originalName,
+  })
+    .from(pmProjectDocuments)
+    .where(and(eq(pmProjectDocuments.id, req.params.docId), eq(pmProjectDocuments.projectId, req.params.id)))
+    .limit(1);
+  if (!doc) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  const token = crypto.randomUUID();
+  docDownloadTokens.set(token, { docId: doc.id, projectId: doc.projectId, filename: doc.filename, originalName: doc.originalName, expires: Date.now() + 30_000 });
+  res.json({ token });
 });
 
 router.delete('/:id/documents/:docId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
