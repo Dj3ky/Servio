@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { eq, ne, sql, and, gte, lte, desc } from 'drizzle-orm';
 import { db } from '../../../db';
-import { pmProjects, pmWeeklyMeetings, pmMeetingEntries } from '../schema';
+import { pmProjects, pmWeeklyMeetings, pmMeetingEntries, pmProjectInvoices } from '../schema';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 
@@ -187,6 +187,81 @@ router.get('/project/:projectId/meetings', async (req: Request, res: Response): 
     .orderBy(desc(pmWeeklyMeetings.meetingDate));
 
   res.json(entries);
+});
+
+// Monthly revenue from invoices for a given year
+router.get('/revenue-trend', async (req: Request, res: Response): Promise<void> => {
+  const year = parseInt(req.query.year as string ?? String(new Date().getFullYear()), 10);
+
+  const rows = await db.select({
+    month: sql<string>`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`,
+    revenue: sql<string>`coalesce(sum(${pmProjectInvoices.amount}), 0)`,
+    invoiceCount: sql<number>`count(*)`,
+  })
+    .from(pmProjectInvoices)
+    .where(sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`)
+    .groupBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`)
+    .orderBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`);
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const filled = MONTHS.map((name, i) => {
+    const key = `${year}-${String(i + 1).padStart(2, '0')}`;
+    const found = rows.find(r => r.month === key);
+    return { month: name, revenue: parseFloat(found?.revenue ?? '0'), invoiceCount: Number(found?.invoiceCount ?? 0) };
+  });
+
+  res.json(filled);
+});
+
+// Projects completed per month for a given year
+router.get('/completions', async (req: Request, res: Response): Promise<void> => {
+  const year = parseInt(req.query.year as string ?? String(new Date().getFullYear()), 10);
+
+  const rows = await db.select({
+    month: sql<string>`to_char(${pmProjects.completedAt}, 'YYYY-MM')`,
+    count: sql<number>`count(*)`,
+  })
+    .from(pmProjects)
+    .where(and(
+      eq(pmProjects.status, 'completed'),
+      sql`${pmProjects.completedAt} is not null`,
+      sql`extract(year from ${pmProjects.completedAt}) = ${year}`,
+    ))
+    .groupBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`)
+    .orderBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`);
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const filled = MONTHS.map((name, i) => {
+    const key = `${year}-${String(i + 1).padStart(2, '0')}`;
+    const found = rows.find(r => r.month === key);
+    return { month: name, count: Number(found?.count ?? 0) };
+  });
+
+  res.json(filled);
+});
+
+// Completed projects with uninvoiced balance
+router.get('/outstanding', async (_req: Request, res: Response): Promise<void> => {
+  const projects = await db.select({
+    id: pmProjects.id,
+    projectNumber: pmProjects.projectNumber,
+    name: pmProjects.name,
+    customerName: pmProjects.customerName,
+    employeeName: users.name,
+    contractValue: pmProjects.contractValue,
+    invoicedAmount: pmProjects.invoicedAmount,
+    completedAt: pmProjects.completedAt,
+  })
+    .from(pmProjects)
+    .leftJoin(users, eq(pmProjects.employeeId, users.id))
+    .where(and(
+      eq(pmProjects.status, 'completed'),
+      sql`${pmProjects.contractValue} is not null`,
+      sql`${pmProjects.contractValue} > ${pmProjects.invoicedAmount}`,
+    ))
+    .orderBy(desc(sql`${pmProjects.contractValue} - ${pmProjects.invoicedAmount}`));
+
+  res.json(projects);
 });
 
 export default router;

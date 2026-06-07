@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface SummaryData {
   statusCounts: { status: string; count: number }[];
@@ -31,6 +36,14 @@ interface OverdueProject {
   employeeName: string | null; customerName: string | null;
 }
 
+interface RevenueTrendRow { month: string; revenue: number; invoiceCount: number; }
+interface CompletionsRow { month: string; count: number; }
+interface OutstandingProject {
+  id: string; projectNumber: string; name: string; customerName: string | null;
+  employeeName: string | null; contractValue: string | null; invoicedAmount: string;
+  completedAt: string | null;
+}
+
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
 
 const GROUP_COLORS = [
@@ -44,14 +57,35 @@ const GROUP_COLORS = [
   'bg-teal-500/10 border-l-4 border-l-teal-500',
 ];
 
-function fmt(v: string | null | undefined) {
-  if (!v) return '—';
-  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(parseFloat(v));
+const chartStyle = {
+  contentStyle: {
+    borderRadius: '8px',
+    border: '1px solid hsl(var(--border))',
+    background: 'hsl(var(--popover))',
+    fontSize: 12,
+  },
+  labelStyle: { color: 'hsl(var(--popover-foreground))', fontWeight: 600 },
+};
+
+function fmt(v: string | number | null | undefined) {
+  const n = parseFloat(String(v ?? 0));
+  if (!v || isNaN(n)) return '—';
+  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
 }
+
+function fmtShort(v: number) {
+  if (v === 0) return '0';
+  if (v >= 1000) return `€${(v / 1000).toFixed(0)}k`;
+  return `€${v.toFixed(0)}`;
+}
+
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
 export default function ProjectReportsPage() {
   const { t } = useTranslation();
   const [collapsedWorkload, setCollapsedWorkload] = useState<Set<string>>(new Set());
+  const [revenueYear, setRevenueYear] = useState(currentYear);
 
   function toggleWorkload(key: string) {
     setCollapsedWorkload(prev => {
@@ -76,6 +110,27 @@ export default function ProjectReportsPage() {
     queryFn: () => api.get('/pm/reports/overdue'),
   });
 
+  const { data: revenueTrend, isLoading: loadingRevenue } = useQuery<RevenueTrendRow[]>({
+    queryKey: ['pm-report', 'revenue-trend', revenueYear],
+    queryFn: () => api.get(`/pm/reports/revenue-trend?year=${revenueYear}`),
+  });
+
+  const { data: completions, isLoading: loadingCompletions } = useQuery<CompletionsRow[]>({
+    queryKey: ['pm-report', 'completions', revenueYear],
+    queryFn: () => api.get(`/pm/reports/completions?year=${revenueYear}`),
+  });
+
+  const { data: outstanding, isLoading: loadingOutstanding } = useQuery<OutstandingProject[]>({
+    queryKey: ['pm-report', 'outstanding'],
+    queryFn: () => api.get('/pm/reports/outstanding'),
+  });
+
+  const totalOutstanding = (outstanding ?? []).reduce((sum, p) => {
+    return sum + parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+  }, 0);
+
+  const totalRevenue = (revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -83,7 +138,7 @@ export default function ProjectReportsPage() {
         <p className="text-sm text-muted-foreground">{t('pm.reports.subtitle')}</p>
       </div>
 
-      {/* Summary cards — active + on-hold projects only */}
+      {/* Summary cards */}
       {summary && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">{t('pm.reports.activeSummaryNote')}</p>
@@ -104,13 +159,162 @@ export default function ProjectReportsPage() {
         </div>
       )}
 
-      <Tabs defaultValue="workload">
-        <TabsList>
+      <Tabs defaultValue="revenue">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="revenue">{t('pm.reports.tabRevenue')}</TabsTrigger>
+          <TabsTrigger value="outstanding" className="relative">
+            {t('pm.reports.tabOutstanding')}
+            {outstanding && outstanding.length > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold w-4 h-4">{outstanding.length}</span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="workload">{t('pm.reports.tabWorkload')}</TabsTrigger>
           <TabsTrigger value="status">{t('pm.reports.tabStatus')}</TabsTrigger>
           <TabsTrigger value="overdue">{t('pm.reports.tabOverdue')} {overdue && overdue.length > 0 && `(${overdue.length})`}</TabsTrigger>
           <TabsTrigger value="employee">{t('pm.reports.tabEmployee')}</TabsTrigger>
         </TabsList>
+
+        {/* Revenue + Completions charts */}
+        <TabsContent value="revenue" className="mt-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <Select value={String(revenueYear)} onValueChange={v => setRevenueYear(Number(v))}>
+              <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {!loadingRevenue && revenueTrend && (
+              <span className="text-sm text-muted-foreground">{t('pm.reports.yearTotal')}: <span className="font-semibold text-foreground">{fmt(totalRevenue)}</span></span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Monthly Revenue */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{t('pm.reports.monthlyRevenue')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingRevenue
+                  ? <div className="h-[210px] flex items-center justify-center text-sm text-muted-foreground">{t('common.loading')}</div>
+                  : (
+                    <ResponsiveContainer width="100%" height={210}>
+                      <AreaChart data={revenueTrend ?? []} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+                        <defs>
+                          <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
+                        <Tooltip
+                          contentStyle={chartStyle.contentStyle}
+                          labelStyle={chartStyle.labelStyle}
+                          formatter={(value: number, _name, props) => [
+                            fmt(value),
+                            `${t('pm.reports.invoiced')} (${props.payload?.invoiceCount ?? 0} inv.)`,
+                          ]}
+                        />
+                        <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+              </CardContent>
+            </Card>
+
+            {/* Completions per month */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{t('pm.reports.completionsPerMonth')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingCompletions
+                  ? <div className="h-[210px] flex items-center justify-center text-sm text-muted-foreground">{t('common.loading')}</div>
+                  : (
+                    <ResponsiveContainer width="100%" height={210}>
+                      <BarChart data={completions ?? []} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+                        <defs>
+                          <linearGradient id="completionsGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.4} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={chartStyle.contentStyle}
+                          labelStyle={chartStyle.labelStyle}
+                          formatter={(value: number) => [value, t('pm.reports.completions')]}
+                        />
+                        <Bar dataKey="count" fill="url(#completionsGrad)" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Outstanding — completed but not fully invoiced */}
+        <TabsContent value="outstanding" className="mt-4 space-y-3">
+          {loadingOutstanding && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+          {!loadingOutstanding && (outstanding ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">{t('pm.reports.noOutstanding')}</p>
+          )}
+          {(outstanding ?? []).length > 0 && (
+            <>
+              <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                <span>{t('pm.reports.outstandingNote')}: <strong>{fmt(totalOutstanding)}</strong> {t('pm.reports.outstandingNoteAcross')} {outstanding!.length} {t('pm.reports.outstandingNoteProjects')}</span>
+              </div>
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-muted-foreground">
+                      <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colWorkOrder')}</th>
+                      <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colCustomer')}</th>
+                      <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colEmployee')}</th>
+                      <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colCompletedAt')}</th>
+                      <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colValue')}</th>
+                      <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colInvoiced')}</th>
+                      <th className="text-right px-4 py-3 font-medium text-destructive">{t('pm.reports.colOutstanding')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(outstanding ?? []).map(p => {
+                      const gap = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+                      return (
+                        <tr key={p.id} className="border-b last:border-0">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{p.projectNumber}</div>
+                            <div className="text-xs text-muted-foreground">{p.name}</div>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                            {p.completedAt ? new Date(p.completedAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs">{fmt(p.invoicedAmount)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-destructive">{fmt(gap)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t bg-muted/50">
+                      <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-right">{t('pm.reports.totalOutstanding')}</td>
+                      <td className="px-4 py-2 text-right font-mono text-sm font-bold text-destructive">{fmt(totalOutstanding)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          )}
+        </TabsContent>
 
         {/* Workload — collapsible by employee */}
         <TabsContent value="workload" className="mt-4 space-y-3">
@@ -130,9 +334,7 @@ export default function ProjectReportsPage() {
                   <Users className="h-4 w-4 opacity-70 shrink-0" />
                   <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
                   <span className="font-normal text-muted-foreground">({group.projects.length})</span>
-                  {collapsed
-                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                  {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </button>
                 {!collapsed && (
                   <div className="overflow-x-auto">
@@ -163,7 +365,7 @@ export default function ProjectReportsPage() {
                               </td>
                               <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{p.endDate ?? '—'}</td>
                               <td className="px-3 py-2 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
-                              <td className={`px-3 py-2 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(String(remaining))}</td>
+                              <td className={`px-3 py-2 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(remaining)}</td>
                             </tr>
                           );
                         })}
@@ -231,7 +433,7 @@ export default function ProjectReportsPage() {
                         <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>
                         <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                         <td className="px-4 py-3 text-destructive font-medium font-mono text-xs">{p.endDate}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">{fmt(String(remaining))}</td>
+                        <td className="px-4 py-3 text-right font-mono text-xs">{fmt(remaining)}</td>
                       </tr>
                     );
                   })}
@@ -265,7 +467,7 @@ export default function ProjectReportsPage() {
                         <td className="px-4 py-3 text-right">{e.count}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalValue)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalInvoiced)}</td>
-                        <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(String(remaining))}</td>
+                        <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(remaining)}</td>
                       </tr>
                     );
                   })}
