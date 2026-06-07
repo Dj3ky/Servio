@@ -33,6 +33,7 @@ interface EntryDraft {
   projectId: string; projectNumber: string; projectName: string; priority: string;
   entryStatus: string; notes: string;
   employeeId: string | null; employeeName: string | null;
+  lastMeetingDate: string | null; lastEntryNotes: string | null;
 }
 
 const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
@@ -66,7 +67,6 @@ export default function MeetingsPage() {
   const [collapsedDialogGroups, setCollapsedDialogGroups] = useState<Set<string>>(new Set());
   const [collapsedDetailGroups, setCollapsedDetailGroups] = useState<Set<string>>(new Set());
   const [editMode, setEditMode] = useState(false);
-  const [editDate, setEditDate] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
 
@@ -104,6 +104,8 @@ export default function MeetingsPage() {
       notes: '',
       employeeId: p.employeeId,
       employeeName: p.employeeName,
+      lastMeetingDate: p.lastMeetingDate,
+      lastEntryNotes: p.lastEntryNotes,
     })));
     setCollapsedDialogGroups(new Set());
   }
