@@ -283,10 +283,10 @@ export default function ProjectDetailPage() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="phases">
+      <Tabs defaultValue="meetings">
         <TabsList>
-          <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
           <TabsTrigger value="invoices">{t('pm.invoices.tab')} ({invoices?.length ?? 0})</TabsTrigger>
         </TabsList>
