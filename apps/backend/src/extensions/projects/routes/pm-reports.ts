@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql, and, gte, lte, desc } from 'drizzle-orm';
+import { eq, ne, sql, and, gte, lte, desc } from 'drizzle-orm';
 import { db } from '../../../db';
 import { pmProjects, pmWeeklyMeetings, pmMeetingEntries } from '../schema';
 import { users } from '../../../db/schema/users';
@@ -22,7 +22,7 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
       totalContractValue: sql<string>`coalesce(sum(contract_value), 0)`,
       totalInvoiced: sql<string>`coalesce(sum(invoiced_amount), 0)`,
       totalRemaining: sql<string>`coalesce(sum(contract_value - invoiced_amount), 0)`,
-    }).from(pmProjects),
+    }).from(pmProjects).where(ne(pmProjects.status, 'completed')),
 
     db.select({
       employeeId: pmProjects.employeeId,
@@ -33,6 +33,7 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
     })
       .from(pmProjects)
       .leftJoin(users, eq(pmProjects.employeeId, users.id))
+      .where(ne(pmProjects.status, 'completed'))
       .groupBy(pmProjects.employeeId, users.name)
       .orderBy(desc(sql`count(*)`)),
   ]);

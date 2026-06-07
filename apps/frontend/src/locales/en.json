@@ -669,6 +669,7 @@
       "totalValue": "Total contract value",
       "totalInvoiced": "Total invoiced",
       "totalRemaining": "Remaining to invoice",
+      "activeSummaryNote": "Active and on-hold projects only",
       "tabWorkload": "Employee workload",
       "tabStatus": "By status",
       "tabOverdue": "Overdue",

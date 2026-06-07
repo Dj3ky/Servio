@@ -61,21 +61,24 @@ export default function ProjectReportsPage() {
         <p className="text-sm text-muted-foreground">{t('pm.reports.subtitle')}</p>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — active + on-hold projects only */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalValue')}</CardTitle></CardHeader>
-            <CardContent><p className="text-2xl font-bold font-mono">{fmt(summary.totals.totalContractValue)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalInvoiced')}</CardTitle></CardHeader>
-            <CardContent><p className="text-2xl font-bold font-mono text-primary">{fmt(summary.totals.totalInvoiced)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalRemaining')}</CardTitle></CardHeader>
-            <CardContent><p className="text-2xl font-bold font-mono text-green-600">{fmt(summary.totals.totalRemaining)}</p></CardContent>
-          </Card>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">{t('pm.reports.activeSummaryNote')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalValue')}</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold font-mono">{fmt(summary.totals.totalContractValue)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalInvoiced')}</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold font-mono text-primary">{fmt(summary.totals.totalInvoiced)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{t('pm.reports.totalRemaining')}</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold font-mono text-green-600">{fmt(summary.totals.totalRemaining)}</p></CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
