@@ -672,6 +672,7 @@
       "totalInvoiced": "Total invoiced",
       "totalRemaining": "Remaining to invoice",
       "activeSummaryNote": "Active and on-hold projects only",
+      "printReport": "Print report",
       "tabRevenue": "Revenue",
       "tabOutstanding": "Outstanding",
       "tabWorkload": "Employee workload",

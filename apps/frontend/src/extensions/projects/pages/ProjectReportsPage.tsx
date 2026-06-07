@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Users, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, AlertCircle, Printer } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 
 interface SummaryData {
   statusCounts: { status: string; count: number }[];
@@ -131,11 +132,197 @@ export default function ProjectReportsPage() {
 
   const totalRevenue = (revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
 
+  async function printReport() {
+    const fmtEur = (v: number | string | null | undefined) => {
+      const n = parseFloat(String(v ?? 0));
+      return isNaN(n) || n === 0 ? '—' : new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
+    };
+    const generated = new Date().toLocaleDateString('sl-SI');
+
+    // Fetch project lists on demand
+    const [activeResp, archivedResp] = await Promise.all([
+      api.get<{ data: any[] }>(`/pm/projects?archived=false&limit=500`),
+      api.get<{ data: any[] }>(`/pm/projects?archived=true&limit=500`),
+    ]);
+    const activeProjects: any[] = activeResp.data ?? [];
+    const completedThisYear: any[] = (archivedResp.data ?? []).filter((p: any) => {
+      if (!p.completedAt) return false;
+      return new Date(p.completedAt).getFullYear() === revenueYear;
+    });
+
+    function groupByEmp(projects: any[]) {
+      const groups: { employeeName: string | null; projects: any[] }[] = [];
+      const seen = new Map<string, number>();
+      for (const p of projects) {
+        const key = p.employeeId ?? '__none__';
+        if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ employeeName: p.employeeName, projects: [] }); }
+        groups[seen.get(key)!].projects.push(p);
+      }
+      return groups;
+    }
+
+    function projectTable(projects: any[], showCompleted = false) {
+      if (projects.length === 0) return '<p style="color:#888;font-size:11px;padding:6px 0">—</p>';
+      const rows = projects.map(p => {
+        const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+        const isOverdue = !showCompleted && p.endDate && new Date(p.endDate) < new Date();
+        return `<tr>
+          <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#666">${p.name}</span></td>
+          <td>${p.customerName ?? '—'}</td>
+          <td>${p.facilityName ?? '—'}</td>
+          ${showCompleted
+            ? `<td style="color:#15803d">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>`
+            : `<td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${p.endDate ?? '—'}</td>`}
+          <td style="text-align:right">${fmtEur(p.contractValue)}</td>
+          <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
+          <td style="text-align:right;${!showCompleted && remaining > 0 ? 'color:#15803d' : showCompleted && remaining > 0 ? 'color:#dc2626' : ''}">${fmtEur(remaining)}</td>
+        </tr>`;
+      }).join('');
+      const dateHeader = showCompleted ? 'Zaključeno' : 'Rok';
+      return `<table><thead><tr>
+        <th>Delovni nalog</th><th>Naročnik</th><th>Objekt</th><th>${dateHeader}</th>
+        <th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">${showCompleted ? 'Nefakt.' : 'Ostalo'}</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function groupedSection(projects: any[], showCompleted = false) {
+      const groups = groupByEmp(projects);
+      return groups.map((g, i) => {
+        const COLORS = ['#dbeafe','#d1fae5','#ede9fe','#fef3c7','#fee2e2','#cffafe','#ffedd5','#ccfbf1'];
+        const bg = COLORS[i % COLORS.length];
+        return `<div style="margin-bottom:12px">
+          <div style="background:${bg};border-left:4px solid #6366f1;padding:5px 10px;font-weight:700;font-size:11px;margin-bottom:3px">
+            ${g.employeeName ?? 'Nedodeljeno'} (${g.projects.length})
+          </div>
+          ${projectTable(g.projects, showCompleted)}
+        </div>`;
+      }).join('');
+    }
+
+    // Monthly revenue + completions table
+    const monthRows = (revenueTrend ?? []).map((r, i) => {
+      const c = completions?.[i]?.count ?? 0;
+      return `<tr>
+        <td>${r.month}</td>
+        <td style="text-align:right;${r.revenue > 0 ? 'color:#15803d;font-weight:600' : 'color:#aaa'}">${fmtEur(r.revenue)}</td>
+        <td style="text-align:right">${r.invoiceCount > 0 ? r.invoiceCount : '—'}</td>
+        <td style="text-align:right">${c > 0 ? c : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // Outstanding section
+    const outstandingRows = (outstanding ?? []).map(p => {
+      const gap = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
+      return `<tr>
+        <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#666">${p.name}</span></td>
+        <td>${p.customerName ?? '—'}</td>
+        <td>${p.employeeName ?? '—'}</td>
+        <td>${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>
+        <td style="text-align:right">${fmtEur(p.contractValue)}</td>
+        <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
+        <td style="text-align:right;color:#dc2626;font-weight:600">${fmtEur(gap)}</td>
+      </tr>`;
+    }).join('');
+
+    const totalOutstandingAmt = (outstanding ?? []).reduce((s, p) =>
+      s + parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0'), 0);
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>Poročilo projektov ${revenueYear}</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+        h2 { font-size: 15px; margin: 0 0 2px 0; }
+        h3 { font-size: 12px; margin: 16px 0 6px 0; border-bottom: 2px solid #6366f1; padding-bottom: 3px; color: #4338ca; }
+        .meta { font-size: 10px; color: #666; margin-bottom: 14px; }
+        .summary { display: flex; gap: 12px; margin-bottom: 16px; }
+        .stat { flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; }
+        .stat-label { font-size: 9px; color: #888; margin-bottom: 2px; }
+        .stat-value { font-size: 14px; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
+        th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
+        td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        .page-break { page-break-before: always; }
+        tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1; }
+        @media print { button { display: none; } }
+      </style>
+    </head><body>
+      <h2>Poročilo projektov — ${revenueYear}</h2>
+      <div class="meta">Generirano: ${generated} &nbsp;|&nbsp; Aktivni projekti: ${activeProjects.length} &nbsp;|&nbsp; Zaključeni ${revenueYear}: ${completedThisYear.length}</div>
+
+      <!-- Summary -->
+      <div class="summary">
+        <div class="stat">
+          <div class="stat-label">Skupna vrednost (aktivni)</div>
+          <div class="stat-value">${fmtEur(summary?.totals.totalContractValue)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Fakturirano (aktivni)</div>
+          <div class="stat-value" style="color:#2563eb">${fmtEur(summary?.totals.totalInvoiced)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Ostalo za fakturiranje (aktivni)</div>
+          <div class="stat-value" style="color:#15803d">${fmtEur(summary?.totals.totalRemaining)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Prihodki ${revenueYear} (fakture)</div>
+          <div class="stat-value" style="color:#15803d">${fmtEur(totalRevenue)}</div>
+        </div>
+        ${totalOutstandingAmt > 0 ? `<div class="stat" style="border-color:#fca5a5">
+          <div class="stat-label" style="color:#dc2626">Nefakturirano (zaključeni)</div>
+          <div class="stat-value" style="color:#dc2626">${fmtEur(totalOutstandingAmt)}</div>
+        </div>` : ''}
+      </div>
+
+      <!-- Monthly revenue -->
+      <h3>Mesečni prihodki ${revenueYear}</h3>
+      <table style="width:320px">
+        <thead><tr><th>Mesec</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">Faktur</th><th style="text-align:right">Zaključeni</th></tr></thead>
+        <tbody>${monthRows}</tbody>
+        <tfoot><tr><td><strong>Skupaj</strong></td><td style="text-align:right">${fmtEur(totalRevenue)}</td><td></td><td></td></tr></tfoot>
+      </table>
+
+      <!-- Active projects -->
+      <div class="page-break">
+        <h3>Aktivni projekti (${activeProjects.length})</h3>
+        ${groupedSection(activeProjects, false)}
+      </div>
+
+      <!-- Completed this year -->
+      <div class="page-break">
+        <h3>Zaključeni projekti ${revenueYear} (${completedThisYear.length})</h3>
+        ${completedThisYear.length === 0 ? '<p style="color:#888;font-size:11px">Ni zaključenih projektov za to leto.</p>' : groupedSection(completedThisYear, true)}
+      </div>
+
+      ${outstandingRows ? `<div class="page-break">
+        <h3>Nefakturirani zaključeni projekti</h3>
+        <table>
+          <thead><tr><th>Delovni nalog</th><th>Naročnik</th><th>Zaposleni</th><th>Zaključeno</th><th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">Nefakturirano</th></tr></thead>
+          <tbody>${outstandingRows}</tbody>
+          <tfoot><tr><td colspan="6" style="text-align:right">Skupaj nefakturirano</td><td style="text-align:right;color:#dc2626">${fmtEur(totalOutstandingAmt)}</td></tr></tfoot>
+        </table>
+      </div>` : ''}
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t('pm.reports.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('pm.reports.subtitle')}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{t('pm.reports.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('pm.reports.subtitle')}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={printReport} className="shrink-0 mt-1">
+          <Printer className="h-4 w-4 mr-2" />{t('pm.reports.printReport')} {revenueYear}
+        </Button>
       </div>
 
       {/* Summary cards */}
