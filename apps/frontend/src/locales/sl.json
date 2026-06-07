@@ -94,6 +94,7 @@
     "completedReviews": "Dokončani",
     "revenueEarned": "Prihodki",
     "totalEarned": "Skupaj 12 mesecev",
+    "yearTotal": "Skupaj {{year}}",
     "quickInvoiceQueue": "Čakalna vrsta faktur",
     "quickNewFacility": "Nov objekt",
     "recentActivity": "Nedavna aktivnost",

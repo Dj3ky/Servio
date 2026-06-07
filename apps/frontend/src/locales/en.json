@@ -94,6 +94,7 @@
     "completedReviews": "Completed",
     "revenueEarned": "Revenue",
     "totalEarned": "12-month total",
+    "yearTotal": "{{year}} total",
     "quickInvoiceQueue": "Invoice Queue",
     "quickNewFacility": "New Facility",
     "recentActivity": "Recent Activity",

@@ -107,6 +107,11 @@ export default function DashboardPage() {
   ];
 
   const totalRevenue = (data?.revenueTrend ?? []).reduce((s, r) => s + r.revenue, 0);
+  const currentYear = new Date().getFullYear();
+  const yearSuffix = currentYear.toString().slice(-2);
+  const yearRevenue = (data?.revenueTrend ?? [])
+    .filter(r => r.month.endsWith(` ${yearSuffix}`))
+    .reduce((s, r) => s + r.revenue, 0);
 
   const progressTotal = data?.thisMonthProgress.total ?? 0;
   const progressCompleted = data?.thisMonthProgress.completed ?? 0;
@@ -206,13 +211,25 @@ export default function DashboardPage() {
                 <CardTitle className="text-base">{t('dashboard.monthlyRevenue')}</CardTitle>
                 <p className="text-xs text-muted-foreground">{t('dashboard.last12Months')}</p>
               </div>
-              {!isLoading && totalRevenue > 0 && (
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    {formatRevenue(totalRevenue)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">{t('dashboard.totalEarned')}</div>
+              {!isLoading && (totalRevenue > 0 || yearRevenue > 0) && (
+                <div className="flex items-start gap-4">
+                  {yearRevenue > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-green-600 dark:text-green-400">
+                        {formatRevenue(yearRevenue)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{t('dashboard.yearTotal', { year: currentYear })}</div>
+                    </div>
+                  )}
+                  {totalRevenue > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        {formatRevenue(totalRevenue)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{t('dashboard.totalEarned')}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
