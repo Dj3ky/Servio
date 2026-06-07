@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, desc, sql, inArray } from 'drizzle-orm';
+import { eq, desc, sql, inArray, and } from 'drizzle-orm';
 import { createPmMeetingSchema, updatePmMeetingSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects } from '../schema';
@@ -9,11 +9,16 @@ import { requireRole } from '../../../middleware/role';
 const router = Router();
 router.use(requireRole('projects', 'access'));
 
-// List meetings (paginated, newest first)
+// List meetings (paginated, newest first, optional year filter)
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string ?? '20', 10)));
   const offset = (page - 1) * limit;
+  const year = req.query.year ? parseInt(req.query.year as string, 10) : null;
+
+  const where = year
+    ? sql`extract(year from ${pmWeeklyMeetings.meetingDate}::date) = ${year}`
+    : undefined;
 
   const [meetings, [{ count }]] = await Promise.all([
     db.select({
@@ -27,10 +32,11 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     })
       .from(pmWeeklyMeetings)
       .leftJoin(users, eq(pmWeeklyMeetings.createdById, users.id))
+      .where(where)
       .orderBy(desc(pmWeeklyMeetings.meetingDate))
       .limit(limit)
       .offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(pmWeeklyMeetings),
+    db.select({ count: sql<number>`count(*)` }).from(pmWeeklyMeetings).where(where),
   ]);
 
   res.json({ data: meetings, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
@@ -65,11 +71,14 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     projectName: pmProjects.name,
     projectStatus: pmProjects.status,
     projectPriority: pmProjects.priority,
+    employeeId: pmProjects.employeeId,
+    employeeName: users.name,
   })
     .from(pmMeetingEntries)
     .leftJoin(pmProjects, eq(pmMeetingEntries.projectId, pmProjects.id))
+    .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(eq(pmMeetingEntries.meetingId, req.params.id))
-    .orderBy(pmProjects.projectNumber);
+    .orderBy(users.name, pmProjects.projectNumber);
 
   res.json({ ...meeting, entries });
 });

@@ -22,6 +22,7 @@ interface MeetingDetail extends Meeting {
 interface MeetingEntry {
   id: string; projectId: string; projectNumber: string; projectName: string;
   projectPriority: string; entryStatus: string; notes: string | null;
+  employeeId: string | null; employeeName: string | null;
 }
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
@@ -46,6 +47,9 @@ const GROUP_COLORS = [
   'bg-teal-500/10 border-l-4 border-l-teal-500',
 ];
 
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
 export default function MeetingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -56,12 +60,14 @@ export default function MeetingsPage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [entries, setEntries] = useState<EntryDraft[]>([]);
   const [groupByEmployee, setGroupByEmployee] = useState(false);
+  const [yearFilter, setYearFilter] = useState(currentYear);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [collapsedDialogGroups, setCollapsedDialogGroups] = useState<Set<string>>(new Set());
+  const [collapsedDetailGroups, setCollapsedDetailGroups] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
-    queryKey: ['pm-meetings'],
-    queryFn: () => api.get('/pm/meetings?limit=50'),
+    queryKey: ['pm-meetings', yearFilter],
+    queryFn: () => api.get(`/pm/meetings?limit=100&year=${yearFilter}`),
   });
 
   const { data: activeProjects } = useQuery<ActiveProject[]>({
@@ -105,7 +111,15 @@ export default function MeetingsPage() {
     });
   }
 
-  // Group entries by employee for the dialog
+  function toggleDetailGroup(key: string) {
+    setCollapsedDetailGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Group new-meeting entries by employee
   const entriesByEmployee = useMemo(() => {
     const groups: { key: string; employeeName: string | null; entries: EntryDraft[] }[] = [];
     const seen = new Map<string, number>();
@@ -120,6 +134,22 @@ export default function MeetingsPage() {
     return groups;
   }, [entries]);
 
+  // Group detail entries by employee
+  const detailByEmployee = useMemo(() => {
+    if (!detail) return [];
+    const groups: { key: string; employeeName: string | null; entries: MeetingEntry[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const e of detail.entries) {
+      const key = e.employeeId ?? '__none__';
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, employeeName: e.employeeName, entries: [] });
+      }
+      groups[seen.get(key)!].entries.push(e);
+    }
+    return groups;
+  }, [detail]);
+
   if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
     initEntries(activeProjects);
   }
@@ -131,8 +161,7 @@ export default function MeetingsPage() {
   function toggleGroup(key: string) {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   }
@@ -190,7 +219,7 @@ export default function MeetingsPage() {
 
   function renderRow(m: Meeting) {
     return (
-      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => setDetailId(m.id)}>
+      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => { setCollapsedDetailGroups(new Set()); setDetailId(m.id); }}>
         <td className="px-4 py-3 font-mono">{m.meetingDate}</td>
         <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>}
@@ -203,12 +232,19 @@ export default function MeetingsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">{t('pm.meetings.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('pm.meetings.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Year filter */}
+          <Select value={String(yearFilter)} onValueChange={v => setYearFilter(Number(v))}>
+            <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
           {/* View toggle */}
           <div className="flex rounded-md border overflow-hidden">
             <button
@@ -251,7 +287,6 @@ export default function MeetingsPage() {
             const collapsed = collapsedGroups.has(group.key);
             return (
               <div key={group.key} className="rounded-md border overflow-hidden">
-                {/* Group header — click to collapse */}
                 <button
                   className={`w-full px-4 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
                   onClick={() => toggleGroup(group.key)}
@@ -259,11 +294,8 @@ export default function MeetingsPage() {
                   <Users className="h-4 w-4 opacity-70 shrink-0" />
                   <span className="flex-1">{group.name ?? t('pm.reports.unassigned')}</span>
                   <span className="font-normal text-muted-foreground">({group.meetings.length})</span>
-                  {collapsed
-                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                  {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </button>
-                {/* Rows */}
                 {!collapsed && (
                   <table className="w-full text-sm">
                     <thead>{tableHead}</thead>
@@ -307,9 +339,7 @@ export default function MeetingsPage() {
                         <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
                         <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
                         <span className="font-normal text-muted-foreground">({group.entries.length})</span>
-                        {collapsed
-                          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
+                        {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
                       </button>
                       {!collapsed && (
                         <table className="w-full text-sm">
@@ -365,32 +395,54 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Meeting detail dialog */}
+      {/* Meeting detail dialog — entries grouped by employee */}
       <Dialog open={!!detailId} onOpenChange={v => { if (!v) setDetailId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('pm.meetings.dialogTitle', { date: detail?.meetingDate ?? '' })}</DialogTitle>
           </DialogHeader>
           {detail && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {detail.notes && <p className="text-sm text-muted-foreground italic border-l-2 pl-3">{detail.notes}</p>}
-              <div className="space-y-2">
-                {detail.entries.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
-                {detail.entries.map(entry => (
-                  <div key={entry.id} className="flex gap-3 p-3 rounded-md border text-sm cursor-pointer hover:bg-muted/30" onClick={() => { setDetailId(null); navigate(`/pm/projects/${entry.projectId}`); }}>
-                    <div className="min-w-[120px]">
-                      <div className="font-medium">{entry.projectNumber}</div>
-                      <div className="text-xs text-muted-foreground">{entry.projectName}</div>
-                    </div>
-                    <div className="flex-1">
-                      <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
-                        {t(`pm.entryStatus.${entry.entryStatus}`)}
-                      </Badge>
-                      {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
-                    </div>
+              {detail.entries.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
+              {detailByEmployee.map((group, idx) => {
+                const collapsed = collapsedDetailGroups.has(group.key);
+                return (
+                  <div key={group.key} className="rounded-md border overflow-hidden">
+                    <button
+                      className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                      onClick={() => toggleDetailGroup(group.key)}
+                    >
+                      <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
+                      <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                      <span className="font-normal text-muted-foreground">({group.entries.length})</span>
+                      {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </button>
+                    {!collapsed && (
+                      <div className="divide-y">
+                        {group.entries.map(entry => (
+                          <div
+                            key={entry.id}
+                            className="flex gap-3 p-3 text-sm cursor-pointer hover:bg-muted/30"
+                            onClick={() => { setDetailId(null); navigate(`/pm/projects/${entry.projectId}`); }}
+                          >
+                            <div className="min-w-[120px]">
+                              <div className="font-medium">{entry.projectNumber}</div>
+                              <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                            </div>
+                            <div className="flex-1">
+                              <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
+                                {t(`pm.entryStatus.${entry.entryStatus}`)}
+                              </Badge>
+                              {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
           <DialogFooter>
