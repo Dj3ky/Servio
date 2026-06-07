@@ -36,7 +36,12 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   } else if (archived === 'false') {
     conditions.push(ne(pmProjects.status, 'completed'));
   }
-  if (search) conditions.push(or(ilike(pmProjects.name, `%${search}%`), ilike(pmProjects.projectNumber, `%${search}%`)));
+  if (search) conditions.push(or(
+    ilike(pmProjects.name, `%${search}%`),
+    ilike(pmProjects.projectNumber, `%${search}%`),
+    ilike(pmProjects.customerName, `%${search}%`),
+    ilike(pmProjects.facilityName, `%${search}%`),
+  ));
   if (status && archived !== 'true') conditions.push(eq(pmProjects.status, status));
   if (priority) conditions.push(eq(pmProjects.priority, priority));
   if (employeeId) conditions.push(eq(pmProjects.employeeId, employeeId));
