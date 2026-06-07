@@ -217,7 +217,6 @@ export default function MeetingsPage() {
 
   function openEditMode() {
     if (!detail) return;
-    setEditDate(detail.meetingDate);
     setEditNotes(detail.notes ?? '');
     setEditEntries(detail.entries.map(e => ({ ...e })));
     setEditMode(true);
