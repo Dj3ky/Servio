@@ -9,7 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        navigateFallbackDenylist: [/^\/uploads\//],
+        navigateFallbackDenylist: [/^\/uploads\//, /^\/api\//],
       },
       manifest: {
         name: 'Servio',
