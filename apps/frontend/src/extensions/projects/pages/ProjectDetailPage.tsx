@@ -42,38 +42,6 @@ function formatCurrency(v: string | null | undefined) {
   return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
 }
 
-async function downloadDocument(projectId: string, docId: string, originalName: string, filePath: string) {
-  const isPwa = window.matchMedia('(display-mode: standalone)').matches;
-
-  if (isPwa) {
-    // PWA: blob URL clicks are suppressed by the OS shell. Open a blank tab synchronously
-    // (before any await so the popup blocker allows it), then navigate to the token-auth URL
-    // which serves Content-Disposition: attachment, triggering a real download.
-    const tab = window.open('', '_blank');
-    try {
-      const encoded = encodeURIComponent(originalName);
-      const { token } = await api.post<{ token: string }>(`/pm/projects/${projectId}/documents/${docId}/download-token`);
-      const url = `/api/pm/projects/${projectId}/documents/${docId}/file/${encoded}?token=${token}`;
-      if (tab) tab.location.href = url;
-      else window.location.href = url;
-    } catch {
-      tab?.close();
-    }
-    return;
-  }
-
-  // Regular browser: fetch the static file and trigger a blob download
-  const res = await fetch(filePath);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = originalName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
 
 function PhaseIcon({ status }: { status: string }) {
   if (status === 'completed') return <CheckCircle2 className="h-4 w-4 text-green-500" />;
@@ -400,8 +368,10 @@ export default function ProjectDetailPage() {
                 <span className="text-xs text-muted-foreground shrink-0">
                   {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ''} · {doc.uploaderName}
                 </span>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => downloadDocument(id!, doc.id, doc.originalName, doc.filePath)}>
-                  <Download className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+                  <a href={doc.filePath} download={doc.originalName}>
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
                 </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
