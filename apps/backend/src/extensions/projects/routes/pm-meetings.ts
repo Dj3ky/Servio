@@ -105,7 +105,7 @@ router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Re
     );
 
     // Auto-complete projects whose entry was marked done
-    const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'done').map(e => e.projectId);
+    const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId);
     if (doneIds.length > 0) {
       await db.update(pmProjects)
         .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
@@ -142,7 +142,7 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
       );
 
       // Auto-complete projects whose entry was marked done
-      const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'done').map(e => e.projectId);
+      const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId);
       if (doneIds.length > 0) {
         await db.update(pmProjects)
           .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
@@ -161,21 +161,41 @@ router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, re
   res.json({ success: true });
 });
 
-// Get active projects for meeting form (only active projects)
+// Get active projects for meeting form — includes last meeting entry per project
 router.get('/active-projects/list', async (_req: Request, res: Response): Promise<void> => {
-  const projects = await db.select({
-    id: pmProjects.id,
-    projectNumber: pmProjects.projectNumber,
-    name: pmProjects.name,
-    priority: pmProjects.priority,
-    status: pmProjects.status,
-    employeeId: pmProjects.employeeId,
-    employeeName: users.name,
-  })
-    .from(pmProjects)
-    .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .where(eq(pmProjects.status, 'active'))
-    .orderBy(users.name, pmProjects.projectNumber);
+  const result = await db.execute(sql`
+    SELECT
+      p.id, p.project_number, p.name, p.priority, p.status,
+      p.employee_id, u.name AS employee_name,
+      le.entry_status AS last_entry_status,
+      le.notes AS last_entry_notes,
+      le.meeting_date AS last_meeting_date
+    FROM pm_projects p
+    LEFT JOIN users u ON p.employee_id = u.id
+    LEFT JOIN LATERAL (
+      SELECT me.entry_status, me.notes, wm.meeting_date
+      FROM pm_meeting_entries me
+      JOIN pm_weekly_meetings wm ON me.meeting_id = wm.id
+      WHERE me.project_id = p.id
+      ORDER BY wm.meeting_date DESC
+      LIMIT 1
+    ) le ON true
+    WHERE p.status = 'active'
+    ORDER BY u.name NULLS LAST, p.project_number
+  `);
+
+  const projects = (result.rows as any[]).map(r => ({
+    id: r.id,
+    projectNumber: r.project_number,
+    name: r.name,
+    priority: r.priority,
+    status: r.status,
+    employeeId: r.employee_id,
+    employeeName: r.employee_name,
+    lastEntryStatus: r.last_entry_status ?? null,
+    lastEntryNotes: r.last_entry_notes ?? null,
+    lastMeetingDate: r.last_meeting_date ?? null,
+  }));
 
   res.json(projects);
 });

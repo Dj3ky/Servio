@@ -640,6 +640,7 @@
       "noActiveProjects": "Ni aktivnih projektov.",
       "colProject": "DN / Projekt",
       "colNote": "Opomba",
+      "colLastMeeting": "Zadnji sestanek",
       "notePlaceholder": "Kaj je bilo narejenega...",
       "save": "Shrani sestanek",
       "dialogTitle": "Sestanek — {{date}}",

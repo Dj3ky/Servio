@@ -27,6 +27,7 @@ interface MeetingEntry {
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
   employeeId: string | null; employeeName: string | null;
+  lastEntryStatus: string | null; lastEntryNotes: string | null; lastMeetingDate: string | null;
 }
 interface EntryDraft {
   projectId: string; projectNumber: string; projectName: string; priority: string;
@@ -34,7 +35,7 @@ interface EntryDraft {
   employeeId: string | null; employeeName: string | null;
 }
 
-const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
+const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
 
 const GROUP_COLORS = [
   'bg-blue-500/10 border-l-4 border-l-blue-500',
@@ -99,7 +100,7 @@ export default function MeetingsPage() {
       projectNumber: p.projectNumber,
       projectName: p.name,
       priority: p.priority,
-      entryStatus: 'in_progress',
+      entryStatus: 'active',
       notes: '',
       employeeId: p.employeeId,
       employeeName: p.employeeName,
@@ -354,7 +355,7 @@ export default function MeetingsPage() {
 
       {/* New meeting dialog */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('pm.meetings.newTitle')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -390,8 +391,9 @@ export default function MeetingsPage() {
                           <thead>
                             <tr className="border-b bg-muted/50 text-muted-foreground">
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                              <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
+                              <th className="text-left px-3 py-2 font-medium w-[150px]">{t('common.status')}</th>
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
+                              <th className="text-left px-3 py-2 font-medium w-[200px]">{t('pm.meetings.colLastMeeting')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -405,9 +407,9 @@ export default function MeetingsPage() {
                                   <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
                                     <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
-                                      <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
-                                      <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
+                                      <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+                                      <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+                                      <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </td>
@@ -418,6 +420,14 @@ export default function MeetingsPage() {
                                     value={entry.notes}
                                     onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
                                   />
+                                </td>
+                                <td className="px-3 py-2">
+                                  {entry.lastMeetingDate
+                                    ? <div>
+                                        <div className="text-xs font-mono text-muted-foreground">{entry.lastMeetingDate}</div>
+                                        {entry.lastEntryNotes && <div className="text-xs text-muted-foreground mt-0.5 italic truncate max-w-[180px]">{entry.lastEntryNotes}</div>}
+                                      </div>
+                                    : <span className="text-xs text-muted-foreground">—</span>}
                                 </td>
                               </tr>
                             ))}
@@ -481,7 +491,7 @@ export default function MeetingsPage() {
                             </div>
                             <div className="flex-1">
                               <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
-                                {t(`pm.entryStatus.${entry.entryStatus}`)}
+                                {t(`pm.status.${entry.entryStatus}`)}
                               </Badge>
                               {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
                             </div>
@@ -529,9 +539,9 @@ export default function MeetingsPage() {
                               <Select value={entry.entryStatus} onValueChange={v => updateEditEntry(entry.projectId, 'entryStatus', v)}>
                                 <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
-                                  <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
-                                  <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
+                                  <SelectItem value="active">{t('pm.status.active')}</SelectItem>
+                                  <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
+                                  <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
                                 </SelectContent>
                               </Select>
                             </td>

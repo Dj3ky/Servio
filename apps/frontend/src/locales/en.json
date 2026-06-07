@@ -640,6 +640,7 @@
       "noActiveProjects": "No active projects.",
       "colProject": "WO / Project",
       "colNote": "Note",
+      "colLastMeeting": "Last Meeting",
       "notePlaceholder": "What was done...",
       "save": "Save meeting",
       "dialogTitle": "Meeting — {{date}}",

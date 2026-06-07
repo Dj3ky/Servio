@@ -55,7 +55,7 @@ export const createPmMeetingSchema = z.object({
   notes: z.string().optional().nullable(),
   entries: z.array(z.object({
     projectId: z.string().uuid(),
-    entryStatus: z.enum(['done', 'in_progress', 'blocked']).default('in_progress'),
+    entryStatus: z.enum(['active', 'on_hold', 'completed']).default('active'),
     notes: z.string().optional().nullable(),
   })),
 });
@@ -64,7 +64,7 @@ export const updatePmMeetingSchema = z.object({
   notes: z.string().optional().nullable(),
   entries: z.array(z.object({
     projectId: z.string().uuid(),
-    entryStatus: z.enum(['done', 'in_progress', 'blocked']),
+    entryStatus: z.enum(['active', 'on_hold', 'completed']),
     notes: z.string().optional().nullable(),
   })).optional(),
 });

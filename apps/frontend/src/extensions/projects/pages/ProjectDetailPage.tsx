@@ -34,7 +34,7 @@ interface Project {
   phases: Phase[]; documents: Document[];
 }
 
-const ENTRY_STATUS_COLORS: Record<string, string> = { done: 'default', in_progress: 'outline', blocked: 'destructive' };
+const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
 
 function formatCurrency(v: string | null | undefined) {
   if (!v) return '—';
@@ -338,7 +338,7 @@ export default function ProjectDetailPage() {
                 <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{entry.meetingDate}</div>
                 <div className="flex-1">
                   <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
-                    {t(`pm.entryStatus.${entry.entryStatus}`)}
+                    {t(`pm.status.${entry.entryStatus}`)}
                   </Badge>
                   {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
                 </div>
