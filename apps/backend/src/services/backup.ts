@@ -22,6 +22,44 @@ function localTimestamp(): string {
   return `${get('year')}-${get('month')}-${get('day')}_${get('hour')}-${get('minute')}-${get('second')}`;
 }
 
+// Keep the 30 most recent backups, plus one per calendar month for the 12 months before that.
+async function applyRetentionPolicy(backupPath: string): Promise<void> {
+  const KEEP_DAILY = 30;
+  const KEEP_MONTHLY = 12;
+
+  const files = await fs.readdir(backupPath).catch(() => [] as string[]);
+  const backups = files
+    .filter(f => f.startsWith('backup_') && f.endsWith('.tar.gz'))
+    .map(f => {
+      const m = f.match(/^backup_(\d{4}-\d{2}-\d{2})_/);
+      return m ? { file: f, date: new Date(m[1]) } : null;
+    })
+    .filter((b): b is { file: string; date: Date } => b !== null && !isNaN(b.date.getTime()))
+    .sort((a, b) => b.date.getTime() - a.date.getTime()); // newest first
+
+  const keep = new Set<string>();
+
+  // Always keep the N most recent
+  backups.slice(0, KEEP_DAILY).forEach(b => keep.add(b.file));
+
+  // For older ones keep one per calendar month (up to KEEP_MONTHLY months)
+  const seenMonths = new Set<string>();
+  for (const b of backups.slice(KEEP_DAILY)) {
+    const month = `${b.date.getFullYear()}-${String(b.date.getMonth() + 1).padStart(2, '0')}`;
+    if (!seenMonths.has(month) && seenMonths.size < KEEP_MONTHLY) {
+      seenMonths.add(month);
+      keep.add(b.file);
+    }
+  }
+
+  for (const b of backups) {
+    if (!keep.has(b.file)) {
+      await fs.unlink(path.join(backupPath, b.file)).catch(() => {});
+      console.log('[backup] Retention: deleted', b.file);
+    }
+  }
+}
+
 export async function createBackup(): Promise<string> {
   const s = await db.query.settings.findFirst();
   const backupPath = path.resolve(s?.backupPath ?? './backups');
@@ -82,6 +120,8 @@ export async function createBackup(): Promise<string> {
       console.error('[backup] Failed to copy backup to NAS:', err);
     }
   }
+
+  await applyRetentionPolicy(backupPath);
 
   return bundleFilePath;
 }
