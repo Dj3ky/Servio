@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
 
 interface User { id: string; name: string; }
 
@@ -41,6 +42,20 @@ function formatCurrency(v: string | null | undefined) {
   return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
 }
 
+function downloadStaticFile(filePath: string, filename: string) {
+  const isPwa = window.matchMedia('(display-mode: standalone)').matches;
+  if (isPwa) {
+    window.open(filePath, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = filePath;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function PhaseIcon({ status }: { status: string }) {
   if (status === 'completed') return <CheckCircle2 className="h-4 w-4 text-green-500" />;
   if (status === 'in_progress') return <Clock className="h-4 w-4 text-blue-500" />;
@@ -59,6 +74,7 @@ export default function ProjectDetailPage() {
   const [invoiceForm, setInvoiceForm] = useState({ invoiceDate: '', amount: '', notes: '' });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ['pm-project', id],
@@ -181,14 +197,17 @@ export default function ProjectDetailPage() {
   });
 
   const uploadDocument = useMutation({
-    mutationFn: (file: File) => {
-      const form = new FormData();
-      form.append('file', file);
-      return api.post(`/pm/projects/${id}/documents`, form);
+    mutationFn: async (files: File[]) => {
+      for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+        await api.post(`/pm/projects/${id}/documents`, form);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       toast.success(t('pm.documents.uploadOk'));
+      setDocDialogOpen(false);
     },
     onError: () => toast.error(t('pm.documents.uploadError')),
   });
@@ -344,22 +363,27 @@ export default function ProjectDetailPage() {
         {/* Documents */}
         <TabsContent value="documents" className="space-y-3 mt-4">
           <div className="flex justify-end">
-            <label>
-              <Button size="sm" asChild>
-                <span><Upload className="h-3.5 w-3.5 mr-1" />{t('pm.documents.upload')}</span>
-              </Button>
-              <input type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) uploadDocument.mutate(e.target.files[0]); e.target.value = ''; }} />
-            </label>
+            <Button size="sm" onClick={() => setDocDialogOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" />{t('pm.documents.upload')}
+            </Button>
           </div>
           {project.documents.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
           <div className="space-y-2">
             {project.documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-3 p-3 rounded-md border bg-card">
                 <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <a href={doc.filePath} target="_blank" rel="noreferrer" className="flex-1 text-sm hover:underline truncate">{doc.originalName}</a>
+                <button
+                  className="flex-1 text-sm text-left hover:underline truncate"
+                  onClick={() => window.open(doc.filePath, '_blank', 'noopener,noreferrer')}
+                >
+                  {doc.originalName}
+                </button>
                 <span className="text-xs text-muted-foreground shrink-0">
                   {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ''} · {doc.uploaderName}
                 </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => downloadStaticFile(doc.filePath, doc.originalName)}>
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -546,6 +570,13 @@ export default function ProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProjectDocumentUploadDialog
+        open={docDialogOpen}
+        onClose={() => setDocDialogOpen(false)}
+        onUpload={(files) => uploadDocument.mutate(files)}
+        uploading={uploadDocument.isPending}
+      />
     </div>
   );
 }

@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        navigateFallbackDenylist: [/^\/uploads\//],
+      },
       manifest: {
         name: 'Servio',
         short_name: 'Servio',

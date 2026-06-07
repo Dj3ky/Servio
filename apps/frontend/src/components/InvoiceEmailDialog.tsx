@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, FolderOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -80,7 +80,7 @@ export function InvoiceEmailDialog({
     }
   }, [templates, selectedTemplateId]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
     onDrop,
     maxFiles: 1,
     disabled: uploading || !!file,
@@ -153,6 +153,16 @@ export function InvoiceEmailDialog({
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">{t('reviews.dropOrClick')}</p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full"
+                onClick={openFileDialog}
+                disabled={uploading}
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                {t('reviews.browseFiles')}
+              </Button>
               {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
             </div>
           ) : (
