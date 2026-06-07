@@ -643,6 +643,7 @@
       "notePlaceholder": "What was done...",
       "save": "Save meeting",
       "dialogTitle": "Meeting — {{date}}",
+      "editTitle": "Edit meeting — {{date}}",
       "deleteConfirm": "Delete meeting?",
       "savedOk": "Meeting saved",
       "deletedOk": "Meeting deleted",

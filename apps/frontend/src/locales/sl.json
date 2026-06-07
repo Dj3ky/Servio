@@ -643,6 +643,7 @@
       "notePlaceholder": "Kaj je bilo narejenega...",
       "save": "Shrani sestanek",
       "dialogTitle": "Sestanek — {{date}}",
+      "editTitle": "Uredi sestanek — {{date}}",
       "deleteConfirm": "Izbriši sestanek?",
       "savedOk": "Sestanek shranjen",
       "deletedOk": "Sestanek izbrisan",

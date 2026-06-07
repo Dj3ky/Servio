@@ -64,6 +64,10 @@ export default function MeetingsPage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [collapsedDialogGroups, setCollapsedDialogGroups] = useState<Set<string>>(new Set());
   const [collapsedDetailGroups, setCollapsedDetailGroups] = useState<Set<string>>(new Set());
+  const [editMode, setEditMode] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings', yearFilter],
@@ -192,6 +196,46 @@ export default function MeetingsPage() {
     onError: () => toast.error(t('pm.meetings.error')),
   });
 
+  const updateMeeting = useMutation({
+    mutationFn: (id: string) => api.patch(`/pm/meetings/${id}`, {
+      notes: editNotes || null,
+      entries: editEntries.map(e => ({ projectId: e.projectId, entryStatus: e.entryStatus, notes: e.notes || null })),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-meetings'] });
+      qc.invalidateQueries({ queryKey: ['pm-meeting-detail', detailId] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
+      toast.success(t('pm.meetings.savedOk'));
+      setEditMode(false);
+    },
+    onError: () => toast.error(t('pm.meetings.saveError')),
+  });
+
+  function openEditMode() {
+    if (!detail) return;
+    setEditDate(detail.meetingDate);
+    setEditNotes(detail.notes ?? '');
+    setEditEntries(detail.entries.map(e => ({ ...e })));
+    setEditMode(true);
+  }
+
+  function updateEditEntry(projectId: string, field: 'entryStatus' | 'notes', value: string) {
+    setEditEntries(prev => prev.map(e => e.projectId === projectId ? { ...e, [field]: value } : e));
+  }
+
+  // Group edit entries by employee
+  const editEntriesByEmployee = useMemo(() => {
+    const groups: { key: string; employeeName: string | null; entries: MeetingEntry[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const e of editEntries) {
+      const key = e.employeeId ?? '__none__';
+      if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ key, employeeName: e.employeeName, entries: [] }); }
+      groups[seen.get(key)!].entries.push(e);
+    }
+    return groups;
+  }, [editEntries]);
+
   const meetings = data?.data ?? [];
 
   const grouped = useMemo(() => {
@@ -219,7 +263,7 @@ export default function MeetingsPage() {
 
   function renderRow(m: Meeting) {
     return (
-      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => { setCollapsedDetailGroups(new Set()); setDetailId(m.id); }}>
+      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => { setCollapsedDetailGroups(new Set()); setEditMode(false); setDetailId(m.id); }}>
         <td className="px-4 py-3 font-mono">{m.meetingDate}</td>
         <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>}
@@ -395,13 +439,18 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Meeting detail dialog — entries grouped by employee */}
-      <Dialog open={!!detailId} onOpenChange={v => { if (!v) setDetailId(null); }}>
+      {/* Meeting detail / edit dialog */}
+      <Dialog open={!!detailId} onOpenChange={v => { if (!v) { setDetailId(null); setEditMode(false); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('pm.meetings.dialogTitle', { date: detail?.meetingDate ?? '' })}</DialogTitle>
+            <DialogTitle>
+              {editMode
+                ? t('pm.meetings.editTitle', { date: detail?.meetingDate ?? '' })
+                : t('pm.meetings.dialogTitle', { date: detail?.meetingDate ?? '' })}
+            </DialogTitle>
           </DialogHeader>
-          {detail && (
+
+          {detail && !editMode && (
             <div className="space-y-3">
               {detail.notes && <p className="text-sm text-muted-foreground italic border-l-2 pl-3">{detail.notes}</p>}
               {detail.entries.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
@@ -445,12 +494,83 @@ export default function MeetingsPage() {
               })}
             </div>
           )}
+
+          {detail && editMode && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('pm.meetings.fieldNotes')}</label>
+                <Textarea placeholder={t('pm.meetings.notesPlaceholder')} value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={2} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({editEntries.length})</p>
+                {editEntriesByEmployee.map((group, idx) => (
+                  <div key={group.key} className="rounded-md border overflow-hidden">
+                    <div className={`px-3 py-2 text-sm font-semibold flex items-center gap-2 ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}>
+                      <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
+                      <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                      <span className="font-normal text-muted-foreground">({group.entries.length})</span>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-muted-foreground">
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
+                          <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.entries.map(entry => (
+                          <tr key={entry.id} className="border-b">
+                            <td className="px-3 py-2">
+                              <div className="font-medium">{entry.projectNumber}</div>
+                              <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <Select value={entry.entryStatus} onValueChange={v => updateEditEntry(entry.projectId, 'entryStatus', v)}>
+                                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="in_progress">{t('pm.entryStatus.in_progress')}</SelectItem>
+                                  <SelectItem value="done">{t('pm.entryStatus.done')}</SelectItem>
+                                  <SelectItem value="blocked">{t('pm.entryStatus.blocked')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                className="h-7 text-xs"
+                                placeholder={t('pm.meetings.notePlaceholder')}
+                                value={entry.notes ?? ''}
+                                onChange={e => updateEditEntry(entry.projectId, 'notes', e.target.value)}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
-            {detail && (
-              <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
-                {t('common.delete')}
-              </Button>
+            {!editMode ? (
+              <>
+                <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
+                <Button variant="outline" onClick={openEditMode}>{t('common.edit')}</Button>
+                {detail && (
+                  <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
+                    {t('common.delete')}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setEditMode(false)}>{t('common.cancel')}</Button>
+                <Button onClick={() => updateMeeting.mutate(detail!.id)} disabled={updateMeeting.isPending}>
+                  {updateMeeting.isPending ? t('common.loading') : t('common.save')}
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
