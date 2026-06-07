@@ -181,31 +181,18 @@ export default function ProjectsPage() {
     const groupHtml = groupsToRender.map((g, idx) => {
       const bgColor = groupByEmployee ? PRINT_GROUP_COLORS[idx % PRINT_GROUP_COLORS.length] : 'transparent';
       const rows = g.projects.map(p => {
-        const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
-        const fmtEur = (v: number | string | null | undefined) => {
-          const n = parseFloat(String(v ?? 0));
-          return isNaN(n) ? '—' : new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
-        };
-        const priorityLabel = t(`pm.priority.${p.priority}`);
-        const statusLabel = t(`pm.status.${p.status}`);
         const deadline = p.endDate ?? '—';
         const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
         return `<tr>
-          <td>${p.projectNumber}<br><span style="font-size:10px;color:#555">${p.name}</span></td>
+          <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#555">${p.name}</span></td>
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
-          ${!archiveMode ? `<td>${priorityLabel}</td><td>${statusLabel}</td>` : ''}
-          <td style="text-align:right">${fmtEur(p.contractValue)}</td>
-          <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
-          ${!archiveMode ? `<td style="text-align:right;${remaining > 0 ? 'color:#15803d' : ''}">${fmtEur(remaining)}</td>
-          <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>` : ''}
-          ${archiveMode ? `<td style="color:#15803d">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>` : ''}
+          <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>
+          <td style="width:200px;border-left:1px solid #e2e8f0">&nbsp;</td>
         </tr>`;
       }).join('');
 
-      const headerRow = !archiveMode
-        ? `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Prioriteta</th><th>Status</th><th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">Ostalo</th><th>Rok</th>`
-        : `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th>Zaključeno</th>`;
+      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Rok</th><th style="width:200px">Opombe</th>`;
 
       const groupHeader = groupByEmployee
         ? `<div style="background:${bgColor};border-left:4px solid #6366f1;padding:6px 10px;font-weight:700;font-size:12px;margin-top:16px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
@@ -215,9 +202,7 @@ export default function ProjectsPage() {
         <table>
           <thead><tr>${headerRow}</tr></thead>
           <tbody>${rows}</tbody>
-        </table>
-        <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:#888">Opombe / Notes:</div>
-        <div style="border:1px solid #ccc;height:60px;margin-bottom:16px"></div>`;
+        </table>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -229,7 +214,7 @@ export default function ProjectsPage() {
         .meta { font-size: 10px; color: #666; margin-bottom: 12px; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
         th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
-        td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; height: 32px; }
         tr:last-child td { border-bottom: none; }
         @media print { button { display: none; } }
       </style>
