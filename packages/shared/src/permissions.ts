@@ -13,10 +13,10 @@ export const permissions = {
     delete: r('admin'),
   },
   contractTimeline: {
-    access: r('admin', 'manager', 'accountant', 'technician'),
+    access: r('admin', 'manager', 'accountant', 'technician', 'project_manager'),
   },
   reviews: {
-    upload:   r('admin', 'manager', 'technician'),
+    upload:   r('admin', 'manager', 'technician', 'project_manager'),
     backfill: r('admin'),
   },
   invoices: {
@@ -24,8 +24,8 @@ export const permissions = {
     reset:  r('admin'),
   },
   projects: {
-    access: r('admin', 'manager', 'technician'),
-    manage: r('admin', 'manager'),
+    access: r('admin', 'manager', 'technician', 'project_manager'),
+    manage: r('admin', 'manager', 'project_manager'),
     delete: r('admin'),
   },
   reports: {

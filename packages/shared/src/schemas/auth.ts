@@ -11,7 +11,7 @@ export const loginResponseSchema = z.object({
     id: z.string(),
     email: z.string().email(),
     name: z.string(),
-    role: z.enum(['admin', 'manager', 'accountant', 'technician']),
+    role: z.enum(['admin', 'manager', 'accountant', 'technician', 'project_manager']),
     languagePreference: z.enum(['sl', 'en']),
   }),
 });

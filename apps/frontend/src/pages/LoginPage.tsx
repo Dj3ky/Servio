@@ -22,7 +22,7 @@ interface LoginResponse {
     id: string;
     email: string;
     name: string;
-    role: 'admin' | 'manager' | 'accountant' | 'technician';
+    role: 'admin' | 'manager' | 'accountant' | 'technician' | 'project_manager';
     languagePreference: 'sl' | 'en';
   };
 }

@@ -389,7 +389,7 @@ export default function ContractsPage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
-          {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician') && row.original.currentReview?.status === 'pending' && (
+          {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician' || user?.role === 'project_manager') && row.original.currentReview?.status === 'pending' && (
             <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
               <Upload className="h-3 w-3 mr-1" />
               {t('reviews.uploadPdf')}

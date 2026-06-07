@@ -302,7 +302,7 @@ export default function FacilityDetailPage() {
     setInvoiceNumber(invoice.invoiceNumber ?? '');
   }
 
-  const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician';
+  const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician' || user?.role === 'project_manager';
   const canManageInvoices = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'accountant';
   const canManageContracts = user?.role === 'admin' || user?.role === 'manager';
 

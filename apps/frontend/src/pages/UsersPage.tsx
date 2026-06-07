@@ -49,7 +49,7 @@ const resetPasswordSchema = z.object({ password: z.string().min(8) });
 const editUserFormSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(100),
-  role: z.enum(['admin', 'manager', 'accountant', 'technician']),
+  role: z.enum(['admin', 'manager', 'accountant', 'technician', 'project_manager']),
   languagePreference: z.enum(['sl', 'en']),
 });
 
@@ -60,6 +60,7 @@ const ROLE_COLORS: Record<string, string> = {
   manager: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
   accountant: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
   technician: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+  project_manager: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300',
 };
 
 export default function UsersPage() {
@@ -397,7 +398,7 @@ export default function UsersPage() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {(['admin', 'manager', 'accountant', 'technician'] as const).map((r) => (
+                        {(['admin', 'manager', 'accountant', 'technician', 'project_manager'] as const).map((r) => (
                           <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>
                         ))}
                       </SelectContent>
@@ -452,7 +453,7 @@ export default function UsersPage() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {(['admin', 'manager', 'accountant', 'technician'] as const).map((r) => (
+                        {(['admin', 'manager', 'accountant', 'technician', 'project_manager'] as const).map((r) => (
                           <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>
                         ))}
                       </SelectContent>

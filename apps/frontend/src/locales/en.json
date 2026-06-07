@@ -404,7 +404,8 @@
       "admin": "Administrator",
       "manager": "Manager",
       "accountant": "Accountant",
-      "technician": "Technician"
+      "technician": "Service Technician",
+      "project_manager": "Project Manager"
     }
   },
   "inbox": {

@@ -1772,7 +1772,7 @@ type PermMap = Record<string, Record<string, string[]>>;
 
 function PermissionsTab() {
   const { t } = useTranslation();
-  const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'technician'];
+  const ALL_ROLES: UserRole[] = ['admin', 'manager', 'accountant', 'technician', 'project_manager'];
 
   const { data: serverPerms, isLoading, refetch } = useQuery<PermMap>({
     queryKey: ['permissions'],

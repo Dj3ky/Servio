@@ -404,7 +404,8 @@
       "admin": "Administrator",
       "manager": "Vodja",
       "accountant": "Računovodja",
-      "technician": "Tehnik"
+      "technician": "Serviser",
+      "project_manager": "Vodja projektov"
     }
   },
   "inbox": {
