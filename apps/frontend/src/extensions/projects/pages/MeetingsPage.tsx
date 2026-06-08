@@ -23,6 +23,7 @@ interface MeetingEntry {
   id: string; projectId: string; projectNumber: string; projectName: string;
   projectPriority: string; entryStatus: string; notes: string | null;
   employeeId: string | null; employeeName: string | null;
+  lastEntryNotes?: string | null; lastMeetingDate?: string | null;
 }
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
@@ -231,6 +232,8 @@ export default function MeetingsPage() {
         notes: existing?.notes ?? '',
         employeeId: p.employeeId,
         employeeName: p.employeeName,
+        lastEntryNotes: p.lastEntryNotes,
+        lastMeetingDate: p.lastMeetingDate,
       };
     }));
     setCollapsedDetailGroups(new Set());
@@ -409,7 +412,10 @@ export default function MeetingsPage() {
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
                               <th className="text-left px-3 py-2 font-medium w-[150px]">{t('common.status')}</th>
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                              <th className="text-left px-3 py-2 font-medium w-[200px]">{t('pm.meetings.colLastMeeting')}</th>
+                              <th className="text-left px-3 py-2 font-medium w-[200px]">
+                                <div>{t('pm.meetings.colLastMeeting')}</div>
+                                {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{d}</div> : null; })()}
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -438,11 +444,8 @@ export default function MeetingsPage() {
                                   />
                                 </td>
                                 <td className="px-3 py-2">
-                                  {entry.lastMeetingDate
-                                    ? <div>
-                                        <div className="text-xs font-mono text-muted-foreground">{entry.lastMeetingDate}</div>
-                                        {entry.lastEntryNotes && <div className="text-xs text-muted-foreground mt-0.5 italic truncate max-w-[180px]">{entry.lastEntryNotes}</div>}
-                                      </div>
+                                  {entry.lastEntryNotes
+                                    ? <span className="text-xs text-muted-foreground italic">{entry.lastEntryNotes}</span>
                                     : <span className="text-xs text-muted-foreground">—</span>}
                                 </td>
                               </tr>
@@ -540,8 +543,12 @@ export default function MeetingsPage() {
                       <thead>
                         <tr className="border-b bg-muted/50 text-muted-foreground">
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                          <th className="text-left px-3 py-2 font-medium w-[160px]">{t('common.status')}</th>
+                          <th className="text-left px-3 py-2 font-medium w-[150px]">{t('common.status')}</th>
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
+                          <th className="text-left px-3 py-2 font-medium w-[200px]">
+                            <div>{t('pm.meetings.colLastMeeting')}</div>
+                            {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{d}</div> : null; })()}
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -568,6 +575,11 @@ export default function MeetingsPage() {
                                 value={entry.notes ?? ''}
                                 onChange={e => updateEditEntry(entry.projectId, 'notes', e.target.value)}
                               />
+                            </td>
+                            <td className="px-3 py-2">
+                              {entry.lastEntryNotes
+                                ? <span className="text-xs text-muted-foreground italic">{entry.lastEntryNotes}</span>
+                                : <span className="text-xs text-muted-foreground">—</span>}
                             </td>
                           </tr>
                         ))}
