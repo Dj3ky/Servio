@@ -470,7 +470,7 @@ export default function MeetingsPage() {
 
       {/* Meeting detail / edit dialog */}
       <Dialog open={!!detailId} onOpenChange={v => { if (!v) { setDetailId(null); setEditMode(false); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editMode
@@ -532,14 +532,21 @@ export default function MeetingsPage() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({editEntries.length})</p>
-                {editEntriesByEmployee.map((group, idx) => (
+                {editEntriesByEmployee.map((group, idx) => {
+                  const collapsed = collapsedDetailGroups.has(group.key);
+                  return (
                   <div key={group.key} className="rounded-md border overflow-hidden">
-                    <div className={`px-3 py-2 text-sm font-semibold flex items-center gap-2 ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}>
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
+                      onClick={() => toggleDetailGroup(group.key)}
+                    >
                       <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
                       <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
                       <span className="font-normal text-muted-foreground">({group.entries.length})</span>
-                    </div>
-                    <table className="w-full text-sm">
+                      {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </button>
+                    {!collapsed && <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/50 text-muted-foreground">
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
@@ -584,9 +591,10 @@ export default function MeetingsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
