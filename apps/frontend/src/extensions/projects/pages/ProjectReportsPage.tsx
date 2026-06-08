@@ -167,7 +167,7 @@ export default function ProjectReportsPage() {
         const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
         const isOverdue = !showCompleted && p.endDate && new Date(p.endDate) < new Date();
         return `<tr>
-          <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#666">${p.name}</span></td>
+          <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#666">${p.projectNumber}</span></td>
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
           ${showCompleted
@@ -214,7 +214,7 @@ export default function ProjectReportsPage() {
     const outstandingRows = (outstanding ?? []).map(p => {
       const gap = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
       return `<tr>
-        <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#666">${p.name}</span></td>
+        <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#666">${p.projectNumber}</span></td>
         <td>${p.customerName ?? '—'}</td>
         <td>${p.employeeName ?? '—'}</td>
         <td>${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>
@@ -476,8 +476,8 @@ export default function ProjectReportsPage() {
                       return (
                         <tr key={p.id} className="border-b last:border-0">
                           <td className="px-4 py-3">
-                            <div className="font-medium">{p.projectNumber}</div>
-                            <div className="text-xs text-muted-foreground">{p.name}</div>
+                            <div className="font-medium">{p.name}</div>
+                            <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                           <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>

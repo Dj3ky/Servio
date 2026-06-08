@@ -184,7 +184,7 @@ export default function ProjectsPage() {
         const deadline = p.endDate ?? '—';
         const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
         return `<tr>
-          <td><strong>${p.projectNumber}</strong><br><span style="font-size:9px;color:#555">${p.name}</span></td>
+          <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#555">${p.projectNumber}</span></td>
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
           <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>
@@ -263,8 +263,8 @@ export default function ProjectsPage() {
     return (
       <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
         <td className="px-4 py-3">
-          <div className="font-medium">{p.projectNumber}</div>
-          <div className="text-xs text-muted-foreground">{p.name}</div>
+          <div className="font-medium">{p.name}</div>
+          <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
         </td>
         <td className="px-4 py-3 text-muted-foreground text-sm">{p.customerName ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground text-sm">{p.employeeName ?? '—'}</td>}

@@ -224,7 +224,7 @@ export default function ProjectDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/pm/projects')}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold">{project.projectNumber}</h1>
+            <h1 className="text-2xl font-bold">{project.name}</h1>
             <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={quickStatusChange.isPending}>
               <SelectTrigger className="h-7 w-auto text-xs px-2 gap-1">
                 <SelectValue />
@@ -238,7 +238,7 @@ export default function ProjectDetailPage() {
             <Badge variant={project.priority === 'high' ? 'destructive' : 'outline'}>{t(`pm.priority.${project.priority}`)}</Badge>
             {isOverdue && <Badge variant="destructive">{t('pm.projects.overdue')}</Badge>}
           </div>
-          <p className="text-muted-foreground">{project.name}</p>
+          <p className="text-muted-foreground">{project.projectNumber}</p>
         </div>
         <Button variant="outline" size="sm" onClick={openEdit}>
           <Pencil className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.edit')}

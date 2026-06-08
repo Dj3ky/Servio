@@ -437,10 +437,10 @@ export default function MeetingsPage() {
                               <tr key={entry.projectId} className="border-b">
                                 <td className="px-3 py-2">
                                   <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                    {entry.projectNumber}
+                                    {entry.projectName}
                                     <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                   </button>
-                                  <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                                  <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                                 </td>
                                 <td className="px-3 py-2">
                                   <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
@@ -522,8 +522,8 @@ export default function MeetingsPage() {
                             onClick={() => { setDetailId(null); navigate(`/pm/projects/${entry.projectId}`); }}
                           >
                             <div className="min-w-[120px]">
-                              <div className="font-medium">{entry.projectNumber}</div>
-                              <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                              <div className="font-medium">{entry.projectName}</div>
+                              <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                             </div>
                             <div className="flex-1">
                               <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
@@ -580,10 +580,10 @@ export default function MeetingsPage() {
                           <tr key={entry.projectId} className="border-b">
                             <td className="px-3 py-2">
                               <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                {entry.projectNumber}
+                                {entry.projectName}
                                 <ExternalLink className="h-3 w-3 text-muted-foreground" />
                               </button>
-                              <div className="text-xs text-muted-foreground">{entry.projectName}</div>
+                              <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                             </td>
                             <td className="px-3 py-2">
                               <Select value={entry.entryStatus} onValueChange={v => updateEditEntry(entry.projectId, 'entryStatus', v)}>
@@ -647,7 +647,7 @@ export default function MeetingsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {quickViewProject ? `${quickViewProject.projectNumber} — ${quickViewProject.name}` : '…'}
+              {quickViewProject ? `${quickViewProject.name} (${quickViewProject.projectNumber})` : '…'}
             </DialogTitle>
           </DialogHeader>
           {quickViewProject && (
