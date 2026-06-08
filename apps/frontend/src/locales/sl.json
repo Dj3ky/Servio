@@ -641,6 +641,7 @@
       "colProject": "DN / Projekt",
       "colNote": "Opomba",
       "colLastMeeting": "Zadnji sestanek",
+      "openProject": "Odpri projekt",
       "notePlaceholder": "Kaj je bilo narejenega...",
       "save": "Shrani sestanek",
       "dialogTitle": "Sestanek — {{date}}",

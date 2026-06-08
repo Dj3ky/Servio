@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,13 @@ interface EntryDraft {
   entryStatus: string; notes: string;
   employeeId: string | null; employeeName: string | null;
   lastMeetingDate: string | null; lastEntryNotes: string | null;
+}
+
+interface QuickViewProject {
+  id: string; projectNumber: string; name: string; orderDate: string | null;
+  priority: string; status: string; startDate: string | null; endDate: string | null;
+  contractValue: string | null; invoicedAmount: string | null; notes: string | null;
+  employeeName: string | null; customerName: string | null; facilityName: string | null;
 }
 
 const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
@@ -70,6 +77,7 @@ export default function MeetingsPage() {
   const [editMode, setEditMode] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
+  const [quickViewId, setQuickViewId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings', yearFilter],
@@ -80,6 +88,12 @@ export default function MeetingsPage() {
     queryKey: ['pm-active-projects'],
     queryFn: () => api.get('/pm/meetings/active-projects/list'),
     enabled: newOpen || !!detailId,
+  });
+
+  const { data: quickViewProject } = useQuery<QuickViewProject>({
+    queryKey: ['pm-project-quickview', quickViewId],
+    queryFn: () => api.get(`/pm/projects/${quickViewId}`),
+    enabled: !!quickViewId,
   });
 
   const { data: detail } = useQuery<MeetingDetail>({
@@ -422,7 +436,10 @@ export default function MeetingsPage() {
                             {group.entries.map(entry => (
                               <tr key={entry.projectId} className="border-b">
                                 <td className="px-3 py-2">
-                                  <div className="font-medium">{entry.projectNumber}</div>
+                                  <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
+                                    {entry.projectNumber}
+                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                  </button>
                                   <div className="text-xs text-muted-foreground">{entry.projectName}</div>
                                 </td>
                                 <td className="px-3 py-2">
@@ -562,7 +579,10 @@ export default function MeetingsPage() {
                         {group.entries.map(entry => (
                           <tr key={entry.projectId} className="border-b">
                             <td className="px-3 py-2">
-                              <div className="font-medium">{entry.projectNumber}</div>
+                              <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
+                                {entry.projectNumber}
+                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                              </button>
                               <div className="text-xs text-muted-foreground">{entry.projectName}</div>
                             </td>
                             <td className="px-3 py-2">
@@ -619,6 +639,52 @@ export default function MeetingsPage() {
               </>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Project quick-view */}
+      <Dialog open={!!quickViewId} onOpenChange={o => { if (!o) setQuickViewId(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {quickViewProject ? `${quickViewProject.projectNumber} — ${quickViewProject.name}` : '…'}
+            </DialogTitle>
+          </DialogHeader>
+          {quickViewProject && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                <div className="text-muted-foreground">{t('pm.projects.fieldCustomer')}</div>
+                <div>{quickViewProject.customerName || '—'}</div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldFacility')}</div>
+                <div>{quickViewProject.facilityName || '—'}</div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldEmployee')}</div>
+                <div>{quickViewProject.employeeName || '—'}</div>
+                <div className="text-muted-foreground">{t('common.status')}</div>
+                <div><Badge variant="outline">{t(`pm.status.${quickViewProject.status}`)}</Badge></div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldPriority')}</div>
+                <div><Badge variant="secondary">{t(`pm.priority.${quickViewProject.priority}`)}</Badge></div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldStartDate')}</div>
+                <div>{quickViewProject.startDate || '—'}</div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldEndDate')}</div>
+                <div>{quickViewProject.endDate || '—'}</div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldContractValue')}</div>
+                <div>{quickViewProject.contractValue ? `${Number(quickViewProject.contractValue).toLocaleString()} €` : '—'}</div>
+                <div className="text-muted-foreground">{t('pm.projects.fieldInvoiced')}</div>
+                <div>{quickViewProject.invoicedAmount ? `${Number(quickViewProject.invoicedAmount).toLocaleString()} €` : '—'}</div>
+              </div>
+              {quickViewProject.notes && (
+                <div className="pt-1 border-t">
+                  <p className="text-muted-foreground mb-1">{t('pm.projects.fieldNotes')}</p>
+                  <p className="whitespace-pre-wrap">{quickViewProject.notes}</p>
+                </div>
+              )}
+              <div className="pt-2 border-t flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => { navigate(`/pm/projects/${quickViewProject.id}`); setQuickViewId(null); }}>
+                  {t('pm.meetings.openProject')} <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
