@@ -78,7 +78,7 @@ export default function MeetingsPage() {
   const { data: activeProjects } = useQuery<ActiveProject[]>({
     queryKey: ['pm-active-projects'],
     queryFn: () => api.get('/pm/meetings/active-projects/list'),
-    enabled: newOpen,
+    enabled: newOpen || !!detailId,
   });
 
   const { data: detail } = useQuery<MeetingDetail>({
@@ -216,9 +216,24 @@ export default function MeetingsPage() {
   });
 
   function openEditMode() {
-    if (!detail) return;
+    if (!detail || !activeProjects) return;
     setEditNotes(detail.notes ?? '');
-    setEditEntries(detail.entries.map(e => ({ ...e })));
+    const existingByProject = new Map(detail.entries.map(e => [e.projectId, e]));
+    setEditEntries(activeProjects.map(p => {
+      const existing = existingByProject.get(p.id);
+      return {
+        id: existing?.id ?? '',
+        projectId: p.id,
+        projectNumber: p.projectNumber,
+        projectName: p.name,
+        projectPriority: p.priority,
+        entryStatus: existing?.entryStatus ?? 'active',
+        notes: existing?.notes ?? '',
+        employeeId: p.employeeId,
+        employeeName: p.employeeName,
+      };
+    }));
+    setCollapsedDetailGroups(new Set());
     setEditMode(true);
   }
 
@@ -531,7 +546,7 @@ export default function MeetingsPage() {
                       </thead>
                       <tbody>
                         {group.entries.map(entry => (
-                          <tr key={entry.id} className="border-b">
+                          <tr key={entry.projectId} className="border-b">
                             <td className="px-3 py-2">
                               <div className="font-medium">{entry.projectNumber}</div>
                               <div className="text-xs text-muted-foreground">{entry.projectName}</div>
