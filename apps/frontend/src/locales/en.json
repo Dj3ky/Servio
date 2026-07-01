@@ -574,6 +574,8 @@
       "value": "Value",
       "invoiced": "Invoiced",
       "remaining": "Remaining",
+      "received": "Received",
+      "profit": "Profit",
       "deadline": "Deadline",
       "startDateShort": "Start",
       "completedAt": "Completed on"
@@ -662,17 +664,20 @@
       "error": "Error"
     },
     "invoices": {
-      "tab": "Invoices",
-      "add": "Add invoice",
-      "addTitle": "New invoice",
+      "tabIssued": "Invoices issued",
+      "tabReceived": "Invoices received",
+      "addIssued": "Add issued invoice",
+      "addReceived": "Add received invoice",
       "fieldDate": "Invoice date",
       "fieldAmount": "Amount (€)",
       "fieldNotes": "Notes",
-      "addedOk": "Invoice added",
+      "issuedAddedOk": "Issued invoice added",
+      "receivedAddedOk": "Received invoice added",
       "deletedOk": "Invoice deleted",
       "deleteConfirm": "Delete invoice?",
       "error": "Error",
-      "total": "Total invoiced"
+      "totalIssued": "Total issued",
+      "totalReceived": "Total received"
     },
     "groupBy": {
       "list": "List",

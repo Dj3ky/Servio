@@ -95,6 +95,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     endDate: pmProjects.endDate,
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
+    receivedAmount: pmProjects.receivedAmount,
     notes: pmProjects.notes,
     completedAt: pmProjects.completedAt,
     createdAt: pmProjects.createdAt,
@@ -266,22 +267,28 @@ router.get('/:id/invoices', async (req: Request, res: Response): Promise<void> =
   res.json(invoices);
 });
 
+async function recalculateInvoiceTotals(projectId: string) {
+  const [{ issued, received }] = await db.select({
+    issued: sql<string>`coalesce(sum(amount) filter (where direction = 'issued'), '0')`,
+    received: sql<string>`coalesce(sum(amount) filter (where direction = 'received'), '0')`,
+  }).from(pmProjectInvoices).where(eq(pmProjectInvoices.projectId, projectId));
+  await db.update(pmProjects).set({ invoicedAmount: issued, receivedAmount: received, updatedAt: new Date() })
+    .where(eq(pmProjects.id, projectId));
+}
+
 router.post('/:id/invoices', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmInvoiceSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
   const [invoice] = await db.insert(pmProjectInvoices).values({
     projectId: req.params.id,
+    direction: parsed.data.direction,
     invoiceDate: parsed.data.invoiceDate,
     amount: parsed.data.amount,
     notes: parsed.data.notes ?? null,
   }).returning();
 
-  // Recalculate aggregate on project
-  const [{ total }] = await db.select({ total: sql<string>`coalesce(sum(amount), '0')` })
-    .from(pmProjectInvoices).where(eq(pmProjectInvoices.projectId, req.params.id));
-  await db.update(pmProjects).set({ invoicedAmount: total, updatedAt: new Date() })
-    .where(eq(pmProjects.id, req.params.id));
+  await recalculateInvoiceTotals(req.params.id);
 
   res.status(201).json(invoice);
 });
@@ -292,11 +299,7 @@ router.delete('/:id/invoices/:invoiceId', requireRole('projects', 'manage'), asy
     .returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
-  // Recalculate aggregate on project
-  const [{ total }] = await db.select({ total: sql<string>`coalesce(sum(amount), '0')` })
-    .from(pmProjectInvoices).where(eq(pmProjectInvoices.projectId, req.params.id));
-  await db.update(pmProjects).set({ invoicedAmount: total, updatedAt: new Date() })
-    .where(eq(pmProjects.id, req.params.id));
+  await recalculateInvoiceTotals(req.params.id);
 
   res.json({ success: true });
 });

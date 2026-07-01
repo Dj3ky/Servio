@@ -574,6 +574,8 @@
       "value": "Vrednost",
       "invoiced": "Fakturirano",
       "remaining": "Ostalo",
+      "received": "Prejeto",
+      "profit": "Dobiček",
       "deadline": "Rok",
       "startDateShort": "Začetek",
       "completedAt": "Zaključeno"
@@ -662,17 +664,20 @@
       "error": "Napaka"
     },
     "invoices": {
-      "tab": "Fakture",
-      "add": "Dodaj fakturo",
-      "addTitle": "Nova faktura",
+      "tabIssued": "Izdane fakture",
+      "tabReceived": "Prejete fakture",
+      "addIssued": "Dodaj izdano fakturo",
+      "addReceived": "Dodaj prejeto fakturo",
       "fieldDate": "Datum fakture",
       "fieldAmount": "Znesek (€)",
       "fieldNotes": "Opombe",
-      "addedOk": "Faktura dodana",
+      "issuedAddedOk": "Izdana faktura dodana",
+      "receivedAddedOk": "Prejeta faktura dodana",
       "deletedOk": "Faktura izbrisana",
       "deleteConfirm": "Izbriši fakturo?",
       "error": "Napaka",
-      "total": "Skupaj fakturirano"
+      "totalIssued": "Skupaj izdano",
+      "totalReceived": "Skupaj prejeto"
     },
     "groupBy": {
       "list": "Seznam",

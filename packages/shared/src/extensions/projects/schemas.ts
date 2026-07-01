@@ -71,6 +71,7 @@ export const updatePmMeetingSchema = z.object({
 
 // PM Project Invoices
 export const createPmInvoiceSchema = z.object({
+  direction: z.enum(['issued', 'received']).default('issued'),
   invoiceDate: z.string().min(1),
   amount: z.string().min(1),
   notes: z.string().optional().nullable(),

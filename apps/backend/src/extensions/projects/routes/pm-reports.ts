@@ -199,7 +199,10 @@ router.get('/revenue-trend', async (req: Request, res: Response): Promise<void> 
     invoiceCount: sql<number>`count(*)`,
   })
     .from(pmProjectInvoices)
-    .where(sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`)
+    .where(and(
+      eq(pmProjectInvoices.direction, 'issued'),
+      sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`,
+    ))
     .groupBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`)
     .orderBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`);
 

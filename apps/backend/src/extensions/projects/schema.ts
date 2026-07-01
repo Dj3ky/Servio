@@ -38,6 +38,7 @@ export const pmProjects = pgTable('pm_projects', {
   endDate: date('end_date'),
   contractValue: numeric('contract_value', { precision: 12, scale: 2 }),
   invoicedAmount: numeric('invoiced_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  receivedAmount: numeric('received_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   notes: text('notes'),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -89,6 +90,7 @@ export const pmProjectDocuments = pgTable('pm_project_documents', {
 export const pmProjectInvoices = pgTable('pm_project_invoices', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
+  direction: text('direction').notNull().default('issued'),
   invoiceDate: date('invoice_date').notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   notes: text('notes'),
@@ -102,3 +104,4 @@ export type DbPmProjectPhase = typeof pmProjectPhases.$inferSelect;
 export type DbPmWeeklyMeeting = typeof pmWeeklyMeetings.$inferSelect;
 export type DbPmMeetingEntry = typeof pmMeetingEntries.$inferSelect;
 export type DbPmProjectDocument = typeof pmProjectDocuments.$inferSelect;
+export type DbPmProjectInvoice = typeof pmProjectInvoices.$inferSelect;

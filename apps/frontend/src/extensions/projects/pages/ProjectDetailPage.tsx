@@ -19,7 +19,8 @@ interface User { id: string; name: string; }
 
 interface Phase { id: string; name: string; orderIndex: number; status: string; }
 interface Document { id: string; originalName: string; filePath: string; fileSize: number | null; uploaderName: string | null; createdAt: string; }
-interface Invoice { id: string; projectId: string; invoiceDate: string; amount: string; notes: string | null; createdAt: string; }
+interface Invoice { id: string; projectId: string; direction: 'issued' | 'received'; invoiceDate: string; amount: string; notes: string | null; createdAt: string; }
+type InvoiceForm = { invoiceDate: string; amount: string; notes: string };
 interface MeetingEntry {
   id: string; entryStatus: string; notes: string | null;
   meetingId: string; meetingDate: string; meetingNotes: string | null; createdAt: string;
@@ -27,7 +28,7 @@ interface MeetingEntry {
 interface Project {
   id: string; projectNumber: string; name: string; orderDate: string | null;
   priority: string; status: string; startDate: string | null; endDate: string | null;
-  contractValue: string | null; invoicedAmount: string; notes: string | null;
+  contractValue: string | null; invoicedAmount: string; receivedAmount: string; notes: string | null;
   employeeId: string | null; employeeName: string | null;
   customerName: string | null; facilityName: string | null;
   completedAt: string | null;
@@ -49,6 +50,95 @@ function PhaseIcon({ status }: { status: string }) {
   return <Circle className="h-4 w-4 text-muted-foreground" />;
 }
 
+function InvoiceList({
+  invoices, form, onFormChange, onSubmit, onDelete, isPending, addLabel, totalLabel,
+}: {
+  invoices: Invoice[];
+  form: InvoiceForm;
+  onFormChange: (form: InvoiceForm) => void;
+  onSubmit: () => void;
+  onDelete: (invoiceId: string) => void;
+  isPending: boolean;
+  addLabel: string;
+  totalLabel: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm font-medium mb-3">{addLabel}</p>
+          <form className="flex flex-wrap gap-3 items-end" onSubmit={e => { e.preventDefault(); onSubmit(); }}>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldDate')} *</label>
+              <Input
+                type="date"
+                className="w-[160px]"
+                value={form.invoiceDate}
+                onChange={e => onFormChange({ ...form, invoiceDate: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldAmount')} *</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                className="w-[140px]"
+                value={form.amount}
+                onChange={e => onFormChange({ ...form, amount: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1 flex-1 min-w-[180px]">
+              <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldNotes')}</label>
+              <Input
+                placeholder={t('pm.invoices.fieldNotes') + '...'}
+                value={form.notes}
+                onChange={e => onFormChange({ ...form, notes: e.target.value })}
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={isPending}>
+              <Plus className="h-3.5 w-3.5 mr-1" />{addLabel}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {invoices.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
+      <div className="space-y-2">
+        {invoices.map(inv => (
+          <div key={inv.id} className="flex items-center gap-3 p-3 rounded-md border bg-card text-sm">
+            <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{inv.invoiceDate}</span>
+            <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
+            <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
+              onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) onDelete(inv.id); }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {invoices.length > 0 && (
+        <div className="flex justify-end">
+          <div className="text-sm font-medium flex gap-2">
+            <span className="text-muted-foreground">{totalLabel}:</span>
+            <span className="font-mono text-green-600">
+              {formatCurrency(String(invoices.reduce((s, i) => s + parseFloat(i.amount), 0)))}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,7 +148,8 @@ export default function ProjectDetailPage() {
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [phaseName, setPhaseName] = useState('');
   const [editPhase, setEditPhase] = useState<Phase | null>(null);
-  const [invoiceForm, setInvoiceForm] = useState({ invoiceDate: '', amount: '', notes: '' });
+  const [issuedForm, setIssuedForm] = useState<InvoiceForm>({ invoiceDate: '', amount: '', notes: '' });
+  const [receivedForm, setReceivedForm] = useState<InvoiceForm>({ invoiceDate: '', amount: '', notes: '' });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [docDialogOpen, setDocDialogOpen] = useState(false);
@@ -129,14 +220,19 @@ export default function ProjectDetailPage() {
   }
 
   const addInvoice = useMutation({
-    mutationFn: (body: typeof invoiceForm) => api.post(`/pm/projects/${id}/invoices`, body),
-    onSuccess: () => {
+    mutationFn: (body: InvoiceForm & { direction: 'issued' | 'received' }) => api.post(`/pm/projects/${id}/invoices`, body),
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
-      toast.success(t('pm.invoices.addedOk'));
-      setInvoiceForm({ invoiceDate: '', amount: '', notes: '' });
+      if (variables.direction === 'issued') {
+        toast.success(t('pm.invoices.issuedAddedOk'));
+        setIssuedForm({ invoiceDate: '', amount: '', notes: '' });
+      } else {
+        toast.success(t('pm.invoices.receivedAddedOk'));
+        setReceivedForm({ invoiceDate: '', amount: '', notes: '' });
+      }
     },
     onError: () => toast.error(t('pm.invoices.error')),
   });
@@ -213,9 +309,13 @@ export default function ProjectDetailPage() {
 
   const contractVal = parseFloat(project.contractValue ?? '0');
   const invoiced = parseFloat(project.invoicedAmount ?? '0');
+  const received = parseFloat(project.receivedAmount ?? '0');
   const remaining = contractVal - invoiced;
+  const profit = invoiced - received;
   const invoicedPct = contractVal > 0 ? Math.min(100, (invoiced / contractVal) * 100) : 0;
   const isOverdue = project.endDate && project.status !== 'completed' && new Date(project.endDate) < new Date();
+  const issuedInvoices = (invoices ?? []).filter(inv => inv.direction !== 'received');
+  const receivedInvoices = (invoices ?? []).filter(inv => inv.direction === 'received');
 
   return (
     <div className="p-6 space-y-6">
@@ -271,7 +371,9 @@ export default function ProjectDetailPage() {
           <CardContent className="p-4 space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.value')}</span><span className="font-mono font-medium">{formatCurrency(project.contractValue)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.invoiced')}</span><span className="font-mono">{formatCurrency(project.invoicedAmount)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.received')}</span><span className="font-mono">{formatCurrency(project.receivedAmount)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.remaining')}</span><span className={`font-mono font-medium ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.profit')}</span><span className={`font-mono font-medium ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{formatCurrency(String(profit))}</span></div>
             {contractVal > 0 && (
               <div className="mt-2">
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -294,7 +396,8 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
-          <TabsTrigger value="invoices">{t('pm.invoices.tab')} ({invoices?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="invoicesIssued">{t('pm.invoices.tabIssued')} ({issuedInvoices.length})</TabsTrigger>
+          <TabsTrigger value="invoicesReceived">{t('pm.invoices.tabReceived')} ({receivedInvoices.length})</TabsTrigger>
         </TabsList>
 
         {/* Phases */}
@@ -381,84 +484,32 @@ export default function ProjectDetailPage() {
           </div>
         </TabsContent>
 
-        {/* Invoices */}
-        <TabsContent value="invoices" className="space-y-4 mt-4">
-          {/* Add invoice form */}
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-3">{t('pm.invoices.add')}</p>
-              <form
-                className="flex flex-wrap gap-3 items-end"
-                onSubmit={e => { e.preventDefault(); addInvoice.mutate(invoiceForm); }}
-              >
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldDate')} *</label>
-                  <Input
-                    type="date"
-                    className="w-[160px]"
-                    value={invoiceForm.invoiceDate}
-                    onChange={e => setInvoiceForm(f => ({ ...f, invoiceDate: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldAmount')} *</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    className="w-[140px]"
-                    value={invoiceForm.amount}
-                    onChange={e => setInvoiceForm(f => ({ ...f, amount: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-1 flex-1 min-w-[180px]">
-                  <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldNotes')}</label>
-                  <Input
-                    placeholder={t('pm.invoices.fieldNotes') + '...'}
-                    value={invoiceForm.notes}
-                    onChange={e => setInvoiceForm(f => ({ ...f, notes: e.target.value }))}
-                  />
-                </div>
-                <Button type="submit" size="sm" disabled={addInvoice.isPending}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />{t('pm.invoices.add')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+        {/* Invoices issued */}
+        <TabsContent value="invoicesIssued">
+          <InvoiceList
+            invoices={issuedInvoices}
+            form={issuedForm}
+            onFormChange={setIssuedForm}
+            onSubmit={() => addInvoice.mutate({ ...issuedForm, direction: 'issued' })}
+            onDelete={invoiceId => deleteInvoice.mutate(invoiceId)}
+            isPending={addInvoice.isPending}
+            addLabel={t('pm.invoices.addIssued')}
+            totalLabel={t('pm.invoices.totalIssued')}
+          />
+        </TabsContent>
 
-          {/* Invoice list */}
-          {(invoices ?? []).length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
-          <div className="space-y-2">
-            {(invoices ?? []).map(inv => (
-              <div key={inv.id} className="flex items-center gap-3 p-3 rounded-md border bg-card text-sm">
-                <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{inv.invoiceDate}</span>
-                <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
-                <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
-                  onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) deleteInvoice.mutate(inv.id); }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          {/* Running total */}
-          {(invoices ?? []).length > 0 && (
-            <div className="flex justify-end">
-              <div className="text-sm font-medium flex gap-2">
-                <span className="text-muted-foreground">{t('pm.invoices.total')}:</span>
-                <span className="font-mono text-green-600">
-                  {formatCurrency(String((invoices ?? []).reduce((s, i) => s + parseFloat(i.amount), 0)))}
-                </span>
-              </div>
-            </div>
-          )}
+        {/* Invoices received */}
+        <TabsContent value="invoicesReceived">
+          <InvoiceList
+            invoices={receivedInvoices}
+            form={receivedForm}
+            onFormChange={setReceivedForm}
+            onSubmit={() => addInvoice.mutate({ ...receivedForm, direction: 'received' })}
+            onDelete={invoiceId => deleteInvoice.mutate(invoiceId)}
+            isPending={addInvoice.isPending}
+            addLabel={t('pm.invoices.addReceived')}
+            totalLabel={t('pm.invoices.totalReceived')}
+          />
         </TabsContent>
       </Tabs>
 
