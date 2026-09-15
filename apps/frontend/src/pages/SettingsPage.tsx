@@ -8,7 +8,7 @@ import {
   Plus, Pencil, Trash2, HardDrive, Upload, Settings2, Mail, Server,
   MailOpen, Archive, Lock, Globe, CheckCircle2, FileDown, Bell, RefreshCw,
   GitBranch, AlertCircle, Download, RotateCcw, Power, Eye, EyeOff, KeyRound,
-  ShieldCheck, Puzzle, FolderKanban,
+  ShieldCheck, Puzzle, FolderKanban, History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,15 +110,26 @@ interface UpdateLog {
   success: boolean;
 }
 
-function ExtensionsTab() {
+interface ExtensionCardConfig {
+  key: 'projects' | 'changelog';
+  icon: React.ComponentType<{ className?: string }>;
+  configEndpoint: string;
+  removeEndpoint: string;
+}
+
+const EXTENSION_CARDS: ExtensionCardConfig[] = [
+  { key: 'projects', icon: FolderKanban, configEndpoint: '/pm/config', removeEndpoint: '/pm/extension-data' },
+  { key: 'changelog', icon: History, configEndpoint: '/changelog/config', removeEndpoint: '/changelog/extension-data' },
+];
+
+function ExtensionRow({ config }: { config: ExtensionCardConfig }) {
   const { t } = useTranslation();
-  const ext = useSettingsStore(s => s.settings.extensions.projects);
-  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
-  const [removeInput, setRemoveInput] = useState('');
+  const ext = useSettingsStore(s => s.settings.extensions[config.key]);
+  const Icon = config.icon;
 
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
-      api.patch('/pm/config', { extension: 'projects', enabled }),
+      api.patch(config.configEndpoint, { extension: config.key, enabled }),
     onSuccess: async () => {
       const pub = await api.get<any>('/settings/public');
       useSettingsStore.getState().setSettings(pub);
@@ -127,13 +138,52 @@ function ExtensionsTab() {
     onError: () => toast.error(t('extensions.saveFailed')),
   });
 
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-md bg-muted p-2">
+            <Icon className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm">{t(`extensions.${config.key}.name`)}</p>
+              {ext.licensed
+                ? <Badge variant="default" className="text-xs">{t('extensions.licensed')}</Badge>
+                : <Badge variant="outline" className="text-xs text-muted-foreground">{t('extensions.notLicensed')}</Badge>
+              }
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{t(`extensions.${config.key}.desc`)}</p>
+          </div>
+        </div>
+        <Switch
+          checked={ext.enabled}
+          disabled={!ext.licensed || toggle.isPending}
+          onCheckedChange={v => toggle.mutate(v)}
+        />
+      </div>
+      {!ext.licensed && (
+        <p className="text-xs text-muted-foreground border-t pt-3">{t('extensions.requiresLicense')}</p>
+      )}
+    </div>
+  );
+}
+
+function ExtensionsTab() {
+  const { t } = useTranslation();
+  const extensions = useSettingsStore(s => s.settings.extensions);
+  const [removeTarget, setRemoveTarget] = useState<ExtensionCardConfig | null>(null);
+  const [removeInput, setRemoveInput] = useState('');
+
+  const licensedCards = EXTENSION_CARDS.filter(c => extensions[c.key].licensed);
+
   const removeData = useMutation({
-    mutationFn: () => api.delete('/pm/extension-data'),
+    mutationFn: (config: ExtensionCardConfig) => api.delete(config.removeEndpoint),
     onSuccess: async () => {
       const pub = await api.get<any>('/settings/public');
       useSettingsStore.getState().setSettings(pub);
       toast.success(t('extensions.removeSuccess'));
-      setRemoveConfirmOpen(false);
+      setRemoveTarget(null);
       setRemoveInput('');
     },
     onError: () => toast.error(t('extensions.removeFailed')),
@@ -150,65 +200,42 @@ function ExtensionsTab() {
           <p className="text-sm text-muted-foreground">{t('extensions.desc')}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Projects Extension Card */}
-          <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-muted p-2">
-                  <FolderKanban className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm">{t('extensions.projects.name')}</p>
-                    {ext.licensed
-                      ? <Badge variant="default" className="text-xs">{t('extensions.licensed')}</Badge>
-                      : <Badge variant="outline" className="text-xs text-muted-foreground">{t('extensions.notLicensed')}</Badge>
-                    }
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t('extensions.projects.desc')}</p>
-                </div>
-              </div>
-              <Switch
-                checked={ext.enabled}
-                disabled={!ext.licensed || toggle.isPending}
-                onCheckedChange={v => toggle.mutate(v)}
-              />
-            </div>
-            {!ext.licensed && (
-              <p className="text-xs text-muted-foreground border-t pt-3">{t('extensions.requiresLicense')}</p>
-            )}
-          </div>
+          {EXTENSION_CARDS.map(config => (
+            <ExtensionRow key={config.key} config={config} />
+          ))}
         </CardContent>
       </Card>
 
-      {/* Danger zone — only visible when extension has been set up */}
-      {ext.licensed && (
+      {/* Danger zone — one row per extension that has been set up */}
+      {licensedCards.length > 0 && (
         <Card className="border-destructive/40">
           <CardHeader className="pb-4">
             <CardTitle className="text-destructive text-base">{t('extensions.dangerZone')}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">{t('extensions.removeData')}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('extensions.removeDataDesc')}</p>
+          <CardContent className="space-y-4">
+            {licensedCards.map(config => (
+              <div key={config.key} className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">{t('extensions.removeData')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t(`extensions.${config.key}.removeDataDesc`)}</p>
+                </div>
+                <Button variant="destructive" size="sm" onClick={() => { setRemoveInput(''); setRemoveTarget(config); }}>
+                  {t('extensions.removeBtn')}
+                </Button>
               </div>
-              <Button variant="destructive" size="sm" onClick={() => { setRemoveInput(''); setRemoveConfirmOpen(true); }}>
-                {t('extensions.removeBtn')}
-              </Button>
-            </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
       {/* Confirm remove dialog */}
-      <Dialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+      <Dialog open={removeTarget !== null} onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-destructive">{t('extensions.removeConfirmTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
-            <p>{t('extensions.removeConfirmDesc')}</p>
+            <p>{removeTarget && t(`extensions.${removeTarget.key}.removeConfirmDesc`)}</p>
             <p className="text-muted-foreground">{t('extensions.removeConfirmType')} <strong>{t('extensions.removeConfirmWord')}</strong></p>
             <Input
               value={removeInput}
@@ -217,11 +244,11 @@ function ExtensionsTab() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveConfirmOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="outline" onClick={() => setRemoveTarget(null)}>{t('common.cancel')}</Button>
             <Button
               variant="destructive"
               disabled={removeInput !== t('extensions.removeConfirmWord') || removeData.isPending}
-              onClick={() => removeData.mutate()}
+              onClick={() => removeTarget && removeData.mutate(removeTarget)}
             >
               {removeData.isPending ? t('common.loading') : t('extensions.removeBtn')}
             </Button>

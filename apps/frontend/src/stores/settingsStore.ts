@@ -11,6 +11,7 @@ interface PublicSettings {
   defaultLanguage: 'sl' | 'en';
   extensions: {
     projects: ExtensionConfig;
+    changelog: ExtensionConfig;
   };
 }
 
@@ -26,6 +27,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     defaultLanguage: 'sl',
     extensions: {
       projects: { licensed: false, enabled: false },
+      changelog: { licensed: false, enabled: false },
     },
   },
   setSettings: (settings) => set({ settings }),

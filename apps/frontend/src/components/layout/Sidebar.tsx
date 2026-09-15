@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
-  FolderKanban, CalendarCheck, PieChart,
+  FolderKanban, CalendarCheck, PieChart, History,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { usePermissionsStore } from '@/stores/permissionsStore';
@@ -59,6 +59,10 @@ const pmItems: NavItem[] = [
   { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports' },
 ];
 
+const changelogItems: NavItem[] = [
+  { labelKey: 'nav.changelogProjects', icon: History, path: '/changelog/projects' },
+];
+
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -68,6 +72,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate();
 
   const projectsEnabled = useSettingsStore(s => s.settings.extensions.projects.enabled);
+  const changelogEnabled = useSettingsStore(s => s.settings.extensions.changelog.enabled);
 
   const { data: license } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
@@ -88,6 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const sections: NavSection[] = [
     { labelKey: 'nav.sectionMaintenance', items: filterItems(maintenanceItems) },
     ...(projectsEnabled ? [{ labelKey: 'nav.sectionProjects', items: filterItems(pmItems) }] : []),
+    ...(changelogEnabled ? [{ labelKey: 'nav.sectionChangelog', items: filterItems(changelogItems) }] : []),
     { labelKey: 'nav.sectionSystem', items: filterItems(systemItems) },
   ].filter(s => s.items.length > 0);
 

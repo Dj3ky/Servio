@@ -14,3 +14,4 @@ export * from './schemas/auditLog';
 export * from './types/api';
 export * from './types/ws';
 export * from './extensions/projects';
+export * from './extensions/changelog';

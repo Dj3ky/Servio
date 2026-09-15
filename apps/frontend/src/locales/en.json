@@ -54,8 +54,10 @@
     "pmProjects": "Projects",
     "pmMeetings": "Meetings",
     "pmReports": "Project Reports",
+    "changelogProjects": "Changelog",
     "sectionMaintenance": "Maintenance",
     "sectionProjects": "Projects",
+    "sectionChangelog": "Changelog",
     "sectionSystem": "System"
   },
   "auth": {
@@ -725,6 +727,48 @@
       "unassigned": "Unassigned"
     }
   },
+  "changelog": {
+    "projects": {
+      "title": "Changelog",
+      "subtitle": "Track changes on projects — who, what, and when.",
+      "new": "New project",
+      "createdOk": "Project created",
+      "saveError": "Failed to save"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "entryCount": "Entries",
+      "lastActivity": "Last activity",
+      "category": "Category",
+      "note": "Note"
+    },
+    "status": {
+      "active": "Active",
+      "completed": "Completed",
+      "archived": "Archived"
+    },
+    "category": {
+      "electrical_schema": "Electrical schema",
+      "plc_program": "PLC program",
+      "mechanical": "Mechanical",
+      "general": "General",
+      "other": "Other"
+    },
+    "entries": {
+      "new": "Add entry",
+      "edit": "Edit entry",
+      "allCategories": "All categories",
+      "notePlaceholder": "Describe what you changed...",
+      "edited": "edited",
+      "savedOk": "Entry saved",
+      "saveError": "Failed to save",
+      "deletedOk": "Entry deleted",
+      "deleteError": "Failed to delete",
+      "deleteConfirmTitle": "Delete entry?",
+      "deleteConfirmDesc": "This action cannot be undone."
+    }
+  },
   "extensions": {
     "tab": "Extensions",
     "title": "Extensions",
@@ -736,17 +780,23 @@
     "saveFailed": "Failed to save settings",
     "dangerZone": "Danger Zone",
     "removeData": "Remove extension data",
-    "removeDataDesc": "Permanently deletes all Projects extension tables and data (pm_*). This action is irreversible.",
     "removeBtn": "Remove data",
     "removeSuccess": "Extension data removed successfully",
     "removeFailed": "Failed to remove extension data",
-    "removeConfirmTitle": "Remove all project data?",
-    "removeConfirmDesc": "This will permanently delete all projects, meetings, phases, and documents. This cannot be undone.",
+    "removeConfirmTitle": "Remove all extension data?",
     "removeConfirmType": "Type to confirm:",
     "removeConfirmWord": "REMOVE",
     "projects": {
       "name": "Projects Extension",
-      "desc": "Manage projects and work orders, weekly meetings with notes, revenue tracking."
+      "desc": "Manage projects and work orders, weekly meetings with notes, revenue tracking.",
+      "removeDataDesc": "Permanently deletes all Projects extension tables and data (pm_*). This action is irreversible.",
+      "removeConfirmDesc": "This will permanently delete all projects, meetings, phases, and documents. This cannot be undone."
+    },
+    "changelog": {
+      "name": "Changelog",
+      "desc": "Log who changed what and when on a project — electrical schemas, PLC programs, and more.",
+      "removeDataDesc": "Permanently deletes all Changelog extension tables and data (cl_*). This action is irreversible.",
+      "removeConfirmDesc": "This will permanently delete all changelog projects and log entries. This cannot be undone."
     }
   }
 }

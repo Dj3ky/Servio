@@ -39,6 +39,7 @@ router.get('/public', async (_req: Request, res: Response): Promise<void> => {
   const extCfg = (s?.extensionsConfig ?? {}) as Record<string, { enabled: boolean }>;
   const { isExtensionLicensed } = await import('../middleware/license');
   const projectsLicensed = isExtensionLicensed('projects_extension');
+  const changelogLicensed = isExtensionLicensed('changelog_extension');
   res.json({
     appName: s?.appName ?? 'Servio',
     logoUrl: s?.logoUrl ?? null,
@@ -47,6 +48,10 @@ router.get('/public', async (_req: Request, res: Response): Promise<void> => {
       projects: {
         licensed: projectsLicensed,
         enabled: projectsLicensed && extCfg?.projects?.enabled === true,
+      },
+      changelog: {
+        licensed: changelogLicensed,
+        enabled: changelogLicensed && extCfg?.changelog?.enabled === true,
       },
     },
   });

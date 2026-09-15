@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth';
 import pmExtensionRoutes from '../extensions/projects';
+import changelogExtensionRoutes from '../extensions/changelog';
 import dashboardRoutes from './dashboard';
 import userRoutes from './users';
 import customerRoutes from './customers';
@@ -49,5 +50,6 @@ router.use('/search', searchRoutes);
 router.use('/update', updateRoutes);
 router.use('/inbox', inboxRoutes);
 router.use('/pm', pmExtensionRoutes);
+router.use('/changelog', changelogExtensionRoutes);
 
 export default router;

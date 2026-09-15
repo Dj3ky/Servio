@@ -54,8 +54,10 @@
     "pmProjects": "Projekti",
     "pmMeetings": "Sestanki",
     "pmReports": "Poročila projektov",
+    "changelogProjects": "Dnevnik sprememb",
     "sectionMaintenance": "Vzdrževanje",
     "sectionProjects": "Projekti",
+    "sectionChangelog": "Dnevnik sprememb",
     "sectionSystem": "Sistem"
   },
   "auth": {
@@ -725,6 +727,48 @@
       "unassigned": "Nedodeljeno"
     }
   },
+  "changelog": {
+    "projects": {
+      "title": "Dnevnik sprememb",
+      "subtitle": "Sledenje spremembam na projektih — kdo, kaj in kdaj.",
+      "new": "Nov projekt",
+      "createdOk": "Projekt je bil ustvarjen",
+      "saveError": "Napaka pri shranjevanju"
+    },
+    "fields": {
+      "name": "Ime",
+      "description": "Opis",
+      "entryCount": "Št. vnosov",
+      "lastActivity": "Zadnja aktivnost",
+      "category": "Kategorija",
+      "note": "Opomba"
+    },
+    "status": {
+      "active": "Aktiven",
+      "completed": "Zaključen",
+      "archived": "Arhiviran"
+    },
+    "category": {
+      "electrical_schema": "Elektro shema",
+      "plc_program": "PLC program",
+      "mechanical": "Mehanika",
+      "general": "Splošno",
+      "other": "Drugo"
+    },
+    "entries": {
+      "new": "Dodaj vnos",
+      "edit": "Uredi vnos",
+      "allCategories": "Vse kategorije",
+      "notePlaceholder": "Opišite, kaj ste spremenili...",
+      "edited": "urejeno",
+      "savedOk": "Vnos je bil shranjen",
+      "saveError": "Napaka pri shranjevanju",
+      "deletedOk": "Vnos je bil izbrisan",
+      "deleteError": "Napaka pri brisanju",
+      "deleteConfirmTitle": "Izbriši vnos?",
+      "deleteConfirmDesc": "Tega dejanja ni mogoče razveljaviti."
+    }
+  },
   "extensions": {
     "tab": "Razširitve",
     "title": "Razširitve",
@@ -736,17 +780,23 @@
     "saveFailed": "Napaka pri shranjevanju",
     "dangerZone": "Nevarno območje",
     "removeData": "Odstrani podatke razširitve",
-    "removeDataDesc": "Trajno izbriše vse tabele in podatke razširitve Projekti (pm_*). To dejanje je nepovratno.",
     "removeBtn": "Odstrani podatke",
     "removeSuccess": "Podatki razširitve so bili odstranjeni",
     "removeFailed": "Napaka pri odstranjevanju",
-    "removeConfirmTitle": "Odstrani vse podatke projektov?",
-    "removeConfirmDesc": "To bo trajno izbrisalo vse projekte, sestanke, faze in dokumente. Dejanje je nepovratno.",
+    "removeConfirmTitle": "Odstrani vse podatke razširitve?",
     "removeConfirmType": "Za potrditev vpišite:",
     "removeConfirmWord": "IZBRIŠI",
     "projects": {
       "name": "Razširitev Projekti",
-      "desc": "Upravljanje projektov in delovnih nalogov, tedni sestanki z opombami, sledenje prihodkov."
+      "desc": "Upravljanje projektov in delovnih nalogov, tedni sestanki z opombami, sledenje prihodkov.",
+      "removeDataDesc": "Trajno izbriše vse tabele in podatke razširitve Projekti (pm_*). To dejanje je nepovratno.",
+      "removeConfirmDesc": "To bo trajno izbrisalo vse projekte, sestanke, faze in dokumente. Dejanje je nepovratno."
+    },
+    "changelog": {
+      "name": "Dnevnik sprememb",
+      "desc": "Beleženje sprememb na projektih — kdo, kaj in kdaj je spremenil (elektro sheme, PLC programi ipd.).",
+      "removeDataDesc": "Trajno izbriše vse tabele in podatke razširitve Dnevnik sprememb (cl_*). To dejanje je nepovratno.",
+      "removeConfirmDesc": "To bo trajno izbrisalo vse projekte in vnose dnevnika sprememb. Dejanje je nepovratno."
     }
   }
 }
