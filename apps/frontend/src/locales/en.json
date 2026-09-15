@@ -40,7 +40,11 @@
     "toggleColumns": "Toggle columns",
     "leaveBlank": "Leave blank to keep current",
     "noLogoSet": "No logo set",
-    "currentLogo": "Current logo"
+    "currentLogo": "Current logo",
+    "undo": "Undo",
+    "print": "Print",
+    "today": "Today",
+    "yesterday": "Yesterday"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -731,6 +735,10 @@
     }
   },
   "changelog": {
+    "activity": {
+      "title": "Recent Activity",
+      "subtitle": "The latest entries across every project, in one feed."
+    },
     "projects": {
       "title": "Changelog",
       "subtitle": "Track changes on projects — who, what, and when.",
@@ -788,7 +796,10 @@
       "deletedOk": "Entry deleted",
       "deleteError": "Failed to delete",
       "deleteConfirmTitle": "Delete entry?",
-      "deleteConfirmDesc": "This action cannot be undone."
+      "deleteConfirmDesc": "This action cannot be undone.",
+      "restoreError": "Failed to restore",
+      "deleteAttachmentConfirmTitle": "Delete attachment?",
+      "deleteAttachmentConfirmDesc": "The file \"{{name}}\" will be permanently deleted."
     }
   },
   "extensions": {

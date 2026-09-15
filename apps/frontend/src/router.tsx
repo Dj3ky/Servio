@@ -22,6 +22,7 @@ const PmMeetingsPage = lazy(() => import('@/extensions/projects/pages/MeetingsPa
 const PmReportsPage = lazy(() => import('@/extensions/projects/pages/ProjectReportsPage'));
 const ChangelogProjectsPage = lazy(() => import('@/extensions/changelog/pages/ChangelogProjectsPage'));
 const ChangelogProjectDetailPage = lazy(() => import('@/extensions/changelog/pages/ChangelogProjectDetailPage'));
+const ChangelogActivityPage = lazy(() => import('@/extensions/changelog/pages/ChangelogActivityPage'));
 
 function ChunkErrorBoundary() {
   const error = useRouteError();
@@ -137,6 +138,7 @@ export const router = createBrowserRouter([
       { path: 'pm/reports', element: withSuspense(<PmReportsPage />) },
       { path: 'changelog/projects', element: withSuspense(<ChangelogProjectsPage />) },
       { path: 'changelog/projects/:id', element: withSuspense(<ChangelogProjectDetailPage />) },
+      { path: 'changelog/activity', element: withSuspense(<ChangelogActivityPage />) },
     ],
   },
 ]);

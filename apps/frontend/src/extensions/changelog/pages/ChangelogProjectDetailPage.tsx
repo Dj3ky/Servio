@@ -4,16 +4,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Upload, Paperclip, X, Download, Copy, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Upload, Paperclip, X, Copy, FolderOpen, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { usePermissionsStore } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { getCategoryLabel, getContrastColor, type ClCategory } from '../constants';
+import { getCategoryLabel, groupByDay, type ClCategory } from '../constants';
+import { Avatar, CategoryPill, AttachmentGrid, formatFileSize, type EntryAttachment } from '../EntryComponents';
 
 interface ClProject {
   id: string;
@@ -23,15 +25,6 @@ interface ClProject {
   nasPath: string | null;
   updatedByName: string | null;
   updatedAt: string;
-}
-
-interface ClAttachment {
-  id: string;
-  originalName: string;
-  filePath: string;
-  fileSize: number | null;
-  uploaderName: string | null;
-  createdAt: string;
 }
 
 interface ClEntry {
@@ -45,25 +38,7 @@ interface ClEntry {
   editedByName: string | null;
   createdAt: string;
   editedAt: string | null;
-  attachments: ClAttachment[];
-}
-
-function formatFileSize(bytes: number | null) {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function CategoryPill({ category, label }: { category: ClCategory; label: string }) {
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
-      style={{ backgroundColor: category.color, color: getContrastColor(category.color) }}
-    >
-      {label}
-    </span>
-  );
+  attachments: EntryAttachment[];
 }
 
 const emptyEntryForm = { categoryId: '', note: '' };
@@ -71,10 +46,11 @@ const emptyProjectForm = { name: '', description: '', status: 'active', nasPath:
 
 export default function ChangelogProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const perms = usePermissionsStore(s => s.perms);
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -84,6 +60,7 @@ export default function ChangelogProjectDetailPage() {
   const [entryFiles, setEntryFiles] = useState<File[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClEntry | null>(null);
+  const [deleteAttachmentTarget, setDeleteAttachmentTarget] = useState<{ entryId: string; attachment: EntryAttachment } | null>(null);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
 
@@ -110,6 +87,12 @@ export default function ChangelogProjectDetailPage() {
     return (categories ?? []).find(c => c.id === categoryId) ?? null;
   }
 
+  const canManageChangelog = user ? (perms.changelog?.manage ?? []).includes(user.role) : false;
+
+  function canModify(entry: ClEntry) {
+    return canManageChangelog || entry.authorId === user?.id;
+  }
+
   function buildEntryFormData() {
     const fd = new FormData();
     if (entryForm.categoryId) fd.append('categoryId', entryForm.categoryId);
@@ -132,13 +115,32 @@ export default function ChangelogProjectDetailPage() {
     onError: () => toast.error(t('changelog.entries.saveError')),
   });
 
-  const deleteEntry = useMutation({
-    mutationFn: (entryId: string) => api.delete(`/changelog/projects/${id}/entries/${entryId}`),
+  const restoreEntry = useMutation({
+    mutationFn: (entryId: string) => api.post(`/changelog/projects/${id}/entries/${entryId}/restore`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['changelog-entries', id] });
       qc.invalidateQueries({ queryKey: ['changelog-projects'] });
-      toast.success(t('changelog.entries.deletedOk'));
+    },
+    onError: () => toast.error(t('changelog.entries.restoreError')),
+  });
+
+  const deleteEntry = useMutation({
+    mutationFn: (entryId: string) => api.delete(`/changelog/projects/${id}/entries/${entryId}`),
+    onSuccess: (_data, entryId) => {
+      qc.invalidateQueries({ queryKey: ['changelog-entries', id] });
+      qc.invalidateQueries({ queryKey: ['changelog-projects'] });
       setDeleteTarget(null);
+      toast((tItem) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">{t('changelog.entries.deletedOk')}</span>
+          <button
+            className="text-sm font-medium underline shrink-0"
+            onClick={() => { restoreEntry.mutate(entryId); toast.dismiss(tItem.id); }}
+          >
+            {t('common.undo')}
+          </button>
+        </div>
+      ), { duration: 6000 });
     },
     onError: () => toast.error(t('changelog.entries.deleteError')),
   });
@@ -146,7 +148,10 @@ export default function ChangelogProjectDetailPage() {
   const deleteAttachment = useMutation({
     mutationFn: ({ entryId, attachmentId }: { entryId: string; attachmentId: string }) =>
       api.delete(`/changelog/projects/${id}/entries/${entryId}/attachments/${attachmentId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['changelog-entries', id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['changelog-entries', id] });
+      setDeleteAttachmentTarget(null);
+    },
     onError: () => toast.error(t('changelog.entries.deleteError')),
   });
 
@@ -205,10 +210,6 @@ export default function ChangelogProjectDetailPage() {
     saveProject.mutate();
   }
 
-  function canModify(entry: ClEntry) {
-    return user?.role === 'admin' || entry.authorId === user?.id;
-  }
-
   async function copyNasPath() {
     if (!project?.nasPath) return;
     try {
@@ -218,6 +219,45 @@ export default function ChangelogProjectDetailPage() {
       toast.error(t('changelog.projects.pathCopyFailed'));
     }
   }
+
+  function printChangelog() {
+    if (!project || !entries) return;
+    const date = new Date().toLocaleDateString(i18n.language);
+
+    const rows = entries.map(e => {
+      const cat = categoryFor(e.categoryId);
+      return `<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:11px;color:#555;margin-bottom:3px">
+          ${cat ? `<strong>${getCategoryLabel(cat, t)}</strong> · ` : ''}${e.authorName} · ${new Date(e.createdAt).toLocaleString(i18n.language)}
+        </div>
+        <div style="font-size:12px;white-space:pre-wrap">${e.note.replace(/</g, '&lt;')}</div>
+      </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>${project.name}</title>
+      <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: Arial, sans-serif; color: #111; }
+        h1 { font-size: 18px; margin: 0 0 2px 0; }
+        .meta { font-size: 10px; color: #666; margin-bottom: 16px; }
+        @media print { button { display: none; } }
+      </style>
+    </head><body>
+      <h1>${project.name}</h1>
+      <div class="meta">${date} · ${entries.length} ${t('changelog.fields.entryCount').toLowerCase()}</div>
+      ${rows}
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  }
+
+  const dayGroups = groupByDay(entries ?? [], t, i18n.language);
 
   return (
     <div className="p-6 space-y-4">
@@ -249,7 +289,12 @@ export default function ChangelogProjectDetailPage() {
             </p>
           )}
         </div>
-        <Button onClick={openCreateEntry}><Plus className="h-4 w-4 mr-2" />{t('changelog.entries.new')}</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={printChangelog} title={t('common.print')}>
+            <Printer className="h-4 w-4" />
+          </Button>
+          <Button onClick={openCreateEntry}><Plus className="h-4 w-4 mr-2" />{t('changelog.entries.new')}</Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -276,61 +321,48 @@ export default function ChangelogProjectDetailPage() {
         <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>
       )}
 
-      <div className="space-y-3">
-        {(entries ?? []).map(entry => {
-          const cat = categoryFor(entry.categoryId);
-          return (
-            <div key={entry.id} className="rounded-lg border p-4 space-y-2">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {cat && <CategoryPill category={cat} label={getCategoryLabel(cat, t)} />}
-                  <span className="text-sm font-medium">{entry.authorName}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleString()}</span>
-                  {entry.editedAt && (
-                    <span className="text-xs text-muted-foreground">
-                      · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: new Date(entry.editedAt).toLocaleString() })}
-                    </span>
-                  )}
-                </div>
-                {canModify(entry) && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditEntry(entry)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
-              {entry.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {entry.attachments.map(a => (
-                    <div key={a.id} className="flex items-center gap-1.5 rounded-md border bg-muted/30 pl-2 pr-1 py-1 text-xs">
-                      <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <a href={a.filePath} download={a.originalName} className="hover:underline max-w-[160px] truncate">{a.originalName}</a>
-                      <span className="text-muted-foreground">{formatFileSize(a.fileSize)}</span>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" asChild>
-                        <a href={a.filePath} download={a.originalName}><Download className="h-3 w-3" /></a>
-                      </Button>
-                      {canModify(entry) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 shrink-0 text-destructive"
-                          onClick={() => deleteAttachment.mutate({ entryId: entry.id, attachmentId: a.id })}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+      <div className="space-y-6">
+        {dayGroups.map(group => (
+          <div key={group.label} className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h3>
+            {group.items.map(entry => {
+              const cat = categoryFor(entry.categoryId);
+              return (
+                <div key={entry.id} className="rounded-lg border p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {cat && <CategoryPill category={cat} label={getCategoryLabel(cat, t)} />}
+                      <Avatar name={entry.authorName} />
+                      <span className="text-sm font-medium">{entry.authorName}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</span>
+                      {entry.editedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: new Date(entry.editedAt).toLocaleString() })}
+                        </span>
                       )}
                     </div>
-                  ))}
+                    {canModify(entry) && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditEntry(entry)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
+                  <AttachmentGrid
+                    attachments={entry.attachments}
+                    canModify={canModify(entry)}
+                    onDelete={(a) => setDeleteAttachmentTarget({ entryId: entry.id, attachment: a })}
+                  />
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* Add/Edit entry dialog */}
@@ -440,7 +472,7 @@ export default function ChangelogProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm dialog */}
+      {/* Delete entry confirm dialog */}
       <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -455,6 +487,28 @@ export default function ChangelogProjectDetailPage() {
               onClick={() => deleteTarget && deleteEntry.mutate(deleteTarget.id)}
             >
               {deleteEntry.isPending ? t('common.loading') : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete attachment confirm dialog */}
+      <Dialog open={deleteAttachmentTarget !== null} onOpenChange={(open) => { if (!open) setDeleteAttachmentTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">{t('changelog.entries.deleteAttachmentConfirmTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {deleteAttachmentTarget && t('changelog.entries.deleteAttachmentConfirmDesc', { name: deleteAttachmentTarget.attachment.originalName })}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAttachmentTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteAttachment.isPending}
+              onClick={() => deleteAttachmentTarget && deleteAttachment.mutate({ entryId: deleteAttachmentTarget.entryId, attachmentId: deleteAttachmentTarget.attachment.id })}
+            >
+              {deleteAttachment.isPending ? t('common.loading') : t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

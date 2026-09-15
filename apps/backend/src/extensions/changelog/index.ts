@@ -9,6 +9,7 @@ import { isExtensionLicensed } from '../../middleware/license';
 import { updateExtensionConfigSchema } from '@servio/shared';
 import clProjectsRoutes from './routes/cl-projects';
 import clCategoriesRoutes from './routes/cl-categories';
+import clActivityRoutes from './routes/cl-activity';
 
 const FEATURE_KEY = 'changelog_extension';
 
@@ -72,6 +73,7 @@ async function ensureChangelogTables() {
     await db.execute(sql`ALTER TABLE cl_entries ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES cl_categories(id) ON DELETE SET NULL`);
     await db.execute(sql`ALTER TABLE cl_entries ADD COLUMN IF NOT EXISTS edited_by_id UUID REFERENCES users(id) ON DELETE SET NULL`);
     await db.execute(sql`ALTER TABLE cl_entries ADD COLUMN IF NOT EXISTS edited_by_name TEXT`);
+    await db.execute(sql`ALTER TABLE cl_entries ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cl_entry_attachments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,5 +163,6 @@ router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'),
 // All data routes — gated behind requireExtension
 router.use('/projects', requireExtension, clProjectsRoutes);
 router.use('/categories', requireExtension, clCategoriesRoutes);
+router.use('/activity', requireExtension, clActivityRoutes);
 
 export default router;

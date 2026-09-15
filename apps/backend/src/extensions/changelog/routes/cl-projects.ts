@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql, desc, and, or, ilike, inArray } from 'drizzle-orm';
+import { eq, sql, desc, and, or, ilike, inArray, isNull } from 'drizzle-orm';
 import path from 'path';
 import fs from 'fs/promises';
 import { createClProjectSchema, updateClProjectSchema, createClEntrySchema, updateClEntrySchema } from '@servio/shared';
@@ -86,7 +86,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     lastActivityAt: sql<string | null>`max(${clEntries.createdAt})`,
   })
     .from(clProjects)
-    .leftJoin(clEntries, eq(clEntries.projectId, clProjects.id))
+    .leftJoin(clEntries, and(eq(clEntries.projectId, clProjects.id), isNull(clEntries.deletedAt)))
     .where(where)
     .groupBy(clProjects.id)
     .orderBy(desc(clProjects.createdAt));
@@ -134,7 +134,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id/entries', async (req: Request, res: Response): Promise<void> => {
   const categoryId = req.query.categoryId as string | undefined;
   const search = req.query.search as string | undefined;
-  const conditions = [eq(clEntries.projectId, req.params.id)];
+  const conditions = [eq(clEntries.projectId, req.params.id), isNull(clEntries.deletedAt)];
   if (categoryId) conditions.push(eq(clEntries.categoryId, categoryId));
   if (search) conditions.push(ilike(clEntries.note, `%${search}%`));
 
@@ -194,7 +194,8 @@ router.patch('/:id/entries/:entryId', changelogAttachmentUpload.array('files', 1
   res.json({ ...entry, attachments: attachmentsMap.get(entry.id) ?? [] });
 });
 
-// Delete entry — author, or anyone with changelog 'manage'
+// Delete entry — author, or anyone with changelog 'manage'. Soft delete: the row and its
+// attachments are kept so the frontend's "Undo" toast can restore it.
 router.delete('/:id/entries/:entryId', async (req: Request, res: Response): Promise<void> => {
   const [existing] = await db.select().from(clEntries).where(eq(clEntries.id, req.params.entryId)).limit(1);
   if (!existing || existing.projectId !== req.params.id) { res.status(404).json({ error: 'errors.not_found' }); return; }
@@ -203,11 +204,22 @@ router.delete('/:id/entries/:entryId', async (req: Request, res: Response): Prom
     return;
   }
 
-  const attachments = await db.select().from(clEntryAttachments).where(eq(clEntryAttachments.entryId, req.params.entryId));
-  await db.delete(clEntries).where(eq(clEntries.id, req.params.entryId));
-  await Promise.all(attachments.map(a => fs.unlink(path.join(UPLOADS_DIR, a.filename)).catch(() => {})));
-
+  await db.update(clEntries).set({ deletedAt: new Date() }).where(eq(clEntries.id, req.params.entryId));
   res.json({ success: true });
+});
+
+// Undo a delete within the toast window — same permission as delete.
+router.post('/:id/entries/:entryId/restore', async (req: Request, res: Response): Promise<void> => {
+  const [existing] = await db.select().from(clEntries).where(eq(clEntries.id, req.params.entryId)).limit(1);
+  if (!existing || existing.projectId !== req.params.id) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (existing.authorId !== req.auth!.userId && !canManage(req.auth!.role)) {
+    res.status(403).json({ error: 'errors.forbidden' });
+    return;
+  }
+
+  const [entry] = await db.update(clEntries).set({ deletedAt: null }).where(eq(clEntries.id, req.params.entryId)).returning();
+  const attachmentsMap = await attachmentsByEntryId([entry.id]);
+  res.json({ ...entry, attachments: attachmentsMap.get(entry.id) ?? [] });
 });
 
 // Delete a single attachment — author, or anyone with changelog 'manage'

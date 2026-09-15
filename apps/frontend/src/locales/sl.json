@@ -40,7 +40,11 @@
     "toggleColumns": "Preklopi stolpce",
     "leaveBlank": "Pustite prazno za ohranitev trenutnega",
     "noLogoSet": "Logotip ni nastavljen",
-    "currentLogo": "Trenutni logotip"
+    "currentLogo": "Trenutni logotip",
+    "undo": "Razveljavi",
+    "print": "Natisni",
+    "today": "Danes",
+    "yesterday": "Včeraj"
   },
   "nav": {
     "dashboard": "Nadzorna plošča",
@@ -731,6 +735,10 @@
     }
   },
   "changelog": {
+    "activity": {
+      "title": "Nedavna aktivnost",
+      "subtitle": "Zadnji vnosi iz vseh projektov na enem mestu."
+    },
     "projects": {
       "title": "Dnevnik sprememb",
       "subtitle": "Sledenje spremembam na projektih — kdo, kaj in kdaj.",
@@ -788,7 +796,10 @@
       "deletedOk": "Vnos je bil izbrisan",
       "deleteError": "Napaka pri brisanju",
       "deleteConfirmTitle": "Izbriši vnos?",
-      "deleteConfirmDesc": "Tega dejanja ni mogoče razveljaviti."
+      "deleteConfirmDesc": "Tega dejanja ni mogoče razveljaviti.",
+      "restoreError": "Obnovitev ni uspela",
+      "deleteAttachmentConfirmTitle": "Izbriši prilogo?",
+      "deleteAttachmentConfirmDesc": "Datoteka \"{{name}}\" bo trajno izbrisana."
     }
   },
   "extensions": {

@@ -37,6 +37,8 @@ export const clEntries = pgTable('cl_entries', {
   editedByName: text('edited_by_name'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   editedAt: timestamp('edited_at'),
+  // Soft delete — kept so an accidental delete can be undone from the toast action.
+  deletedAt: timestamp('deleted_at'),
 });
 
 export const clEntryAttachments = pgTable('cl_entry_attachments', {

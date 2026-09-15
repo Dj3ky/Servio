@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Plus, ChevronRight, History, Search, Settings2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { usePermissionsStore } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,8 @@ export default function ChangelogProjectsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const perms = usePermissionsStore(s => s.perms);
+  const canManageChangelog = user ? (perms.changelog?.manage ?? []).includes(user.role) : false;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -75,7 +78,10 @@ export default function ChangelogProjectsPage() {
           <p className="text-sm text-muted-foreground">{t('changelog.projects.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          {user?.role === 'admin' && (
+          <Button variant="outline" onClick={() => navigate('/changelog/activity')}>
+            <History className="h-4 w-4 mr-2" />{t('changelog.activity.title')}
+          </Button>
+          {canManageChangelog && (
             <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
               <Settings2 className="h-4 w-4 mr-2" />{t('changelog.categories.manage')}
             </Button>
