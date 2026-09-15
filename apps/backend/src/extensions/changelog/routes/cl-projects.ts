@@ -130,6 +130,27 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(project);
 });
 
+// Delete project — creator, or anyone with changelog 'manage'. Cascades entries + attachments
+// at the DB level; the actual files on disk are cleaned up here best-effort.
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+  const [project] = await db.select().from(clProjects).where(eq(clProjects.id, req.params.id)).limit(1);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (project.createdById !== req.auth!.userId && !canManage(req.auth!.role)) {
+    res.status(403).json({ error: 'errors.forbidden' });
+    return;
+  }
+
+  const attachments = await db.select({ filename: clEntryAttachments.filename })
+    .from(clEntryAttachments)
+    .innerJoin(clEntries, eq(clEntryAttachments.entryId, clEntries.id))
+    .where(eq(clEntries.projectId, req.params.id));
+
+  await db.delete(clProjects).where(eq(clProjects.id, req.params.id));
+  await Promise.all(attachments.map(a => fs.unlink(path.join(UPLOADS_DIR, a.filename)).catch(() => {})));
+
+  res.json({ success: true });
+});
+
 // List entries for a project
 router.get('/:id/entries', async (req: Request, res: Response): Promise<void> => {
   const categoryId = req.query.categoryId as string | undefined;

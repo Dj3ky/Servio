@@ -23,6 +23,7 @@ interface ClProject {
   description: string | null;
   status: string;
   nasPath: string | null;
+  createdById: string | null;
   updatedByName: string | null;
   updatedAt: string;
 }
@@ -61,6 +62,7 @@ export default function ChangelogProjectDetailPage() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClEntry | null>(null);
   const [deleteAttachmentTarget, setDeleteAttachmentTarget] = useState<{ entryId: string; attachment: EntryAttachment } | null>(null);
+  const [deleteProjectOpen, setDeleteProjectOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
 
@@ -164,6 +166,16 @@ export default function ChangelogProjectDetailPage() {
       setProjectDialogOpen(false);
     },
     onError: () => toast.error(t('changelog.projects.saveError')),
+  });
+
+  const deleteProject = useMutation({
+    mutationFn: () => api.delete(`/changelog/projects/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['changelog-projects'] });
+      toast.success(t('changelog.projects.deletedOk'));
+      navigate('/changelog/projects');
+    },
+    onError: () => toast.error(t('changelog.projects.deleteError')),
   });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -464,11 +476,39 @@ export default function ChangelogProjectDetailPage() {
                 placeholder={t('changelog.fields.nasPathPlaceholder')}
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setProjectDialogOpen(false)}>{t('common.cancel')}</Button>
-              <Button type="submit" disabled={saveProject.isPending}>{saveProject.isPending ? t('common.loading') : t('common.save')}</Button>
+            <DialogFooter className="sm:justify-between">
+              {(canManageChangelog || project?.createdById === user?.id) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => { setProjectDialogOpen(false); setDeleteProjectOpen(true); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />{t('changelog.projects.delete')}
+                </Button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setProjectDialogOpen(false)}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={saveProject.isPending}>{saveProject.isPending ? t('common.loading') : t('common.save')}</Button>
+              </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete project confirm dialog */}
+      <Dialog open={deleteProjectOpen} onOpenChange={setDeleteProjectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">{t('changelog.projects.deleteConfirmTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('changelog.projects.deleteConfirmDesc')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteProjectOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="destructive" disabled={deleteProject.isPending} onClick={() => deleteProject.mutate()}>
+              {deleteProject.isPending ? t('common.loading') : t('common.delete')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

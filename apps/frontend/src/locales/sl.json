@@ -749,7 +749,12 @@
       "saveError": "Napaka pri shranjevanju",
       "pathCopied": "Pot je bila kopirana",
       "pathCopyFailed": "Kopiranje ni uspelo",
-      "lastUpdatedBy": "Nazadnje spremenil {{name}} · {{date}}"
+      "lastUpdatedBy": "Nazadnje spremenil {{name}} · {{date}}",
+      "delete": "Izbriši projekt",
+      "deletedOk": "Projekt je bil izbrisan",
+      "deleteError": "Napaka pri brisanju",
+      "deleteConfirmTitle": "Izbriši ta projekt?",
+      "deleteConfirmDesc": "S tem boste trajno izbrisali projekt in vse njegove vnose ter priloge. Tega dejanja ni mogoče razveljaviti."
     },
     "fields": {
       "name": "Ime",

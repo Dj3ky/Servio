@@ -749,7 +749,12 @@
       "saveError": "Failed to save",
       "pathCopied": "Path copied",
       "pathCopyFailed": "Failed to copy",
-      "lastUpdatedBy": "Last updated by {{name}} · {{date}}"
+      "lastUpdatedBy": "Last updated by {{name}} · {{date}}",
+      "delete": "Delete project",
+      "deletedOk": "Project deleted",
+      "deleteError": "Failed to delete",
+      "deleteConfirmTitle": "Delete this project?",
+      "deleteConfirmDesc": "This will permanently delete the project and all its entries and attachments. This cannot be undone."
     },
     "fields": {
       "name": "Name",
