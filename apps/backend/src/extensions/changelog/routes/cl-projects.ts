@@ -6,11 +6,16 @@ import { createClProjectSchema, updateClProjectSchema, createClEntrySchema, upda
 import { db } from '../../../db';
 import { clProjects, clEntries, clEntryAttachments } from '../schema';
 import { users } from '../../../db/schema/users';
-import { requireAuth } from '../../../middleware/auth';
+import { requireRole } from '../../../middleware/role';
 import { changelogAttachmentUpload } from '../../../middleware/upload';
+import { getPermissions } from '../../../services/permissionsService';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireRole('changelog', 'access'));
+
+function canManage(role: string) {
+  return getPermissions().changelog.manage.includes(role as any);
+}
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'changelog-attachments');
 
@@ -89,7 +94,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   res.json(data.map(p => ({ ...p, entryCount: Number(p.entryCount) })));
 });
 
-// Create project — any authenticated user
+// Create project — anyone with changelog access
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const parsed = createClProjectSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
@@ -142,7 +147,7 @@ router.get('/:id/entries', async (req: Request, res: Response): Promise<void> =>
   res.json(entries.map(e => ({ ...e, attachments: attachmentsMap.get(e.id) ?? [] })));
 });
 
-// Add entry — any authenticated user, optionally with small file attachments
+// Add entry — anyone with changelog access, optionally with small file attachments
 router.post('/:id/entries', changelogAttachmentUpload.array('files', 10), async (req: Request, res: Response): Promise<void> => {
   const parsed = createClEntrySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
@@ -165,14 +170,14 @@ router.post('/:id/entries', changelogAttachmentUpload.array('files', 10), async 
   res.status(201).json({ ...entry, attachments: attachmentsMap.get(entry.id) ?? [] });
 });
 
-// Edit entry — author or admin only, may also add more attachments
+// Edit entry — author, or anyone with changelog 'manage' — may also add more attachments
 router.patch('/:id/entries/:entryId', changelogAttachmentUpload.array('files', 10), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateClEntrySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
   const [existing] = await db.select().from(clEntries).where(eq(clEntries.id, req.params.entryId)).limit(1);
   if (!existing || existing.projectId !== req.params.id) { res.status(404).json({ error: 'errors.not_found' }); return; }
-  if (existing.authorId !== req.auth!.userId && req.auth!.role !== 'admin') {
+  if (existing.authorId !== req.auth!.userId && !canManage(req.auth!.role)) {
     res.status(403).json({ error: 'errors.forbidden' });
     return;
   }
@@ -189,11 +194,11 @@ router.patch('/:id/entries/:entryId', changelogAttachmentUpload.array('files', 1
   res.json({ ...entry, attachments: attachmentsMap.get(entry.id) ?? [] });
 });
 
-// Delete entry — author or admin only
+// Delete entry — author, or anyone with changelog 'manage'
 router.delete('/:id/entries/:entryId', async (req: Request, res: Response): Promise<void> => {
   const [existing] = await db.select().from(clEntries).where(eq(clEntries.id, req.params.entryId)).limit(1);
   if (!existing || existing.projectId !== req.params.id) { res.status(404).json({ error: 'errors.not_found' }); return; }
-  if (existing.authorId !== req.auth!.userId && req.auth!.role !== 'admin') {
+  if (existing.authorId !== req.auth!.userId && !canManage(req.auth!.role)) {
     res.status(403).json({ error: 'errors.forbidden' });
     return;
   }
@@ -205,11 +210,11 @@ router.delete('/:id/entries/:entryId', async (req: Request, res: Response): Prom
   res.json({ success: true });
 });
 
-// Delete a single attachment — author or admin only
+// Delete a single attachment — author, or anyone with changelog 'manage'
 router.delete('/:id/entries/:entryId/attachments/:attachmentId', async (req: Request, res: Response): Promise<void> => {
   const [entry] = await db.select().from(clEntries).where(eq(clEntries.id, req.params.entryId)).limit(1);
   if (!entry || entry.projectId !== req.params.id) { res.status(404).json({ error: 'errors.not_found' }); return; }
-  if (entry.authorId !== req.auth!.userId && req.auth!.role !== 'admin') {
+  if (entry.authorId !== req.auth!.userId && !canManage(req.auth!.role)) {
     res.status(403).json({ error: 'errors.forbidden' });
     return;
   }

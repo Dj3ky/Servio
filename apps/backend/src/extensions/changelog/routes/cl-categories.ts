@@ -3,27 +3,17 @@ import { eq } from 'drizzle-orm';
 import { createClCategorySchema, updateClCategorySchema } from '@servio/shared';
 import { db } from '../../../db';
 import { clCategories } from '../schema';
-import { requireAuth } from '../../../middleware/auth';
+import { requireRole } from '../../../middleware/role';
 
 const router = Router();
-router.use(requireAuth);
-
-function requireAdmin(req: Request, res: Response): boolean {
-  if (req.auth!.role !== 'admin') {
-    res.status(403).json({ error: 'errors.forbidden' });
-    return false;
-  }
-  return true;
-}
+router.use(requireRole('changelog', 'access'));
 
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   const categories = await db.select().from(clCategories).orderBy(clCategories.orderIndex, clCategories.name);
   res.json(categories);
 });
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
-  if (!requireAdmin(req, res)) return;
-
+router.post('/', requireRole('changelog', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createClCategorySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
@@ -35,9 +25,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   res.status(201).json(category);
 });
 
-router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
-  if (!requireAdmin(req, res)) return;
-
+router.patch('/:id', requireRole('changelog', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateClCategorySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
@@ -54,9 +42,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json(category);
 });
 
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
-  if (!requireAdmin(req, res)) return;
-
+router.delete('/:id', requireRole('changelog', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const [deleted] = await db.delete(clCategories).where(eq(clCategories.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });

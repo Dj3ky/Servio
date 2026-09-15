@@ -1854,6 +1854,10 @@ function PermissionsTab() {
       { section: 'projects', action: 'manage', label: t('settings.perm.projectsManage') },
       { section: 'projects', action: 'delete', label: t('settings.perm.projectsDelete') },
     ]},
+    { label: t('settings.perm.changelog'), rows: [
+      { section: 'changelog', action: 'access', label: t('settings.perm.changelogAccess') },
+      { section: 'changelog', action: 'manage', label: t('settings.perm.changelogManage') },
+    ]},
     { label: t('settings.perm.reviews'), rows: [
       { section: 'reviews', action: 'upload', label: t('settings.perm.reviewsUpload') },
       { section: 'reviews', action: 'backfill', label: t('settings.perm.reviewsBackfill') },
