@@ -35,6 +35,14 @@ async function ensureChangelogTables() {
       )
     `);
     await db.execute(sql`ALTER TABLE cl_categories ADD COLUMN IF NOT EXISTS translation_key TEXT`);
+    // Backfill translation_key on rows seeded before this column existed, so they
+    // pick up translated labels instead of staying stuck on their literal English name.
+    for (const def of DEFAULT_CATEGORIES) {
+      await db.execute(sql`
+        UPDATE cl_categories SET translation_key = ${def.translationKey}
+        WHERE translation_key IS NULL AND name = ${def.name}
+      `);
+    }
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cl_projects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
