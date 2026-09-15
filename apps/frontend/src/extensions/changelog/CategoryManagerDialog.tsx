@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CATEGORY_COLOR_PRESETS, type ClCategory } from './constants';
+import { CATEGORY_COLOR_PRESETS, getCategoryLabel, getContrastColor, type ClCategory } from './constants';
 
 interface CategoryManagerDialogProps {
   open: boolean;
@@ -15,7 +15,7 @@ interface CategoryManagerDialogProps {
 }
 
 export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(CATEGORY_COLOR_PRESETS[0]);
@@ -69,7 +69,9 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {(categories ?? []).map(c => (
+            {(categories ?? []).map(c => {
+              const label = getCategoryLabel(c, t);
+              return (
               <div key={c.id} className="flex items-center gap-2 rounded-md border p-2">
                 <div className="flex gap-1 shrink-0">
                   {CATEGORY_COLOR_PRESETS.map(color => (
@@ -81,14 +83,15 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                       onClick={() => recolor.mutate({ id: c.id, color })}
                       title={color}
                     >
-                      {c.color === color && <Check className="h-3 w-3 text-white" />}
+                      {c.color === color && <Check className="h-3 w-3" style={{ color: getContrastColor(color) }} />}
                     </button>
                   ))}
                 </div>
                 <Input
-                  defaultValue={c.name}
+                  key={`${c.id}-${i18n.language}`}
+                  defaultValue={label}
                   className="h-8 flex-1"
-                  onBlur={(e) => { if (e.target.value && e.target.value !== c.name) rename.mutate({ id: c.id, name: e.target.value }); }}
+                  onBlur={(e) => { if (e.target.value && e.target.value !== label) rename.mutate({ id: c.id, name: e.target.value }); }}
                 />
                 <Button
                   variant="ghost"
@@ -99,7 +102,8 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
-            ))}
+              );
+            })}
             {(categories ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">{t('common.noData')}</p>
             )}
@@ -116,7 +120,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                   onClick={() => setNewColor(color)}
                   title={color}
                 >
-                  {newColor === color && <Check className="h-3 w-3 text-white" />}
+                  {newColor === color && <Check className="h-3 w-3" style={{ color: getContrastColor(color) }} />}
                 </button>
               ))}
             </div>

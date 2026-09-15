@@ -41,8 +41,12 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   const parsed = updateClCategorySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
+  // Renaming a seeded default forks it into a plain custom category — it no longer
+  // tracks the built-in translation, so it stops "reverting" when the UI language changes.
+  const update = parsed.data.name !== undefined ? { ...parsed.data, translationKey: null } : parsed.data;
+
   const [category] = await db.update(clCategories)
-    .set(parsed.data)
+    .set(update)
     .where(eq(clCategories.id, req.params.id))
     .returning();
 

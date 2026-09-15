@@ -765,6 +765,13 @@
       "deleteError": "Napaka pri brisanju",
       "deleteConfirm": "Izbriši to kategorijo? Vnosi bodo ostali, a brez kategorije."
     },
+    "categoryDefaults": {
+      "electrical_schema": "Elektro shema",
+      "plc_program": "PLC program",
+      "mechanical": "Mehanika",
+      "general": "Splošno",
+      "other": "Drugo"
+    },
     "entries": {
       "new": "Dodaj vnos",
       "edit": "Uredi vnos",

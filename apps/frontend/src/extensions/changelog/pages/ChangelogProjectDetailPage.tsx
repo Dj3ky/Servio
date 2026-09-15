@@ -11,10 +11,9 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import type { ClCategory } from '../constants';
+import { getCategoryLabel, getContrastColor, type ClCategory } from '../constants';
 
 interface ClProject {
   id: string;
@@ -54,6 +53,17 @@ function formatFileSize(bytes: number | null) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CategoryPill({ category, label }: { category: ClCategory; label: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+      style={{ backgroundColor: category.color, color: getContrastColor(category.color) }}
+    >
+      {label}
+    </span>
+  );
 }
 
 const emptyEntryForm = { categoryId: '', note: '' };
@@ -253,10 +263,7 @@ export default function ChangelogProjectDetailPage() {
             <SelectItem value="all">{t('changelog.entries.allCategories')}</SelectItem>
             {(categories ?? []).map(c => (
               <SelectItem key={c.id} value={c.id}>
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ backgroundColor: c.color }} />
-                  {c.name}
-                </span>
+                <CategoryPill category={c} label={getCategoryLabel(c, t)} />
               </SelectItem>
             ))}
           </SelectContent>
@@ -276,12 +283,7 @@ export default function ChangelogProjectDetailPage() {
             <div key={entry.id} className="rounded-lg border p-4 space-y-2">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {cat && (
-                    <Badge variant="outline" className="gap-1.5">
-                      <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: cat.color }} />
-                      {cat.name}
-                    </Badge>
-                  )}
+                  {cat && <CategoryPill category={cat} label={getCategoryLabel(cat, t)} />}
                   <span className="text-sm font-medium">{entry.authorName}</span>
                   <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleString()}</span>
                   {entry.editedAt && (
@@ -345,10 +347,7 @@ export default function ChangelogProjectDetailPage() {
                 <SelectContent>
                   {(categories ?? []).map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ backgroundColor: c.color }} />
-                        {c.name}
-                      </span>
+                      <CategoryPill category={c} label={getCategoryLabel(c, t)} />
                     </SelectItem>
                   ))}
                 </SelectContent>

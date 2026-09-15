@@ -765,6 +765,13 @@
       "deleteError": "Failed to delete",
       "deleteConfirm": "Delete this category? Entries will keep their note but lose the category."
     },
+    "categoryDefaults": {
+      "electrical_schema": "Electrical schema",
+      "plc_program": "PLC program",
+      "mechanical": "Mechanical",
+      "general": "General",
+      "other": "Other"
+    },
     "entries": {
       "new": "Add entry",
       "edit": "Edit entry",

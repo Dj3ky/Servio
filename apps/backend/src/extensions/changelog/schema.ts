@@ -6,6 +6,10 @@ export const clCategories = pgTable('cl_categories', {
   name: text('name').notNull(),
   color: text('color').notNull().default('#64748b'),
   orderIndex: integer('order_index').notNull().default(0),
+  // Set only for the seeded defaults, so the frontend can show a translated label
+  // (sl/en) instead of the literal `name`. Cleared as soon as the name is edited,
+  // since a renamed category is no longer "the same" built-in one.
+  translationKey: text('translation_key'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 

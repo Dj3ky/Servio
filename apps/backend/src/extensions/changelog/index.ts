@@ -13,12 +13,14 @@ import clCategoriesRoutes from './routes/cl-categories';
 const FEATURE_KEY = 'changelog_extension';
 
 // Ensures cl_* tables exist at startup — mirrors ensurePmTables() in extensions/projects/index.ts
-const DEFAULT_CATEGORIES: { name: string; color: string; orderIndex: number }[] = [
-  { name: 'Electrical schema', color: '#3b82f6', orderIndex: 0 },
-  { name: 'PLC program', color: '#8b5cf6', orderIndex: 1 },
-  { name: 'Mechanical', color: '#f59e0b', orderIndex: 2 },
-  { name: 'General', color: '#64748b', orderIndex: 3 },
-  { name: 'Other', color: '#94a3b8', orderIndex: 4 },
+// `name` here is just a DB fallback; the frontend looks up translationKey first so these
+// show translated (sl/en) instead of always English.
+const DEFAULT_CATEGORIES: { name: string; color: string; orderIndex: number; translationKey: string }[] = [
+  { name: 'Electrical schema', color: '#3b82f6', orderIndex: 0, translationKey: 'electrical_schema' },
+  { name: 'PLC program', color: '#8b5cf6', orderIndex: 1, translationKey: 'plc_program' },
+  { name: 'Mechanical', color: '#f59e0b', orderIndex: 2, translationKey: 'mechanical' },
+  { name: 'General', color: '#64748b', orderIndex: 3, translationKey: 'general' },
+  { name: 'Other', color: '#94a3b8', orderIndex: 4, translationKey: 'other' },
 ];
 
 async function ensureChangelogTables() {
@@ -32,6 +34,7 @@ async function ensureChangelogTables() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    await db.execute(sql`ALTER TABLE cl_categories ADD COLUMN IF NOT EXISTS translation_key TEXT`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cl_projects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
