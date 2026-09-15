@@ -20,6 +20,11 @@ export const imageUpload = multer({
   },
 });
 
+export const changelogAttachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
 export const sqlUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 },

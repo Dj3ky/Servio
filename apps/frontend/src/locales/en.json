@@ -732,8 +732,13 @@
       "title": "Changelog",
       "subtitle": "Track changes on projects — who, what, and when.",
       "new": "New project",
+      "edit": "Edit project",
       "createdOk": "Project created",
-      "saveError": "Failed to save"
+      "savedOk": "Project saved",
+      "saveError": "Failed to save",
+      "pathCopied": "Path copied",
+      "pathCopyFailed": "Failed to copy",
+      "lastUpdatedBy": "Last updated by {{name}} · {{date}}"
     },
     "fields": {
       "name": "Name",
@@ -741,26 +746,33 @@
       "entryCount": "Entries",
       "lastActivity": "Last activity",
       "category": "Category",
-      "note": "Note"
+      "note": "Note",
+      "nasPath": "Project path (NAS)",
+      "nasPathPlaceholder": "e.g. Z:\\Projects\\2026-001"
     },
     "status": {
       "active": "Active",
       "completed": "Completed",
       "archived": "Archived"
     },
-    "category": {
-      "electrical_schema": "Electrical schema",
-      "plc_program": "PLC program",
-      "mechanical": "Mechanical",
-      "general": "General",
-      "other": "Other"
+    "categories": {
+      "title": "Manage categories",
+      "manage": "Categories",
+      "newPlaceholder": "New category",
+      "savedOk": "Category saved",
+      "saveError": "Failed to save",
+      "deletedOk": "Category deleted",
+      "deleteError": "Failed to delete",
+      "deleteConfirm": "Delete this category? Entries will keep their note but lose the category."
     },
     "entries": {
       "new": "Add entry",
       "edit": "Edit entry",
       "allCategories": "All categories",
       "notePlaceholder": "Describe what you changed...",
-      "edited": "edited",
+      "editedBy": "edited by {{name}} · {{date}}",
+      "attachments": "Attachments",
+      "dropFiles": "Drag files here or click to browse",
       "savedOk": "Entry saved",
       "saveError": "Failed to save",
       "deletedOk": "Entry deleted",

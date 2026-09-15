@@ -3,38 +3,50 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight, History } from 'lucide-react';
+import { Plus, ChevronRight, History, Search, Settings2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { CategoryManagerDialog } from '../CategoryManagerDialog';
 
 interface ClProject {
   id: string;
   name: string;
   description: string | null;
   status: string;
+  nasPath: string | null;
   entryCount: number;
   lastActivityAt: string | null;
+  updatedByName: string | null;
   createdAt: string;
 }
 
 const STATUS_COLORS: Record<string, string> = { active: 'default', completed: 'secondary', archived: 'outline' };
 
-const emptyForm = { name: '', description: '' };
+const emptyForm = { name: '', description: '', nasPath: '' };
 
 export default function ChangelogProjectsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuthStore();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const params = new URLSearchParams();
+  if (debouncedSearch) params.set('search', debouncedSearch);
 
   const { data, isLoading } = useQuery<ClProject[]>({
-    queryKey: ['changelog-projects'],
-    queryFn: () => api.get('/changelog/projects'),
+    queryKey: ['changelog-projects', debouncedSearch],
+    queryFn: () => api.get(`/changelog/projects?${params}`),
   });
 
   const mutation = useMutation({
@@ -62,7 +74,19 @@ export default function ChangelogProjectsPage() {
           <h1 className="text-2xl font-bold">{t('changelog.projects.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('changelog.projects.subtitle')}</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />{t('changelog.projects.new')}</Button>
+        <div className="flex items-center gap-2">
+          {user?.role === 'admin' && (
+            <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+              <Settings2 className="h-4 w-4 mr-2" />{t('changelog.categories.manage')}
+            </Button>
+          )}
+          <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />{t('changelog.projects.new')}</Button>
+        </div>
+      </div>
+
+      <div className="relative max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</p>}
@@ -124,6 +148,14 @@ export default function ChangelogProjectsPage() {
               <label className="text-sm font-medium">{t('changelog.fields.description')}</label>
               <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} />
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('changelog.fields.nasPath')}</label>
+              <Input
+                value={form.nasPath}
+                onChange={e => setForm(f => ({ ...f, nasPath: e.target.value }))}
+                placeholder={t('changelog.fields.nasPathPlaceholder')}
+              />
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t('common.loading') : t('common.save')}</Button>
@@ -131,6 +163,8 @@ export default function ChangelogProjectsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <CategoryManagerDialog open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
     </div>
   );
 }

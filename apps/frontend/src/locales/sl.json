@@ -732,8 +732,13 @@
       "title": "Dnevnik sprememb",
       "subtitle": "Sledenje spremembam na projektih — kdo, kaj in kdaj.",
       "new": "Nov projekt",
+      "edit": "Uredi projekt",
       "createdOk": "Projekt je bil ustvarjen",
-      "saveError": "Napaka pri shranjevanju"
+      "savedOk": "Projekt je bil shranjen",
+      "saveError": "Napaka pri shranjevanju",
+      "pathCopied": "Pot je bila kopirana",
+      "pathCopyFailed": "Kopiranje ni uspelo",
+      "lastUpdatedBy": "Nazadnje spremenil {{name}} · {{date}}"
     },
     "fields": {
       "name": "Ime",
@@ -741,26 +746,33 @@
       "entryCount": "Št. vnosov",
       "lastActivity": "Zadnja aktivnost",
       "category": "Kategorija",
-      "note": "Opomba"
+      "note": "Opomba",
+      "nasPath": "Pot do projekta (NAS)",
+      "nasPathPlaceholder": "npr. Z:\\Projekti\\2026-001"
     },
     "status": {
       "active": "Aktiven",
       "completed": "Zaključen",
       "archived": "Arhiviran"
     },
-    "category": {
-      "electrical_schema": "Elektro shema",
-      "plc_program": "PLC program",
-      "mechanical": "Mehanika",
-      "general": "Splošno",
-      "other": "Drugo"
+    "categories": {
+      "title": "Upravljanje kategorij",
+      "manage": "Kategorije",
+      "newPlaceholder": "Nova kategorija",
+      "savedOk": "Kategorija je bila shranjena",
+      "saveError": "Napaka pri shranjevanju",
+      "deletedOk": "Kategorija je bila izbrisana",
+      "deleteError": "Napaka pri brisanju",
+      "deleteConfirm": "Izbriši to kategorijo? Vnosi bodo ostali, a brez kategorije."
     },
     "entries": {
       "new": "Dodaj vnos",
       "edit": "Uredi vnos",
       "allCategories": "Vse kategorije",
       "notePlaceholder": "Opišite, kaj ste spremenili...",
-      "edited": "urejeno",
+      "editedBy": "uredil {{name}} · {{date}}",
+      "attachments": "Priloge",
+      "dropFiles": "Povlecite datoteke sem ali kliknite za izbiro",
       "savedOk": "Vnos je bil shranjen",
       "saveError": "Napaka pri shranjevanju",
       "deletedOk": "Vnos je bil izbrisan",
