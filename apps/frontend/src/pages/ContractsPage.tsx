@@ -91,6 +91,15 @@ const REVIEW_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive
   skipped: 'secondary',
 };
 
+// Sort order for the review status column; rows without a review sort after these
+const REVIEW_STATUS_SORT_ORDER: Record<string, number> = {
+  pending: 0,
+  in_progress: 1,
+  failed: 2,
+  completed: 3,
+  skipped: 4,
+};
+
 const INVOICE_STATUS_VARIANT: Record<string, 'success' | 'info' | 'secondary' | 'warning'> = {
   completed: 'success',
   pending: 'warning',
@@ -332,7 +341,11 @@ export default function ContractsPage() {
         </Badge>
       ),
     }),
-    columnHelper.display({
+    columnHelper.accessor((row) => {
+      const status = row.currentReview?.status;
+      if (status) return REVIEW_STATUS_SORT_ORDER[status] ?? 99;
+      return row.reviewNeededThisMonth ? 5 : 6;
+    }, {
       id: 'reviewStatus',
       header: t('contracts.reviewStatus'),
       cell: ({ row }) => {
