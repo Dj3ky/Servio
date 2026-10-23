@@ -260,7 +260,7 @@ export default function ContractTimelinePage() {
                                     <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>
                                   )}
                                   {r.emailBounced && (
-                                    <span className="flex items-center gap-0.5 text-destructive">
+                                    <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
                                       <Mail className="h-3 w-3" />
                                       {t('reviews.emailBounced')}
                                     </span>
@@ -290,7 +290,7 @@ export default function ContractTimelinePage() {
                                     <span>{t('reviews.completedBy')}: {r.invoice.completedBy.name}</span>
                                   )}
                                   {r.invoice && r.invoice.emailBounced && (
-                                    <span className="flex items-center gap-0.5 text-destructive">
+                                    <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
                                       <Mail className="h-3 w-3" />
                                       {t('reviews.emailBounced')}
                                     </span>
