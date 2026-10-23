@@ -106,7 +106,8 @@ export function InboxCenter() {
                     <span className={`text-xs truncate max-w-[200px] ${!m.seen ? 'font-semibold' : ''}`}>{m.from}</span>
                     <span className="text-[10px] text-muted-foreground shrink-0">{formatDateTime(m.date)}</span>
                   </div>
-                  <span className={`text-xs truncate w-full ${!m.seen ? 'font-medium' : 'text-muted-foreground'}`}>{m.subject}</span>
+                  {/* w-0 min-w-full: keep long subjects from widening ScrollArea's table viewport, which pushes the date out of view */}
+                  <span className={`text-xs truncate w-0 min-w-full ${!m.seen ? 'font-medium' : 'text-muted-foreground'}`}>{m.subject}</span>
                 </DropdownMenuItem>
               ))}
             </ScrollArea>
