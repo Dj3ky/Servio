@@ -62,7 +62,7 @@ const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
 export default function MeetingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [newOpen, setNewOpen] = useState(false);
@@ -77,6 +77,8 @@ export default function MeetingsPage() {
   const [editNotes, setEditNotes] = useState('');
   const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
+  // null = default state (only the most recent month expanded)
+  const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings', yearFilter],
@@ -265,6 +267,31 @@ export default function MeetingsPage() {
 
   const meetings = data?.data ?? [];
 
+  // Group meetings by month (YYYY-MM), preserving API order
+  const meetingsByMonth = useMemo(() => {
+    const groups: { key: string; label: string; meetings: Meeting[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const m of meetings) {
+      const key = m.meetingDate.slice(0, 7);
+      if (!seen.has(key)) {
+        const [y, mo] = key.split('-').map(Number);
+        const label = new Date(y, mo - 1, 1).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
+        seen.set(key, groups.length);
+        groups.push({ key, label: label.charAt(0).toUpperCase() + label.slice(1), meetings: [] });
+      }
+      groups[seen.get(key)!].meetings.push(m);
+    }
+    return groups;
+  }, [meetings, i18n.language]);
+
+  const openMonths = expandedMonths ?? new Set(meetingsByMonth.slice(0, 1).map(g => g.key));
+
+  function toggleMonth(key: string) {
+    const next = new Set(openMonths);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setExpandedMonths(next);
+  }
+
   const tableHead = (
     <tr className="border-b bg-muted/50 text-muted-foreground">
       <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colDate')}</th>
@@ -296,7 +323,7 @@ export default function MeetingsPage() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Year filter */}
-          <Select value={String(yearFilter)} onValueChange={v => setYearFilter(Number(v))}>
+          <Select value={String(yearFilter)} onValueChange={v => { setYearFilter(Number(v)); setExpandedMonths(null); }}>
             <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
@@ -312,8 +339,24 @@ export default function MeetingsPage() {
           <tbody>
             {isLoading && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.loading')}</td></tr>}
             {!isLoading && meetings.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.noData')}</td></tr>}
-            {meetings.map(renderRow)}
           </tbody>
+          {meetingsByMonth.map(group => {
+            const open = openMonths.has(group.key);
+            return (
+              <tbody key={group.key}>
+                <tr className="border-b bg-muted/30 hover:bg-muted/50 cursor-pointer" onClick={() => toggleMonth(group.key)}>
+                  <td colSpan={4} className="px-4 py-2 font-semibold">
+                    <div className="flex items-center gap-2">
+                      {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      <span>{group.label}</span>
+                      <span className="font-normal text-muted-foreground">({group.meetings.length})</span>
+                    </div>
+                  </td>
+                </tr>
+                {open && group.meetings.map(renderRow)}
+              </tbody>
+            );
+          })}
         </table>
       </div>
 

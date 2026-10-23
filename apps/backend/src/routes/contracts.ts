@@ -11,38 +11,7 @@ import { documentUpload } from '../middleware/upload';
 import { createAuditLog } from '../utils/audit';
 import { format, startOfMonth } from 'date-fns';
 import { shouldCreateReview } from '../services/scheduler';
-
-// Excel on Slovenian Windows saves CSV as Windows-1250; fall back to it when the file isn't valid UTF-8
-function decodeCsvBuffer(buf: Buffer): string {
-  try {
-    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(buf);
-  } catch {
-    return new TextDecoder('windows-1250').decode(buf);
-  }
-}
-
-// RFC 4180 style parser: handles quoted fields with delimiters, escaped quotes and line breaks
-function parseCsv(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (ch === '"') inQuotes = false;
-      else field += ch;
-    } else if (ch === '"') inQuotes = true;
-    else if (ch === delimiter) { row.push(field); field = ''; }
-    else if (ch === '\n' || ch === '\r') {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(field); rows.push(row); row = []; field = '';
-    } else field += ch;
-  }
-  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
-  return rows;
-}
+import { readCsvRows, escapeCsv as escape } from '../utils/csv';
 
 const router = Router();
 router.use(requireAuth);
@@ -127,11 +96,6 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     },
     orderBy: (c, { asc }) => [asc(c.contractNumber)],
   });
-
-  const escape = (v: string | null | undefined) => {
-    const s = String(v ?? '');
-    return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
 
   const header = 'contract_number;customer_name;facility_name;review_frequency;status;start_date;end_date;value_without_vat;value_without_vat_per_year;work_order_number;customer_email;invoice_email;invoice_delivery;smb_path;contact_name;phone;facility_address;facility_notes;notes';
   const rows = data.map((c) => [
@@ -317,10 +281,7 @@ router.delete('/:id/documents/:filename', requireRole('records', 'manage'), asyn
 router.post('/import', requireRole('records', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
-  const content = decodeCsvBuffer(req.file.buffer);
-  const firstLine = content.slice(0, content.search(/\r?\n|$/));
-  const delimiter = firstLine.split(';').length >= firstLine.split(',').length ? ';' : ',';
-  const lines = parseCsv(content, delimiter).filter((r) => r.some((v) => v.trim() !== ''));
+  const lines = readCsvRows(req.file.buffer);
   if (lines.length < 2) { res.status(400).json({ error: 'errors.validation', details: { file: ['CSV must have a header row and at least one data row'] } }); return; }
 
   const headers = lines[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));

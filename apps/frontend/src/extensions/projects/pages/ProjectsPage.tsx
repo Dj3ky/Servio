@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer } from 'lucide-react';
+import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,16 @@ interface PmProject {
 }
 
 interface User { id: string; name: string; }
+
+interface ImportResult {
+  created: string[];
+  skipped: string[];
+  errors: string[];
+}
+
+function getToken() {
+  try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
+}
 
 const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
 const STATUS_COLORS: Record<string, string> = { active: 'default', on_hold: 'outline', completed: 'secondary' };
@@ -94,6 +104,53 @@ export default function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/pm/projects/export', {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { toast.error(t('errors.internal')); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `projects-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleCsvImport(file: File) {
+    setImporting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/pm/projects/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data?.details?.file?.[0] ?? t('errors.internal')); return; }
+      setImportResult(data as ImportResult);
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
+    } catch {
+      toast.error(t('errors.internal'));
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const params = new URLSearchParams();
   params.set('archived', archiveMode ? 'true' : 'false');
@@ -358,6 +415,15 @@ export default function ProjectsPage() {
             </button>
           </div>
           <Button variant="outline" size="icon" onClick={printProjects} title={t('pm.projects.print')}><Printer className="h-4 w-4" /></Button>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvImport(f); e.target.value = ''; }}
+          />
+          <Button variant="outline" size="icon" disabled={exporting} onClick={handleExportCsv} title={t('contracts.exportCsv')}><FileDown className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" disabled={importing} onClick={() => csvInputRef.current?.click()} title={t('contracts.importCsv')}><FileUp className="h-4 w-4" /></Button>
           {!archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
         </div>
       </div>
@@ -537,6 +603,42 @@ export default function ProjectsPage() {
               <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t('common.loading') : t('common.save')}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV import result dialog */}
+      <Dialog open={!!importResult} onOpenChange={(open) => { if (!open) setImportResult(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('contracts.importResult')}</DialogTitle>
+          </DialogHeader>
+          {importResult && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-md bg-green-50 dark:bg-green-950/30 p-3">
+                  <div className="text-xl font-bold text-green-700 dark:text-green-400">{importResult.created.length}</div>
+                  <div className="text-xs text-green-600 dark:text-green-500">{t('contracts.importCreated')}</div>
+                </div>
+                <div className="rounded-md bg-yellow-50 dark:bg-yellow-950/30 p-3">
+                  <div className="text-xl font-bold text-yellow-700 dark:text-yellow-400">{importResult.skipped.length}</div>
+                  <div className="text-xs text-yellow-600 dark:text-yellow-500">{t('contracts.importSkipped')}</div>
+                </div>
+                <div className="rounded-md bg-red-50 dark:bg-red-950/30 p-3">
+                  <div className="text-xl font-bold text-red-700 dark:text-red-400">{importResult.errors.length}</div>
+                  <div className="text-xs text-red-600 dark:text-red-500">{t('contracts.importErrors')}</div>
+                </div>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
+                  {importResult.errors.map((e, i) => <p key={i} className="text-xs text-destructive">{e}</p>)}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">{t('pm.projects.importCsvHint')}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setImportResult(null)}>{t('common.close')}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

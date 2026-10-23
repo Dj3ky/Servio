@@ -612,6 +612,7 @@
       "activeTab": "Aktivni",
       "archiveTab": "Arhiv",
       "print": "Natisni",
+      "importCsvHint": "Zahtevano: project_number, name. Neobvezno: customer_name, facility_name, employee_email ali employee_name, priority (high/medium/low), status (active/on_hold/completed), order_date, start_date, end_date, contract_value, invoiced_amount, notes. Vrstice z obstoječo project_number so preskočene.",
       "new": "Nov projekt",
       "edit": "Uredi projekt",
       "searchPlaceholder": "Iskanje po imenu / DN...",

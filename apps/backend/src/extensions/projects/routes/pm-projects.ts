@@ -6,6 +6,7 @@ import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices } fr
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
+import { readCsvRows, escapeCsv } from '../../../utils/csv';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -80,6 +81,129 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   ]);
 
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
+});
+
+const CSV_HEADER = 'project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';
+
+router.get('/export', async (_req: Request, res: Response): Promise<void> => {
+  const data = await db.select({
+    projectNumber: pmProjects.projectNumber,
+    name: pmProjects.name,
+    customerName: pmProjects.customerName,
+    facilityName: pmProjects.facilityName,
+    employeeName: users.name,
+    employeeEmail: users.email,
+    priority: pmProjects.priority,
+    status: pmProjects.status,
+    orderDate: pmProjects.orderDate,
+    startDate: pmProjects.startDate,
+    endDate: pmProjects.endDate,
+    contractValue: pmProjects.contractValue,
+    invoicedAmount: pmProjects.invoicedAmount,
+    receivedAmount: pmProjects.receivedAmount,
+    notes: pmProjects.notes,
+  })
+    .from(pmProjects)
+    .leftJoin(users, eq(pmProjects.employeeId, users.id))
+    .orderBy(pmProjects.projectNumber);
+
+  const rows = data.map((p) => [
+    p.projectNumber, p.name, p.customerName, p.facilityName, p.employeeName, p.employeeEmail,
+    p.priority, p.status, p.orderDate, p.startDate, p.endDate,
+    p.contractValue, p.invoicedAmount, p.receivedAmount, p.notes,
+  ].map(escapeCsv).join(';'));
+
+  // BOM so Excel opens the file as UTF-8 (keeps č, š, ž intact)
+  const csv = '﻿' + [CSV_HEADER, ...rows].join('\r\n');
+  const today = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="projects-${today}.csv"`);
+  res.send(csv);
+});
+
+// Accepts yyyy-MM-dd or Slovenian d.M.yyyy (what Excel writes back on sl-SI locale)
+function parseCsvDate(v: string): string | null {
+  if (!v) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  throw new Error(`invalid date "${v}"`);
+}
+
+// Accepts 1234.56 or Slovenian 1.234,56
+function parseCsvAmount(v: string): string | null {
+  if (!v) return null;
+  const normalized = v.includes(',') ? v.replace(/\./g, '').replace(',', '.') : v;
+  const cleaned = normalized.replace(/[\s€]/g, '');
+  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) throw new Error(`invalid amount "${v}"`);
+  return cleaned;
+}
+
+router.post('/import', requireRole('projects', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
+
+  const lines = readCsvRows(req.file.buffer);
+  if (lines.length < 2) { res.status(400).json({ error: 'errors.validation', details: { file: ['CSV must have a header row and at least one data row'] } }); return; }
+
+  const headers = lines[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
+  const required = ['project_number', 'name'];
+  const missing = required.filter((r) => !headers.includes(r));
+  if (missing.length > 0) { res.status(400).json({ error: 'errors.validation', details: { file: [`Missing columns: ${missing.join(', ')}`] } }); return; }
+
+  const allUsers = await db.select({ id: users.id, name: users.name, email: users.email }).from(users);
+  const existingNumbers = new Set((await db.select({ n: pmProjects.projectNumber }).from(pmProjects)).map((r) => r.n));
+
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const errors: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].map((v) => v.trim());
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => { row[h] = values[idx] ?? ''; });
+
+    const projectNumber = row['project_number'];
+    if (!projectNumber) { errors.push(`Row ${i}: missing project_number`); continue; }
+    if (!row['name']) { errors.push(`Row ${i} (${projectNumber}): missing name`); continue; }
+    if (existingNumbers.has(projectNumber)) { skipped.push(projectNumber); continue; }
+
+    try {
+      // Match project manager by email first, then by exact name
+      const email = row['employee_email']?.toLowerCase();
+      const empName = row['employee_name'];
+      const employee = (email && allUsers.find((u) => u.email.toLowerCase() === email))
+        || (empName && allUsers.find((u) => u.name === empName))
+        || null;
+      if ((email || empName) && !employee) throw new Error(`unknown employee "${email || empName}"`);
+
+      const priority = ['high', 'medium', 'low'].includes(row['priority']) ? row['priority'] : 'medium';
+      const status = ['active', 'on_hold', 'completed'].includes(row['status']) ? row['status'] : 'active';
+
+      await db.insert(pmProjects).values({
+        projectNumber,
+        name: row['name'],
+        customerName: row['customer_name'] || null,
+        facilityName: row['facility_name'] || null,
+        employeeId: employee?.id ?? null,
+        priority,
+        status,
+        orderDate: parseCsvDate(row['order_date']),
+        startDate: parseCsvDate(row['start_date']),
+        endDate: parseCsvDate(row['end_date']),
+        contractValue: parseCsvAmount(row['contract_value']),
+        invoicedAmount: parseCsvAmount(row['invoiced_amount']) ?? '0',
+        notes: row['notes'] || null,
+        completedAt: status === 'completed' ? new Date() : null,
+      });
+
+      existingNumbers.add(projectNumber);
+      created.push(projectNumber);
+    } catch (err) {
+      errors.push(`Row ${i} (${projectNumber}): ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
+  }
+
+  res.json({ created, skipped, errors });
 });
 
 // Get single project with phases + documents

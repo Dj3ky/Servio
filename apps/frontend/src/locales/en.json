@@ -612,6 +612,7 @@
       "activeTab": "Active",
       "archiveTab": "Archive",
       "print": "Print",
+      "importCsvHint": "Required: project_number, name. Optional: customer_name, facility_name, employee_email or employee_name, priority (high/medium/low), status (active/on_hold/completed), order_date, start_date, end_date, contract_value, invoiced_amount, notes. Rows with an existing project_number are skipped.",
       "new": "New project",
       "edit": "Edit project",
       "searchPlaceholder": "Search by name / WO...",
