@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -179,6 +179,14 @@ export default function MeetingsPage() {
 
   if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
     initEntries(activeProjects);
+  }
+
+  // Enter in a project note jumps to the next visible project note in the same dialog
+  function focusNextNote(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const inputs = Array.from(e.currentTarget.closest('[role="dialog"]')?.querySelectorAll<HTMLInputElement>('input[data-meeting-note]') ?? []);
+    inputs[inputs.indexOf(e.currentTarget) + 1]?.focus();
   }
 
   function updateEntry(projectId: string, field: 'entryStatus' | 'notes', value: string) {
@@ -483,6 +491,8 @@ export default function MeetingsPage() {
                                     placeholder={t('pm.meetings.notePlaceholder')}
                                     value={entry.notes}
                                     onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
+                                    onKeyDown={focusNextNote}
+                                    data-meeting-note
                                   />
                                 </td>
                                 <td className="px-3 py-2">
@@ -627,6 +637,8 @@ export default function MeetingsPage() {
                                 placeholder={t('pm.meetings.notePlaceholder')}
                                 value={entry.notes ?? ''}
                                 onChange={e => updateEditEntry(entry.projectId, 'notes', e.target.value)}
+                                onKeyDown={focusNextNote}
+                                data-meeting-note
                               />
                             </td>
                             <td className="px-3 py-2">
