@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -276,7 +277,7 @@ export default function MeetingsPage() {
   function renderRow(m: Meeting) {
     return (
       <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => { setCollapsedDetailGroups(new Set()); setEditMode(false); setDetailId(m.id); }}>
-        <td className="px-4 py-3 font-mono">{m.meetingDate}</td>
+        <td className="px-4 py-3 font-mono">{formatDate(m.meetingDate)}</td>
         <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
         <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>
         <td className="px-4 py-3 text-right">
@@ -358,7 +359,7 @@ export default function MeetingsPage() {
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
                               <th className="text-left px-3 py-2 font-medium w-[200px]">
                                 <div>{t('pm.meetings.colLastMeeting')}</div>
-                                {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{d}</div> : null; })()}
+                                {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
                               </th>
                             </tr>
                           </thead>
@@ -421,8 +422,8 @@ export default function MeetingsPage() {
           <DialogHeader>
             <DialogTitle>
               {editMode
-                ? t('pm.meetings.editTitle', { date: detail?.meetingDate ?? '' })
-                : t('pm.meetings.dialogTitle', { date: detail?.meetingDate ?? '' })}
+                ? t('pm.meetings.editTitle', { date: detail?.meetingDate ? formatDate(detail.meetingDate) : '' })
+                : t('pm.meetings.dialogTitle', { date: detail?.meetingDate ? formatDate(detail.meetingDate) : '' })}
             </DialogTitle>
           </DialogHeader>
 
@@ -501,7 +502,7 @@ export default function MeetingsPage() {
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
                           <th className="text-left px-3 py-2 font-medium w-[200px]">
                             <div>{t('pm.meetings.colLastMeeting')}</div>
-                            {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{d}</div> : null; })()}
+                            {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
                           </th>
                         </tr>
                       </thead>
@@ -594,13 +595,13 @@ export default function MeetingsPage() {
                 <div className="text-muted-foreground">{t('pm.projects.fieldPriority')}</div>
                 <div><Badge variant="secondary">{t(`pm.priority.${quickViewProject.priority}`)}</Badge></div>
                 <div className="text-muted-foreground">{t('pm.projects.fieldStartDate')}</div>
-                <div>{quickViewProject.startDate || '—'}</div>
+                <div>{quickViewProject.startDate ? formatDate(quickViewProject.startDate) : '—'}</div>
                 <div className="text-muted-foreground">{t('pm.projects.fieldEndDate')}</div>
-                <div>{quickViewProject.endDate || '—'}</div>
+                <div>{quickViewProject.endDate ? formatDate(quickViewProject.endDate) : '—'}</div>
                 <div className="text-muted-foreground">{t('pm.projects.fieldContractValue')}</div>
-                <div>{quickViewProject.contractValue ? `${Number(quickViewProject.contractValue).toLocaleString()} €` : '—'}</div>
+                <div>{quickViewProject.contractValue ? `${Number(quickViewProject.contractValue).toLocaleString('sl-SI')} €` : '—'}</div>
                 <div className="text-muted-foreground">{t('pm.projects.fieldInvoiced')}</div>
-                <div>{quickViewProject.invoicedAmount ? `${Number(quickViewProject.invoicedAmount).toLocaleString()} €` : '—'}</div>
+                <div>{quickViewProject.invoicedAmount ? `${Number(quickViewProject.invoicedAmount).toLocaleString('sl-SI')} €` : '—'}</div>
               </div>
               {quickViewProject.notes && (
                 <div className="pt-1 border-t">

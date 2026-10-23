@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Upload, Paperclip, X, Copy, FolderOpen, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { usePermissionsStore } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -300,7 +301,7 @@ export default function ChangelogProjectDetailPage() {
           )}
           {project?.updatedByName && (
             <p className="text-xs text-muted-foreground mt-1">
-              {t('changelog.projects.lastUpdatedBy', { name: project.updatedByName, date: new Date(project.updatedAt).toLocaleString() })}
+              {t('changelog.projects.lastUpdatedBy', { name: project.updatedByName, date: formatDateTime(project.updatedAt) })}
             </p>
           )}
         </div>
@@ -354,7 +355,7 @@ export default function ChangelogProjectDetailPage() {
                       <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</span>
                       {entry.editedAt && (
                         <span className="text-xs text-muted-foreground">
-                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: new Date(entry.editedAt).toLocaleString() })}
+                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: formatDateTime(entry.editedAt) })}
                         </span>
                       )}
                     </div>

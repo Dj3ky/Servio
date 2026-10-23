@@ -744,7 +744,7 @@ export default function FacilityDetailPage() {
             const fmtVal = (v: string | null | undefined) => {
               if (!v) return null;
               const n = parseFloat(v);
-              return isNaN(n) ? null : `€ ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              return isNaN(n) ? null : `€ ${n.toLocaleString('sl-SI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             };
             return (
               <Card key={c.id}>
@@ -761,8 +761,8 @@ export default function FacilityDetailPage() {
                   <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
                     <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.contractNumber')}</dt><dd className="text-sm font-mono">{c.contractNumber}</dd></div>
                     {c.workOrderNumber && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.workOrderNumber')}</dt><dd className="text-sm font-mono">{c.workOrderNumber}</dd></div>}
-                    <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.startDate')}</dt><dd className="text-sm">{c.startDate || '—'}</dd></div>
-                    {c.endDate && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.endDate')}</dt><dd className="text-sm">{c.endDate}</dd></div>}
+                    <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.startDate')}</dt><dd className="text-sm">{c.startDate ? formatDate(c.startDate) : '—'}</dd></div>
+                    {c.endDate && <div><dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.endDate')}</dt><dd className="text-sm">{formatDate(c.endDate)}</dd></div>}
                     <div>
                       <dt className="text-xs font-medium text-muted-foreground mb-0.5">{t('contracts.frequency')}</dt>
                       <dd className="text-sm">{t(`frequency.${c.reviewFrequency}` as any)}{monthsStr && <span className="text-muted-foreground ml-1 text-xs">({monthsStr})</span>}</dd>

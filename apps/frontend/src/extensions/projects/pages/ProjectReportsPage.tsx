@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -172,7 +173,7 @@ export default function ProjectReportsPage() {
           <td>${p.facilityName ?? '—'}</td>
           ${showCompleted
             ? `<td style="color:#15803d">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>`
-            : `<td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${p.endDate ?? '—'}</td>`}
+            : `<td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${p.endDate ? formatDate(p.endDate) : '—'}</td>`}
           <td style="text-align:right">${fmtEur(p.contractValue)}</td>
           <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
           <td style="text-align:right;${!showCompleted && remaining > 0 ? 'color:#15803d' : showCompleted && remaining > 0 ? 'color:#dc2626' : ''}">${fmtEur(remaining)}</td>
@@ -482,7 +483,7 @@ export default function ProjectReportsPage() {
                           <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                           <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>
                           <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                            {p.completedAt ? new Date(p.completedAt).toLocaleDateString() : '—'}
+                            {p.completedAt ? formatDate(p.completedAt) : '—'}
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
                           <td className="px-4 py-3 text-right font-mono text-xs">{fmt(p.invoicedAmount)}</td>
@@ -550,7 +551,7 @@ export default function ProjectReportsPage() {
                               <td className="px-3 py-2">
                                 <Badge variant={PRIORITY_COLORS[p.priority] as any} className="text-xs">{t(`pm.priority.${p.priority}`)}</Badge>
                               </td>
-                              <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{p.endDate ?? '—'}</td>
+                              <td className={`px-3 py-2 font-mono text-xs ${isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>{p.endDate ? formatDate(p.endDate) : '—'}</td>
                               <td className="px-3 py-2 text-right font-mono text-xs">{fmt(p.contractValue)}</td>
                               <td className={`px-3 py-2 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(remaining)}</td>
                             </tr>
@@ -619,7 +620,7 @@ export default function ProjectReportsPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{p.employeeName ?? '—'}</td>
                         <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
-                        <td className="px-4 py-3 text-destructive font-medium font-mono text-xs">{p.endDate}</td>
+                        <td className="px-4 py-3 text-red-600 dark:text-red-400 font-medium font-mono text-xs">{p.endDate ? formatDate(p.endDate) : '—'}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(remaining)}</td>
                       </tr>
                     );

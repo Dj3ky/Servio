@@ -29,6 +29,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createUserSchema, updateUserSchema } from '@servio/shared';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -178,7 +179,7 @@ export default function UsersPage() {
       cell: (info) => {
         const v = info.getValue();
         return v
-          ? <span className="text-xs text-muted-foreground">{new Date(v).toLocaleDateString()}</span>
+          ? <span className="text-xs text-muted-foreground">{formatDate(v)}</span>
           : <span className="text-xs text-muted-foreground/40">—</span>;
       },
     }),

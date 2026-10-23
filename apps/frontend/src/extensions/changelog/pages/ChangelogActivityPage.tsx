@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, History } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,7 +109,7 @@ export default function ChangelogActivityPage() {
                       </span>
                       {entry.editedAt && (
                         <span className="text-xs text-muted-foreground">
-                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: new Date(entry.editedAt).toLocaleString() })}
+                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: formatDateTime(entry.editedAt) })}
                         </span>
                       )}
                     </div>

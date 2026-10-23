@@ -80,7 +80,7 @@ function fmtValue(v: string | null | undefined) {
   if (!v) return null;
   const n = parseFloat(v);
   if (isNaN(n)) return null;
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString('sl-SI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const REVIEW_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'secondary'> = {

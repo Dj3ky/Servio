@@ -84,7 +84,7 @@ const chartStyle = {
 
 function formatRevenue(v: number) {
   if (v === 0) return '—';
-  return `€ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `€ ${v.toLocaleString('sl-SI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function DashboardPage() {

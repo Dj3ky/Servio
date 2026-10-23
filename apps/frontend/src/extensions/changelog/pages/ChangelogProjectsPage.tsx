@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, ChevronRight, History, Search, Settings2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { usePermissionsStore } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -129,7 +130,7 @@ export default function ChangelogProjectsPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.entryCount}</td>
                   <td className="px-4 py-3 text-muted-foreground text-sm">
-                    {p.lastActivityAt ? new Date(p.lastActivityAt).toLocaleString() : '—'}
+                    {p.lastActivityAt ? formatDateTime(p.lastActivityAt) : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <ChevronRight className="h-4 w-4 text-muted-foreground inline" />

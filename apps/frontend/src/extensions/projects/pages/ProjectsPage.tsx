@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -181,7 +182,7 @@ export default function ProjectsPage() {
     const groupHtml = groupsToRender.map((g, idx) => {
       const bgColor = groupByEmployee ? PRINT_GROUP_COLORS[idx % PRINT_GROUP_COLORS.length] : 'transparent';
       const rows = g.projects.map(p => {
-        const deadline = p.endDate ?? '—';
+        const deadline = p.endDate ? formatDate(p.endDate) : '—';
         const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
         return `<tr>
           <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#555">${p.projectNumber}</span></td>
@@ -300,7 +301,7 @@ export default function ProjectsPage() {
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground text-sm">{p.employeeName ?? '—'}</td>}
         {archiveMode ? (
           <td className="px-4 py-3 text-sm text-green-600 font-medium">
-            {p.completedAt ? new Date(p.completedAt).toLocaleDateString() : '—'}
+            {p.completedAt ? formatDate(p.completedAt) : '—'}
           </td>
         ) : (
           <>
@@ -317,8 +318,8 @@ export default function ProjectsPage() {
         {!archiveMode && (
           <>
             <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</td>
-            <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-              {p.endDate ?? '—'}
+            <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
+              {p.endDate ? formatDate(p.endDate) : '—'}
             </td>
           </>
         )}

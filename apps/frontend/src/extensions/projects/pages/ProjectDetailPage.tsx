@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -112,7 +113,7 @@ function InvoiceList({
         {invoices.map(inv => (
           <div key={inv.id} className="flex items-center gap-3 p-3 rounded-md border bg-card text-sm">
             <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{inv.invoiceDate}</span>
+            <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{formatDate(inv.invoiceDate)}</span>
             <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
             <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
             <Button
@@ -352,17 +353,17 @@ export default function ProjectDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.employee')}</span><span className="font-medium">{project.employeeName ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.customer')}</span><span className="font-medium">{project.customerName ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.facility')}</span><span className="font-medium">{project.facilityName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.orderDate')}</span><span>{project.orderDate ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.orderDate')}</span><span>{project.orderDate ? formatDate(project.orderDate) : '—'}</span></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.startDateShort')}</span><span>{project.startDate ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.deadline')}</span><span className={isOverdue ? 'text-destructive font-medium' : ''}>{project.endDate ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.startDateShort')}</span><span>{project.startDate ? formatDate(project.startDate) : '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.deadline')}</span><span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{project.endDate ? formatDate(project.endDate) : '—'}</span></div>
             {project.completedAt && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('pm.fields.completedAt')}</span>
-                <span className="text-green-600 font-medium">{new Date(project.completedAt).toLocaleDateString()}</span>
+                <span className="text-green-600 font-medium">{formatDate(project.completedAt)}</span>
               </div>
             )}
           </CardContent>
@@ -438,7 +439,7 @@ export default function ProjectDetailPage() {
           <div className="space-y-3">
             {(meetingHistory ?? []).map(entry => (
               <div key={entry.id} className="flex gap-4 p-3 rounded-md border bg-card text-sm">
-                <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{entry.meetingDate}</div>
+                <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{formatDate(entry.meetingDate)}</div>
                 <div className="flex-1">
                   <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
                     {t(`pm.status.${entry.entryStatus}`)}
