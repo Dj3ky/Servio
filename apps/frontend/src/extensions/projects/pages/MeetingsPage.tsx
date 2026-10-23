@@ -314,6 +314,16 @@ export default function MeetingsPage() {
     );
   }
 
+  // Shared column widths so the dialog's per-manager tables line up with each other
+  const entryColGroup = (
+    <colgroup>
+      <col style={{ width: '28%' }} />
+      <col style={{ width: '16%' }} />
+      <col style={{ width: '34%' }} />
+      <col style={{ width: '22%' }} />
+    </colgroup>
+  );
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -394,13 +404,14 @@ export default function MeetingsPage() {
                         {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
                       </button>
                       {!collapsed && (
-                        <table className="w-full text-sm">
+                        <table className="w-full table-fixed text-sm">
+                          {entryColGroup}
                           <thead>
                             <tr className="border-b bg-muted/50 text-muted-foreground">
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                              <th className="text-left px-3 py-2 font-medium w-[150px]">{t('common.status')}</th>
+                              <th className="text-left px-3 py-2 font-medium">{t('common.status')}</th>
                               <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                              <th className="text-left px-3 py-2 font-medium w-[200px]">
+                              <th className="text-left px-3 py-2 font-medium">
                                 <div>{t('pm.meetings.colLastMeeting')}</div>
                                 {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
                               </th>
@@ -495,7 +506,7 @@ export default function MeetingsPage() {
                             className="flex gap-3 p-3 text-sm cursor-pointer hover:bg-muted/30"
                             onClick={() => { setDetailId(null); navigate(`/pm/projects/${entry.projectId}`); }}
                           >
-                            <div className="min-w-[120px]">
+                            <div className="w-[220px] shrink-0 break-words">
                               <div className="font-medium">{entry.projectName}</div>
                               <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                             </div>
@@ -537,13 +548,14 @@ export default function MeetingsPage() {
                       <span className="font-normal text-muted-foreground">({group.entries.length})</span>
                       {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
                     </button>
-                    {!collapsed && <table className="w-full text-sm">
+                    {!collapsed && <table className="w-full table-fixed text-sm">
+                      {entryColGroup}
                       <thead>
                         <tr className="border-b bg-muted/50 text-muted-foreground">
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                          <th className="text-left px-3 py-2 font-medium w-[150px]">{t('common.status')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('common.status')}</th>
                           <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                          <th className="text-left px-3 py-2 font-medium w-[200px]">
+                          <th className="text-left px-3 py-2 font-medium">
                             <div>{t('pm.meetings.colLastMeeting')}</div>
                             {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
                           </th>
