@@ -68,17 +68,17 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
   const enriched = await Promise.all(
     data.map(async (contract) => {
-      const [currentReview, currentInvoice] = await Promise.all([
-        db.query.reviews.findFirst({
-          where: (r, { eq, and }) => and(eq(r.contractId, contract.id), eq(r.scheduledMonth, currentMonth)),
-          columns: { id: true, status: true, emailBounced: true },
-        }),
-        db.query.invoices.findFirst({
-          where: (inv, { eq }) => eq(inv.contractId, contract.id),
-          orderBy: (inv, { desc }) => [desc(inv.createdAt)],
-          columns: { id: true, status: true, invoiceNumber: true, emailBounced: true },
-        }),
-      ]);
+      const currentReview = await db.query.reviews.findFirst({
+        where: (r, { eq, and }) => and(eq(r.contractId, contract.id), eq(r.scheduledMonth, currentMonth)),
+        columns: { id: true, status: true, emailBounced: true },
+      });
+      // Only this month's invoice — never fall back to an older month's
+      const currentInvoice = currentReview
+        ? await db.query.invoices.findFirst({
+            where: (inv, { eq }) => eq(inv.reviewId, currentReview.id),
+            columns: { id: true, status: true, invoiceNumber: true, emailBounced: true },
+          })
+        : undefined;
       const reviewNeededThisMonth = shouldCreateReview(contract.reviewFrequency, contract.customMonths, currentMonthNumber);
       return { ...contract, currentReview: currentReview ?? null, currentInvoice: currentInvoice ?? null, reviewNeededThisMonth };
     }),

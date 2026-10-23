@@ -365,11 +365,15 @@ export default function ContractsPage() {
       cell: (info) => {
         const inv = info.getValue();
         const status = inv?.status;
+        const reviewStatus = info.row.original.currentReview?.status;
+        const notNeeded = reviewStatus === 'skipped' || (!reviewStatus && !info.row.original.reviewNeededThisMonth);
         return (
           <div className="flex items-center gap-1.5">
             {status
               ? <Badge variant={INVOICE_STATUS_VARIANT[status] ?? 'secondary'}>{t(`invoices.${status}` as any)}</Badge>
-              : <Badge variant="secondary">—</Badge>}
+              : notNeeded
+                ? <Badge variant="outline">{t('reviews.notNeeded')}</Badge>
+                : <Badge variant="secondary">—</Badge>}
             {inv?.emailBounced && (
               <TooltipProvider>
                 <Tooltip>
