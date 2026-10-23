@@ -766,6 +766,14 @@
       "nasPath": "Project path (NAS)",
       "nasPathPlaceholder": "e.g. Z:\\Projects\\2026-001"
     },
+    "contacts": {
+      "title": "Contacts",
+      "add": "Add contact",
+      "name": "Name",
+      "role": "Role / company",
+      "phone": "Phone",
+      "email": "Email"
+    },
     "status": {
       "active": "Active",
       "completed": "Completed",

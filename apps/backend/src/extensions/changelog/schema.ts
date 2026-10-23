@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, integer, jsonb } from 'drizzle-orm/pg-core';
+import type { ClProjectContact } from '@servio/shared';
 import { users } from '../../db/schema/users';
 
 export const clCategories = pgTable('cl_categories', {
@@ -19,6 +20,7 @@ export const clProjects = pgTable('cl_projects', {
   description: text('description'),
   status: text('status').notNull().default('active'),
   nasPath: text('nas_path'),
+  contacts: jsonb('contacts').$type<ClProjectContact[]>().notNull().default([]),
   createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
   updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),
   updatedByName: text('updated_by_name'),

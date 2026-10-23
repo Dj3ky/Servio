@@ -103,6 +103,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     name: parsed.data.name,
     description: parsed.data.description ?? null,
     nasPath: parsed.data.nasPath ?? null,
+    contacts: parsed.data.contacts ?? [],
     createdById: req.auth!.userId,
   }).returning();
 

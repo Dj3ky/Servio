@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { CategoryManagerDialog } from '../CategoryManagerDialog';
+import { ContactsEditor, cleanContacts, type ClContact } from '../ContactsEditor';
 
 interface ClProject {
   id: string;
@@ -29,7 +30,7 @@ interface ClProject {
 
 const STATUS_COLORS: Record<string, string> = { active: 'default', completed: 'secondary', archived: 'outline' };
 
-const emptyForm = { name: '', description: '', nasPath: '' };
+const emptyForm = { name: '', description: '', nasPath: '', contacts: [] as ClContact[] };
 
 export default function ChangelogProjectsPage() {
   const { t } = useTranslation();
@@ -65,7 +66,7 @@ export default function ChangelogProjectsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    mutation.mutate(form);
+    mutation.mutate({ ...form, contacts: cleanContacts(form.contacts) });
   }
 
   const projects = data ?? [];
@@ -141,7 +142,7 @@ export default function ChangelogProjectsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('changelog.projects.new')}</DialogTitle>
           </DialogHeader>
@@ -162,6 +163,7 @@ export default function ChangelogProjectsPage() {
                 placeholder={t('changelog.fields.nasPathPlaceholder')}
               />
             </div>
+            <ContactsEditor value={form.contacts} onChange={contacts => setForm(f => ({ ...f, contacts }))} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t('common.loading') : t('common.save')}</Button>

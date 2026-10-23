@@ -766,6 +766,14 @@
       "nasPath": "Pot do projekta (NAS)",
       "nasPathPlaceholder": "npr. Z:\\Projekti\\2026-001"
     },
+    "contacts": {
+      "title": "Kontakti",
+      "add": "Dodaj kontakt",
+      "name": "Ime",
+      "role": "Vloga / podjetje",
+      "phone": "Telefon",
+      "email": "E-pošta"
+    },
     "status": {
       "active": "Aktiven",
       "completed": "Zaključen",

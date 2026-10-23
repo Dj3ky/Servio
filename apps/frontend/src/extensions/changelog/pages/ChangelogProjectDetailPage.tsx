@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { getCategoryLabel, groupByDay, type ClCategory } from '../constants';
 import { Avatar, CategoryPill, AttachmentGrid, formatFileSize, type EntryAttachment } from '../EntryComponents';
+import { ContactsEditor, ContactsList, cleanContacts, type ClContact } from '../ContactsEditor';
 
 interface ClProject {
   id: string;
@@ -23,6 +24,7 @@ interface ClProject {
   description: string | null;
   status: string;
   nasPath: string | null;
+  contacts: ClContact[] | null;
   createdById: string | null;
   updatedByName: string | null;
   updatedAt: string;
@@ -43,7 +45,7 @@ interface ClEntry {
 }
 
 const emptyEntryForm = { categoryId: '', note: '' };
-const emptyProjectForm = { name: '', description: '', status: 'active', nasPath: '' };
+const emptyProjectForm = { name: '', description: '', status: 'active', nasPath: '', contacts: [] as ClContact[] };
 
 export default function ChangelogProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -158,7 +160,7 @@ export default function ChangelogProjectDetailPage() {
   });
 
   const saveProject = useMutation({
-    mutationFn: () => api.patch(`/changelog/projects/${id}`, projectForm),
+    mutationFn: () => api.patch(`/changelog/projects/${id}`, { ...projectForm, contacts: cleanContacts(projectForm.contacts) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['changelog-project', id] });
       qc.invalidateQueries({ queryKey: ['changelog-projects'] });
@@ -208,6 +210,7 @@ export default function ChangelogProjectDetailPage() {
       description: project.description ?? '',
       status: project.status,
       nasPath: project.nasPath ?? '',
+      contacts: (project.contacts ?? []).map(c => ({ ...c })),
     });
     setProjectDialogOpen(true);
   }
@@ -308,6 +311,8 @@ export default function ChangelogProjectDetailPage() {
           <Button onClick={openCreateEntry}><Plus className="h-4 w-4 mr-2" />{t('changelog.entries.new')}</Button>
         </div>
       </div>
+
+      <ContactsList contacts={project?.contacts ?? []} />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
@@ -444,7 +449,7 @@ export default function ChangelogProjectDetailPage() {
 
       {/* Edit project dialog */}
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('changelog.projects.edit')}</DialogTitle>
           </DialogHeader>
@@ -476,6 +481,7 @@ export default function ChangelogProjectDetailPage() {
                 placeholder={t('changelog.fields.nasPathPlaceholder')}
               />
             </div>
+            <ContactsEditor value={projectForm.contacts} onChange={contacts => setProjectForm(f => ({ ...f, contacts }))} />
             <DialogFooter className="sm:justify-between">
               {(canManageChangelog || project?.createdById === user?.id) ? (
                 <Button

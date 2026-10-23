@@ -58,6 +58,7 @@ async function ensureChangelogTables() {
     await db.execute(sql`ALTER TABLE cl_projects ADD COLUMN IF NOT EXISTS nas_path TEXT`);
     await db.execute(sql`ALTER TABLE cl_projects ADD COLUMN IF NOT EXISTS updated_by_id UUID REFERENCES users(id) ON DELETE SET NULL`);
     await db.execute(sql`ALTER TABLE cl_projects ADD COLUMN IF NOT EXISTS updated_by_name TEXT`);
+    await db.execute(sql`ALTER TABLE cl_projects ADD COLUMN IF NOT EXISTS contacts JSONB NOT NULL DEFAULT '[]'::jsonb`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cl_entries (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
