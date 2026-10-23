@@ -162,7 +162,9 @@ router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, re
 });
 
 // Get active projects for meeting form — includes last meeting entry per project
-router.get('/active-projects/list', async (_req: Request, res: Response): Promise<void> => {
+// Optional ?before=YYYY-MM-DD limits "last meeting" to meetings before that date (used when editing a meeting)
+router.get('/active-projects/list', async (req: Request, res: Response): Promise<void> => {
+  const before = typeof req.query.before === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.before) ? req.query.before : null;
   const result = await db.execute(sql`
     SELECT
       p.id, p.project_number, p.name, p.priority, p.status,
@@ -177,6 +179,7 @@ router.get('/active-projects/list', async (_req: Request, res: Response): Promis
       FROM pm_meeting_entries me
       JOIN pm_weekly_meetings wm ON me.meeting_id = wm.id
       WHERE me.project_id = p.id
+      ${before ? sql`AND wm.meeting_date < ${before}` : sql``}
       ORDER BY wm.meeting_date DESC
       LIMIT 1
     ) le ON true

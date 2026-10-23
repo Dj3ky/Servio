@@ -89,12 +89,6 @@ export default function MeetingsPage() {
     queryFn: () => api.get(`/pm/meetings?limit=100&year=${yearFilter}`),
   });
 
-  const { data: activeProjects } = useQuery<ActiveProject[]>({
-    queryKey: ['pm-active-projects'],
-    queryFn: () => api.get('/pm/meetings/active-projects/list'),
-    enabled: newOpen || !!detailId,
-  });
-
   const { data: quickViewProject } = useQuery<QuickViewProject>({
     queryKey: ['pm-project-quickview', quickViewId],
     queryFn: () => api.get(`/pm/projects/${quickViewId}`),
@@ -105,6 +99,14 @@ export default function MeetingsPage() {
     queryKey: ['pm-meeting-detail', detailId],
     queryFn: () => api.get(`/pm/meetings/${detailId}`),
     enabled: !!detailId,
+  });
+
+  // When editing a meeting, "last meeting" must be the one before it, not the meeting itself
+  const lastBefore = detailId ? detail?.meetingDate?.slice(0, 10) : undefined;
+  const { data: activeProjects } = useQuery<ActiveProject[]>({
+    queryKey: ['pm-active-projects', lastBefore ?? null],
+    queryFn: () => api.get(`/pm/meetings/active-projects/list${lastBefore ? `?before=${lastBefore}` : ''}`),
+    enabled: newOpen || !!lastBefore,
   });
 
   function openNew() {
@@ -240,23 +242,33 @@ export default function MeetingsPage() {
   function openEditMode() {
     if (!detail || !activeProjects) return;
     const notes = detail.notes ?? '';
-    const existingByProject = new Map(detail.entries.map(e => [e.projectId, e]));
-    const list: MeetingEntry[] = activeProjects.map(p => {
-      const existing = existingByProject.get(p.id);
-      return {
-        id: existing?.id ?? '',
+    const activeById = new Map(activeProjects.map(p => [p.id, p]));
+    const existingIds = new Set(detail.entries.map(e => e.projectId));
+    // Keep every saved entry (even if the project is no longer active), then add active projects not yet in the meeting
+    const list: MeetingEntry[] = [
+      ...detail.entries.map(e => {
+        const p = activeById.get(e.projectId);
+        return { ...e, notes: e.notes ?? '', lastEntryNotes: p?.lastEntryNotes ?? null, lastMeetingDate: p?.lastMeetingDate ?? null };
+      }),
+      ...activeProjects.filter(p => !existingIds.has(p.id)).map(p => ({
+        id: '',
         projectId: p.id,
         projectNumber: p.projectNumber,
         projectName: p.name,
         projectPriority: p.priority,
-        entryStatus: existing?.entryStatus ?? 'active',
-        notes: existing?.notes ?? '',
+        entryStatus: 'active',
+        notes: '',
         employeeId: p.employeeId,
         employeeName: p.employeeName,
         lastEntryNotes: p.lastEntryNotes,
         lastMeetingDate: p.lastMeetingDate,
-      };
-    });
+      })),
+    ];
+    // Grouping by employee relies on order, so sort like the backend does
+    list.sort((a, b) =>
+      (a.employeeName === null ? 1 : 0) - (b.employeeName === null ? 1 : 0)
+      || (a.employeeName ?? '').localeCompare(b.employeeName ?? '')
+      || (a.projectNumber ?? '').localeCompare(b.projectNumber ?? ''));
     setEditNotes(notes);
     setEditEntries(list);
     setEditSnapshot(editFormKey(notes, list));
@@ -661,7 +673,7 @@ export default function MeetingsPage() {
             {!editMode ? (
               <>
                 <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
-                <Button variant="outline" onClick={openEditMode}>{t('common.edit')}</Button>
+                <Button variant="outline" onClick={openEditMode} disabled={!detail || !activeProjects}>{t('common.edit')}</Button>
                 {detail && (
                   <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
                     {t('common.delete')}
