@@ -14,6 +14,7 @@ export const auditActionSchema = z.enum([
   'test_smtp',
   'create_backup',
   'restore_backup',
+  'archive_audit_logs',
   'deactivate_user',
   'reset_password',
 ]);

@@ -11,7 +11,7 @@ import { saveToSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
 
-function localTimestamp(): string {
+export function localTimestamp(): string {
   const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const parts = new Intl.DateTimeFormat('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit',

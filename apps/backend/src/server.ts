@@ -65,6 +65,12 @@ async function ensureSettingsColumns() {
       ADD COLUMN IF NOT EXISTS skipped_at    timestamp,
       ADD COLUMN IF NOT EXISTS skipped_by_id uuid REFERENCES users(id)
   `);
+  await db.execute(sql`
+    ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS audit_log_retention_months integer NOT NULL DEFAULT 0
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at)`);
 }
 
 async function start() {

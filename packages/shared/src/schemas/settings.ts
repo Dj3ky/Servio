@@ -37,6 +37,7 @@ export const updateBackupSettingsSchema = z.object({
   backupPath: z.string().min(1),
   backupToNas: z.boolean(),
   backupNasPath: z.string().optional().or(z.literal('')),
+  auditLogRetentionMonths: z.number().int().min(0).max(240),
 });
 
 export const updateAlertsSettingsSchema = z.object({

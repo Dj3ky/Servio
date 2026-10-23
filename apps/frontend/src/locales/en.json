@@ -330,6 +330,8 @@
     "backupToNasHint": "After each backup, copy the file to the configured SMB share",
     "backupNasPath": "NAS Backup Path",
     "backupNasPathHint": "Path within the SMB share where backups are stored — e.g. Backups or Servio/Backups (defaults to Backups/)",
+    "auditLogRetentionMonths": "Audit Log Retention (months)",
+    "auditLogRetentionMonthsHint": "Audit log entries older than this are exported nightly to backups/archive (and NAS if enabled), then removed from the database. 0 = keep forever.",
     "createBackup": "Create Backup",
     "restoreBackupTitle": "Restore from Backup",
     "restoreBackupDesc": "Upload a .tar.gz (or .sql) backup file to restore the database. This will overwrite all existing data.",

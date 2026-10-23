@@ -57,6 +57,7 @@ interface FullSettings {
   backupPath: string | null;
   backupToNas: boolean;
   backupNasPath: string | null;
+  auditLogRetentionMonths: number;
   accountingEmail: string | null;
   digestEnabled: boolean;
   digestFrequency: 'daily' | 'weekly';
@@ -788,6 +789,7 @@ export default function SettingsPage() {
       backupPath: settings?.backupPath ?? './backups',
       backupToNas: settings?.backupToNas ?? false,
       backupNasPath: settings?.backupNasPath ?? '',
+      auditLogRetentionMonths: settings?.auditLogRetentionMonths ?? 0,
     },
   });
 
@@ -1426,6 +1428,24 @@ export default function SettingsPage() {
                       )} />
                     )}
                   </div>
+
+                  <FormField control={backupForm.control} name="auditLogRetentionMonths" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.auditLogRetentionMonths')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={240}
+                          className="w-32"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>{t('settings.auditLogRetentionMonthsHint')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   <div className="flex gap-2 pt-1">
                     <Button type="submit" disabled={saveBackup.isPending}>{t('common.save')}</Button>

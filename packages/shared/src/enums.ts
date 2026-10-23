@@ -55,6 +55,7 @@ export const AuditAction = {
   test_smtp: 'test_smtp',
   create_backup: 'create_backup',
   restore_backup: 'restore_backup',
+  archive_audit_logs: 'archive_audit_logs',
   deactivate_user: 'deactivate_user',
   reset_password: 'reset_password',
   send_accounting: 'send_accounting',

@@ -330,6 +330,8 @@
     "backupToNasHint": "Po vsaki varnostni kopiji shrani datoteko v konfigurirano SMB delitev",
     "backupNasPath": "Pot za varnostne kopije na NAS",
     "backupNasPathHint": "Pot znotraj SMB delitve — npr. Backups ali Servio/Backups (privzeto: Backups/)",
+    "auditLogRetentionMonths": "Hramba revizijske sledi (meseci)",
+    "auditLogRetentionMonthsHint": "Zapisi revizijske sledi, starejši od tega, se vsako noč izvozijo v backups/archive (in na NAS, če je omogočen) ter odstranijo iz baze. 0 = hrani za vedno.",
     "createBackup": "Ustvari kopijo",
     "restoreBackupTitle": "Obnovitev iz varnostne kopije",
     "restoreBackupDesc": "Naložite datoteko .tar.gz (ali .sql) za obnovitev podatkovne baze. To bo prepisalo vse obstoječe podatke.",

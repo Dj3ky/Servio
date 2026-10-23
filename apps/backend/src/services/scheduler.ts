@@ -6,6 +6,7 @@ import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
 import { getInboxStatus, detectAndProcessBounces } from './imap';
 import { broadcast } from '../ws';
+import { archiveOldAuditLogs, purgeOldNotifications } from './retention';
 
 const BIANNUAL_MONTHS = [1, 7];
 const QUADANNUAL_MONTHS = [1, 4, 7, 10];
@@ -195,6 +196,20 @@ export function startScheduler(): void {
     }
   });
 
+  // Data retention — daily at 03:30 (after the default 02:00 backup)
+  cron.schedule('30 3 * * *', async () => {
+    try {
+      await purgeOldNotifications();
+    } catch (err) {
+      console.error('[scheduler] Notification cleanup failed:', err);
+    }
+    try {
+      await archiveOldAuditLogs();
+    } catch (err) {
+      console.error('[scheduler] Audit log archiving failed:', err);
+    }
+  });
+
   // Inbox poll + bounce detection — every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
     try {
@@ -222,5 +237,6 @@ export function startScheduler(): void {
   console.log('[scheduler] Backfill check: daily at 06:30.');
   console.log('[scheduler] Digest email: daily at 07:00 (weekly on Mondays when set to weekly).');
   console.log('[scheduler] Escalation check: daily at 08:00.');
+  console.log('[scheduler] Data retention: daily at 03:30.');
   console.log('[scheduler] Inbox poll: every 5 minutes.');
 }
