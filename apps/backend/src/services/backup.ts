@@ -7,7 +7,7 @@ import { db } from '../db';
 import { createAuditLog } from '../utils/audit';
 import { notifications } from '../db/schema';
 import { broadcast } from '../ws';
-import { saveToSmb } from './smb';
+import { saveToSmb, listSmbFiles, deleteFromSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,11 +23,11 @@ export function localTimestamp(): string {
 }
 
 // Keep the 30 most recent backups, plus one per calendar month for the 12 months before that.
-async function applyRetentionPolicy(backupPath: string): Promise<void> {
+// Returns the file names that fall outside the policy.
+function selectExpiredBackups(files: string[]): string[] {
   const KEEP_DAILY = 30;
   const KEEP_MONTHLY = 12;
 
-  const files = await fs.readdir(backupPath).catch(() => [] as string[]);
   const backups = files
     .filter(f => f.startsWith('backup_') && f.endsWith('.tar.gz'))
     .map(f => {
@@ -52,10 +52,25 @@ async function applyRetentionPolicy(backupPath: string): Promise<void> {
     }
   }
 
-  for (const b of backups) {
-    if (!keep.has(b.file)) {
-      await fs.unlink(path.join(backupPath, b.file)).catch(() => {});
-      console.log('[backup] Retention: deleted', b.file);
+  return backups.filter(b => !keep.has(b.file)).map(b => b.file);
+}
+
+async function applyRetentionPolicy(backupPath: string): Promise<void> {
+  const files = await fs.readdir(backupPath).catch(() => [] as string[]);
+  for (const file of selectExpiredBackups(files)) {
+    await fs.unlink(path.join(backupPath, file)).catch(() => {});
+    console.log('[backup] Retention: deleted', file);
+  }
+}
+
+async function applyNasRetentionPolicy(nasDir: string): Promise<void> {
+  const files = await listSmbFiles(nasDir, 'backup_*.tar.gz');
+  for (const file of selectExpiredBackups(files)) {
+    try {
+      await deleteFromSmb(`${nasDir}/${file}`);
+      console.log('[backup] NAS retention: deleted', file);
+    } catch (err) {
+      console.error('[backup] NAS retention: failed to delete', file, err);
     }
   }
 }
@@ -116,6 +131,7 @@ export async function createBackup(): Promise<string> {
       const remotePath = `${nasDir}/${bundleFilename}`;
       await saveToSmb(remotePath, buffer);
       console.log('[backup] Backup copied to NAS:', remotePath);
+      await applyNasRetentionPolicy(nasDir);
     } catch (err) {
       console.error('[backup] Failed to copy backup to NAS:', err);
     }

@@ -117,6 +117,27 @@ export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<voi
   }
 }
 
+// Lists file names in `dir` matching `mask`. Names containing spaces are not supported.
+export async function listSmbFiles(dir: string, mask = '*'): Promise<string[]> {
+  const cfg = await getSmbConfig();
+  if (!cfg) throw new Error('SMB not configured');
+
+  const target = dir ? `${dir}/${mask}` : mask;
+  const output = await runSmbclient(cfg, `ls "${target}"`);
+  // Line format: "  name   A   12345  Wed Oct  1 02:00:00 2026"
+  return output
+    .split('\n')
+    .map((line) => line.match(/^\s+(\S+)\s+([A-Z]*)\s+\d+\s+\w{3}\s+\w{3}\s+\d+/))
+    .filter((m): m is RegExpMatchArray => m !== null && !m[2].includes('D'))
+    .map((m) => m[1]);
+}
+
+export async function deleteFromSmb(remotePath: string): Promise<void> {
+  const cfg = await getSmbConfig();
+  if (!cfg) throw new Error('SMB not configured');
+  await runSmbclient(cfg, `del "${remotePath}"`);
+}
+
 export async function testSmbConnection(): Promise<{ success: boolean; error?: string }> {
   try {
     const s = await db.query.settings.findFirst();
