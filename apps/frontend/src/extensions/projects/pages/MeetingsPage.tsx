@@ -77,6 +77,10 @@ export default function MeetingsPage() {
   const [editNotes, setEditNotes] = useState('');
   const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
+  // Snapshot of the edit form when edit mode was opened, to detect unsaved changes
+  const [editSnapshot, setEditSnapshot] = useState('');
+  // Which close action is waiting for the "discard changes?" confirmation
+  const [discardTarget, setDiscardTarget] = useState<'new' | 'edit-cancel' | 'edit-close' | null>(null);
   // null = default state (only the most recent month expanded)
   const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
 
@@ -227,9 +231,9 @@ export default function MeetingsPage() {
 
   function openEditMode() {
     if (!detail || !activeProjects) return;
-    setEditNotes(detail.notes ?? '');
+    const notes = detail.notes ?? '';
     const existingByProject = new Map(detail.entries.map(e => [e.projectId, e]));
-    setEditEntries(activeProjects.map(p => {
+    const list: MeetingEntry[] = activeProjects.map(p => {
       const existing = existingByProject.get(p.id);
       return {
         id: existing?.id ?? '',
@@ -244,9 +248,45 @@ export default function MeetingsPage() {
         lastEntryNotes: p.lastEntryNotes,
         lastMeetingDate: p.lastMeetingDate,
       };
-    }));
+    });
+    setEditNotes(notes);
+    setEditEntries(list);
+    setEditSnapshot(editFormKey(notes, list));
     setCollapsedDetailGroups(new Set());
     setEditMode(true);
+  }
+
+  function editFormKey(notes: string, list: MeetingEntry[]) {
+    return JSON.stringify([notes, list.map(e => [e.projectId, e.entryStatus, e.notes ?? ''])]);
+  }
+
+  const newDirty = !!meetingNotes.trim() || entries.some(e => e.notes.trim() || e.entryStatus !== 'active');
+  const editDirty = editMode && editFormKey(editNotes, editEntries) !== editSnapshot;
+
+  function closeEdit() {
+    setEditMode(false);
+    setEditSnapshot('');
+  }
+
+  function requestCloseNew() {
+    if (newDirty) setDiscardTarget('new'); else setNewOpen(false);
+  }
+
+  function requestCancelEdit() {
+    if (editDirty) setDiscardTarget('edit-cancel'); else closeEdit();
+  }
+
+  function requestCloseDetail() {
+    if (editDirty) { setDiscardTarget('edit-close'); return; }
+    setDetailId(null);
+    closeEdit();
+  }
+
+  function confirmDiscard() {
+    if (discardTarget === 'new') setNewOpen(false);
+    if (discardTarget === 'edit-cancel') closeEdit();
+    if (discardTarget === 'edit-close') { setDetailId(null); closeEdit(); }
+    setDiscardTarget(null);
   }
 
   function updateEditEntry(projectId: string, field: 'entryStatus' | 'notes', value: string) {
@@ -371,7 +411,7 @@ export default function MeetingsPage() {
       </div>
 
       {/* New meeting dialog */}
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+      <Dialog open={newOpen} onOpenChange={v => { if (v) setNewOpen(true); else requestCloseNew(); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{t('pm.meetings.newTitle')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -462,7 +502,7 @@ export default function MeetingsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="outline" onClick={requestCloseNew}>{t('common.cancel')}</Button>
             <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending || !meetingDate}>
               {createMeeting.isPending ? t('common.loading') : t('pm.meetings.save')}
             </Button>
@@ -471,7 +511,7 @@ export default function MeetingsPage() {
       </Dialog>
 
       {/* Meeting detail / edit dialog */}
-      <Dialog open={!!detailId} onOpenChange={v => { if (!v) { setDetailId(null); setEditMode(false); } }}>
+      <Dialog open={!!detailId} onOpenChange={v => { if (!v) requestCloseDetail(); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -618,7 +658,7 @@ export default function MeetingsPage() {
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setEditMode(false)}>{t('common.cancel')}</Button>
+                <Button variant="outline" onClick={requestCancelEdit}>{t('common.cancel')}</Button>
                 <Button onClick={() => updateMeeting.mutate(detail!.id)} disabled={updateMeeting.isPending}>
                   {updateMeeting.isPending ? t('common.loading') : t('common.save')}
                 </Button>
@@ -665,12 +705,25 @@ export default function MeetingsPage() {
                 </div>
               )}
               <div className="pt-2 border-t flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => { navigate(`/pm/projects/${quickViewProject.id}`); setQuickViewId(null); }}>
+                {/* New tab so unsaved meeting edits in the dialog underneath aren't lost */}
+                <Button variant="outline" size="sm" onClick={() => window.open(`/pm/projects/${quickViewProject.id}`, '_blank', 'noopener')}>
                   {t('pm.meetings.openProject')} <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved changes warning */}
+      <Dialog open={!!discardTarget} onOpenChange={o => { if (!o) setDiscardTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{t('pm.meetings.discardTitle')}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('pm.meetings.discardText')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiscardTarget(null)}>{t('pm.meetings.discardKeepEditing')}</Button>
+            <Button variant="destructive" onClick={confirmDiscard}>{t('pm.meetings.discardConfirm')}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
