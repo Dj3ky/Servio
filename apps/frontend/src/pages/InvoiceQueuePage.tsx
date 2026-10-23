@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
@@ -409,14 +409,18 @@ export default function InvoiceQueuePage() {
             {statusFilters.map((f) => {
               const count = statusCounts[f.value];
               return (
-                <SelectItem key={f.value} value={f.value}>
-                  <span className="flex items-center justify-between gap-6 w-full">
-                    <span>{f.label}</span>
-                    {count !== null && count !== undefined && (
-                      <span className="ml-auto text-xs text-muted-foreground tabular-nums">{count}</span>
-                    )}
-                  </span>
-                </SelectItem>
+                <Fragment key={f.value}>
+                  <SelectItem value={f.value}>
+                    <span className="flex items-center justify-between gap-6 w-full">
+                      <span>{f.label}</span>
+                      {count !== null && count !== undefined && (
+                        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{count}</span>
+                      )}
+                    </span>
+                  </SelectItem>
+                  {/* "All open" is the union of the statuses below it */}
+                  {f.value === 'in_progress' && <SelectSeparator />}
+                </Fragment>
               );
             })}
           </SelectContent>

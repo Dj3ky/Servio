@@ -12,6 +12,38 @@ import { createAuditLog } from '../utils/audit';
 import { format, startOfMonth } from 'date-fns';
 import { shouldCreateReview } from '../services/scheduler';
 
+// Excel on Slovenian Windows saves CSV as Windows-1250; fall back to it when the file isn't valid UTF-8
+function decodeCsvBuffer(buf: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(buf);
+  } catch {
+    return new TextDecoder('windows-1250').decode(buf);
+  }
+}
+
+// RFC 4180 style parser: handles quoted fields with delimiters, escaped quotes and line breaks
+function parseCsv(text: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else field += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === delimiter) { row.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += ch;
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
 const router = Router();
 router.use(requireAuth);
 
@@ -98,10 +130,10 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
 
   const escape = (v: string | null | undefined) => {
     const s = String(v ?? '');
-    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const header = 'contract_number,customer_name,facility_name,review_frequency,status,start_date,end_date,value_without_vat,value_without_vat_per_year,work_order_number,customer_email,invoice_email,invoice_delivery,smb_path,contact_name,phone,facility_address,facility_notes,notes';
+  const header = 'contract_number;customer_name;facility_name;review_frequency;status;start_date;end_date;value_without_vat;value_without_vat_per_year;work_order_number;customer_email;invoice_email;invoice_delivery;smb_path;contact_name;phone;facility_address;facility_notes;notes';
   const rows = data.map((c) => [
     escape(c.contractNumber),
     escape(c.customer.name),
@@ -122,10 +154,11 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     escape(c.facility.address),
     escape(c.facility.notes),
     escape(c.notes),
-  ].join(','));
+  ].join(';'));
 
-  const csv = [header, ...rows].join('\n');
-  res.setHeader('Content-Type', 'text/csv');
+  // BOM so Excel opens the file as UTF-8 (keeps č, š, ž intact)
+  const csv = '﻿' + [header, ...rows].join('\r\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="contracts-${format(new Date(), 'yyyy-MM-dd')}.csv"`);
   res.send(csv);
 });
@@ -284,11 +317,13 @@ router.delete('/:id/documents/:filename', requireRole('records', 'manage'), asyn
 router.post('/import', requireRole('records', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
-  const content = req.file.buffer.toString('utf-8');
-  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
+  const content = decodeCsvBuffer(req.file.buffer);
+  const firstLine = content.slice(0, content.search(/\r?\n|$/));
+  const delimiter = firstLine.split(';').length >= firstLine.split(',').length ? ';' : ',';
+  const lines = parseCsv(content, delimiter).filter((r) => r.some((v) => v.trim() !== ''));
   if (lines.length < 2) { res.status(400).json({ error: 'errors.validation', details: { file: ['CSV must have a header row and at least one data row'] } }); return; }
 
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
+  const headers = lines[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
   const required = ['customer_name', 'facility_name', 'contract_number', 'review_frequency', 'start_date'];
   const missing = required.filter((r) => !headers.includes(r));
   if (missing.length > 0) { res.status(400).json({ error: 'errors.validation', details: { file: [`Missing columns: ${missing.join(', ')}`] } }); return; }
@@ -298,7 +333,7 @@ router.post('/import', requireRole('records', 'manage'), documentUpload.single('
   const errors: string[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+    const values = lines[i].map((v) => v.trim());
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => { row[h] = values[idx] ?? ''; });
 
