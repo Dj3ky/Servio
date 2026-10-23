@@ -41,6 +41,7 @@ export function ContactsEditor({ value, onChange }: { value: ClContact[]; onChan
             size="icon"
             className="absolute top-2 right-1 h-7 w-7"
             onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+            title={t('common.remove')}
           >
             <X className="h-3.5 w-3.5" />
           </Button>

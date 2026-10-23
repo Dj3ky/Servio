@@ -44,7 +44,14 @@
     "undo": "Razveljavi",
     "print": "Natisni",
     "today": "Danes",
-    "yesterday": "Včeraj"
+    "yesterday": "Včeraj",
+    "remove": "Odstrani",
+    "copy": "Kopiraj",
+    "showPassword": "Pokaži geslo",
+    "hidePassword": "Skrij geslo",
+    "lightMode": "Svetla tema",
+    "darkMode": "Temna tema",
+    "menu": "Meni"
   },
   "nav": {
     "dashboard": "Nadzorna plošča",

@@ -143,7 +143,7 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 lg:px-6 gap-4">
-      <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={onMenuClick}>
+      <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={onMenuClick} title={t('common.menu')}>
         <Menu className="h-5 w-5" />
       </Button>
 
@@ -230,7 +230,7 @@ export function Topbar({ onMenuClick, darkMode, onToggleDark }: TopbarProps) {
           <Globe className="h-4 w-4" />
         </Button>
 
-        <Button variant="ghost" size="icon" onClick={onToggleDark}>
+        <Button variant="ghost" size="icon" onClick={onToggleDark} title={darkMode ? t('common.lightMode') : t('common.darkMode')}>
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 

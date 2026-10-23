@@ -98,6 +98,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                   size="icon"
                   className="h-7 w-7 text-destructive shrink-0"
                   onClick={() => { if (confirm(t('changelog.categories.deleteConfirm'))) remove.mutate(c.id); }}
+                  title={t('common.delete')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

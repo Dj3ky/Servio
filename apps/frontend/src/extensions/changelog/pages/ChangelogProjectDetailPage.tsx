@@ -285,7 +285,7 @@ export default function ChangelogProjectDetailPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{project?.name}</h1>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openEditProject}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openEditProject} title={t('common.edit')}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -294,7 +294,7 @@ export default function ChangelogProjectDetailPage() {
             <div className="flex items-center gap-2 mt-1">
               <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <code className="text-xs text-muted-foreground">{project.nasPath}</code>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyNasPath}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyNasPath} title={t('common.copy')}>
                 <Copy className="h-3 w-3" />
               </Button>
             </div>
@@ -361,10 +361,10 @@ export default function ChangelogProjectDetailPage() {
                     </div>
                     {canModify(entry) && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditEntry(entry)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditEntry(entry)} title={t('common.edit')}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)} title={t('common.delete')}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -432,7 +432,7 @@ export default function ChangelogProjectDetailPage() {
                       <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
                       <span className="flex-1 truncate">{f.name}</span>
                       <span className="text-muted-foreground">{formatFileSize(f.size)}</span>
-                      <button type="button" onClick={() => setEntryFiles(prev => prev.filter(p => p.name !== f.name))}>
+                      <button type="button" onClick={() => setEntryFiles(prev => prev.filter(p => p.name !== f.name))} title={t('common.remove')}>
                         <X className="h-3 w-3" />
                       </button>
                     </div>

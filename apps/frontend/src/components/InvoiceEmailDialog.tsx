@@ -173,7 +173,7 @@ export function InvoiceEmailDialog({
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setFile(null); setError(null); }} disabled={uploading}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setFile(null); setError(null); }} disabled={uploading} title={t('common.remove')}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>

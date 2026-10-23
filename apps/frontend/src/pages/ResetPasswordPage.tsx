@@ -87,10 +87,10 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="absolute right-4 top-4 flex gap-2">
-        <Button variant="ghost" size="icon" onClick={toggleLanguage}>
+        <Button variant="ghost" size="icon" onClick={toggleLanguage} title={i18n.language === 'sl' ? 'Switch to English' : 'Preklopi na slovenščino'}>
           <Globe className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={toggleDark}>
+        <Button variant="ghost" size="icon" onClick={toggleDark} title={darkMode ? t('common.lightMode') : t('common.darkMode')}>
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       </div>
@@ -131,6 +131,7 @@ export default function ResetPasswordPage() {
                           size="icon"
                           className="absolute right-0 top-0 h-10 w-10"
                           onClick={() => setShowPassword((s) => !s)}
+                          title={showPassword ? t('common.hidePassword') : t('common.showPassword')}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
@@ -155,6 +156,7 @@ export default function ResetPasswordPage() {
                           size="icon"
                           className="absolute right-0 top-0 h-10 w-10"
                           onClick={() => setShowConfirm((s) => !s)}
+                          title={showConfirm ? t('common.hidePassword') : t('common.showPassword')}
                         >
                           {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>

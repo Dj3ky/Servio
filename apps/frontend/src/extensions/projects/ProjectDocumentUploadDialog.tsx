@@ -90,6 +90,7 @@ export function ProjectDocumentUploadDialog({ open, onClose, onUpload, uploading
                     className="h-7 w-7 shrink-0"
                     onClick={() => setFiles(prev => prev.filter(p => p.name !== f.name))}
                     disabled={uploading}
+                    title={t('common.remove')}
                   >
                     <X className="h-4 w-4" />
                   </Button>

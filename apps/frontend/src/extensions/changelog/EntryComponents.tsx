@@ -89,10 +89,10 @@ export function AttachmentGrid({ attachments, canModify, onDelete }: {
             <a href={a.filePath} download={a.originalName} className="hover:underline max-w-[160px] truncate">{a.originalName}</a>
             <span className="text-muted-foreground">{formatFileSize(a.fileSize)}</span>
             <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" asChild>
-              <a href={a.filePath} download={a.originalName}><Download className="h-3 w-3" /></a>
+              <a href={a.filePath} download={a.originalName} title={t('common.download')}><Download className="h-3 w-3" /></a>
             </Button>
             {canModify && onDelete && (
-              <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 text-destructive" onClick={() => onDelete(a)}>
+              <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 text-destructive" onClick={() => onDelete(a)} title={t('common.delete')}>
                 <X className="h-3 w-3" />
               </Button>
             )}

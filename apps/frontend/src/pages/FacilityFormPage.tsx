@@ -231,7 +231,7 @@ export default function FacilityFormPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} title={t('common.back')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

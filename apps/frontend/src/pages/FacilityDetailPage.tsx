@@ -404,7 +404,7 @@ export default function FacilityDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} title={t('common.back')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -815,11 +815,12 @@ export default function FacilityDetailPage() {
                         className="h-7 w-7"
                         disabled={previewLoading && previewDoc === doc.url}
                         onClick={() => handlePreviewToggle(doc.url)}
+                        title={previewDoc === doc.url ? t('reviews.hidePreview') : t('reviews.showPreview')}
                       >
                         {previewDoc === doc.url ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                       </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
-                        <a href={doc.url} download={doc.filename} target="_blank" rel="noreferrer">
+                        <a href={doc.url} download={doc.filename} target="_blank" rel="noreferrer" title={t('common.download')}>
                           <FileDown className="h-3.5 w-3.5" />
                         </a>
                       </Button>
@@ -829,6 +830,7 @@ export default function FacilityDetailPage() {
                           variant="ghost"
                           className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => deleteDocMutation.mutate({ contractId: activeContract.id, filename: doc.filename })}
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

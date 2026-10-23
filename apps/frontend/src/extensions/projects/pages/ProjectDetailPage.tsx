@@ -119,6 +119,7 @@ function InvoiceList({
             <Button
               variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
               onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) onDelete(inv.id); }}
+              title={t('common.delete')}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -322,7 +323,7 @@ export default function ProjectDetailPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/pm/projects')}><ArrowLeft className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/pm/projects')} title={t('common.back')}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.name}</h1>
@@ -422,10 +423,10 @@ export default function ProjectDetailPage() {
                     <SelectItem value="completed">{t('pm.phaseStatus.completed')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditPhase(phase); setPhaseName(phase.name); setPhaseDialogOpen(true); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditPhase(phase); setPhaseName(phase.name); setPhaseDialogOpen(true); }} title={t('common.edit')}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(t('pm.phases.deleteConfirm'))) deletePhase.mutate(phase.id); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(t('pm.phases.deleteConfirm'))) deletePhase.mutate(phase.id); }} title={t('common.delete')}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -473,11 +474,11 @@ export default function ProjectDetailPage() {
                   {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ''} · {doc.uploaderName}
                 </span>
                 <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
-                  <a href={doc.filePath} download={doc.originalName}>
+                  <a href={doc.filePath} download={doc.originalName} title={t('common.download')}>
                     <Download className="h-3.5 w-3.5" />
                   </a>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }} title={t('common.delete')}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>

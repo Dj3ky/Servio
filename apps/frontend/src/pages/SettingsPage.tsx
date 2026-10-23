@@ -1139,7 +1139,7 @@ export default function SettingsPage() {
                         <FormControl>
                           <div className="relative">
                             <Input type={showSmtpPass ? 'text' : 'password'} placeholder={settings?.smtpPassSet ? t('common.leaveBlank') : ''} className="pr-10" {...field} />
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmtpPass((v) => !v)}>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmtpPass((v) => !v)} title={showSmtpPass ? t('common.hidePassword') : t('common.showPassword')}>
                               {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
                           </div>
@@ -1281,7 +1281,7 @@ export default function SettingsPage() {
                         <FormControl>
                           <div className="relative">
                             <Input type={showSmbPass ? 'text' : 'password'} placeholder={settings?.smbPassSet ? t('common.leaveBlank') : ''} className="pr-10" {...field} />
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmbPass((v) => !v)}>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground" onClick={() => setShowSmbPass((v) => !v)} title={showSmbPass ? t('common.hidePassword') : t('common.showPassword')}>
                               {showSmbPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
                           </div>
@@ -1345,10 +1345,10 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground/60 mt-0.5">{t('common.edit')} {formatDateTime(tpl.updatedAt)}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)} title={t('common.edit')}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)} title={t('common.delete')}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

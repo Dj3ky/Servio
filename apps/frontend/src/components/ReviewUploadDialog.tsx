@@ -256,6 +256,7 @@ export function ReviewUploadDialog({
                         setFiles((prev) => prev.filter((x) => x.name !== f.name));
                       }}
                       disabled={uploading}
+                      title={t('common.remove')}
                     >
                       <X className="h-4 w-4" />
                     </Button>

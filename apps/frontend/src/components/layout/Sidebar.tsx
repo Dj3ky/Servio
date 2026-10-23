@@ -138,7 +138,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           ) : (
             <span className="text-lg font-bold tracking-tight text-sidebar-foreground">{settings.appName}</span>
           )}
-          <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 lg:hidden" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 lg:hidden" onClick={onClose} title={t('common.close')}>
             <X className="h-4 w-4" />
           </Button>
         </div>
