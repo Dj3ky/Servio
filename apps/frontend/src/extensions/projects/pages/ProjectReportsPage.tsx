@@ -172,7 +172,7 @@ export default function ProjectReportsPage() {
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
           ${showCompleted
-            ? `<td style="color:#15803d">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>`
+            ? `<td style="color:#15803d">${p.completedAt ? formatDate(p.completedAt) : '—'}</td>`
             : `<td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${p.endDate ? formatDate(p.endDate) : '—'}</td>`}
           <td style="text-align:right">${fmtEur(p.contractValue)}</td>
           <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
@@ -180,7 +180,10 @@ export default function ProjectReportsPage() {
         </tr>`;
       }).join('');
       const dateHeader = showCompleted ? 'Zaključeno' : 'Rok';
-      return `<table><thead><tr>
+      // Fixed widths so columns line up across all manager groups
+      return `<table class="fixed">
+        <colgroup><col style="width:22%"><col style="width:18%"><col style="width:18%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:10%"></colgroup>
+        <thead><tr>
         <th>Delovni nalog</th><th>Naročnik</th><th>Objekt</th><th>${dateHeader}</th>
         <th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">${showCompleted ? 'Nefakt.' : 'Ostalo'}</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
@@ -218,7 +221,7 @@ export default function ProjectReportsPage() {
         <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#666">${p.projectNumber}</span></td>
         <td>${p.customerName ?? '—'}</td>
         <td>${p.employeeName ?? '—'}</td>
-        <td>${p.completedAt ? new Date(p.completedAt).toLocaleDateString('sl-SI') : '—'}</td>
+        <td>${p.completedAt ? formatDate(p.completedAt) : '—'}</td>
         <td style="text-align:right">${fmtEur(p.contractValue)}</td>
         <td style="text-align:right">${fmtEur(p.invoicedAmount)}</td>
         <td style="text-align:right;color:#dc2626;font-weight:600">${fmtEur(gap)}</td>
@@ -244,6 +247,8 @@ export default function ProjectReportsPage() {
         th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
         td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         tr:last-child td { border-bottom: none; }
+        table.fixed { table-layout: fixed; }
+        table.fixed td { overflow-wrap: anywhere; }
         .page-break { page-break-before: always; }
         tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1; }
         @media print { button { display: none; } }
@@ -526,7 +531,16 @@ export default function ProjectReportsPage() {
                 </button>
                 {!collapsed && (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[700px] table-fixed text-sm">
+                      {/* Fixed widths so columns line up across all manager groups */}
+                      <colgroup>
+                        <col style={{ width: '24%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                      </colgroup>
                       <thead>
                         <tr className="border-b bg-muted/50 text-muted-foreground">
                           <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colWorkOrder')}</th>
