@@ -58,6 +58,13 @@ async function ensureSettingsColumns() {
     ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS extensions_config jsonb
   `);
+  await db.execute(sql`ALTER TYPE review_status ADD VALUE IF NOT EXISTS 'skipped'`);
+  await db.execute(sql`
+    ALTER TABLE reviews
+      ADD COLUMN IF NOT EXISTS skip_reason   text,
+      ADD COLUMN IF NOT EXISTS skipped_at    timestamp,
+      ADD COLUMN IF NOT EXISTS skipped_by_id uuid REFERENCES users(id)
+  `);
 }
 
 async function start() {

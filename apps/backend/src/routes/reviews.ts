@@ -10,6 +10,7 @@ import { sendMail, renderTemplate } from '../services/email';
 import { broadcast } from '../ws';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { documentUpload } from '../middleware/upload';
+import { skipReviewSchema } from '@servio/shared';
 
 const router = Router();
 router.use(requireAuth);
@@ -158,6 +159,7 @@ router.post(
 
     if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
     if (review.status === 'completed') { res.status(409).json({ error: 'errors.review_already_completed' }); return; }
+    if (review.status === 'skipped') { res.status(409).json({ error: 'errors.review_skipped' }); return; }
 
     const contract = (review as any).contract;
     const facility = contract?.facility;
@@ -316,6 +318,87 @@ router.post(
       entityType: 'review',
       entityId: review.id,
       payload: { previousStatus: 'completed' },
+      req,
+    });
+
+    broadcast('dashboard_refresh', {});
+
+    res.json(updated);
+  },
+);
+
+router.post(
+  '/:id/skip',
+  requireRole('reviews', 'skip'),
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = skipReviewSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
+
+    const review = await db.query.reviews.findFirst({
+      where: (r, { eq }) => eq(r.id, req.params.id),
+    });
+    if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
+    if (review.status === 'completed' || review.status === 'skipped') { res.status(409).json({ error: 'errors.validation' }); return; }
+
+    // A skipped month is not billed — drop its pending invoice
+    await db.delete(invoices).where(and(eq(invoices.reviewId, review.id), eq(invoices.status, 'pending')));
+
+    const [updated] = await db
+      .update(reviews)
+      .set({
+        status: 'skipped',
+        skipReason: parsed.data.reason,
+        skippedAt: new Date(),
+        skippedById: req.auth!.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(reviews.id, review.id))
+      .returning();
+
+    await createAuditLog({
+      userId: req.auth!.userId,
+      userEmail: req.auth!.email,
+      action: 'skip_review',
+      entityType: 'review',
+      entityId: review.id,
+      payload: { scheduledMonth: review.scheduledMonth, reason: parsed.data.reason, previousStatus: review.status },
+      req,
+    });
+
+    broadcast('dashboard_refresh', {});
+
+    res.json(updated);
+  },
+);
+
+router.post(
+  '/:id/unskip',
+  requireRole('reviews', 'skip'),
+  async (req: Request, res: Response): Promise<void> => {
+    const review = await db.query.reviews.findFirst({
+      where: (r, { eq }) => eq(r.id, req.params.id),
+      with: { invoice: { columns: { id: true } } },
+    });
+    if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
+    if (review.status !== 'skipped') { res.status(409).json({ error: 'errors.validation' }); return; }
+
+    const [updated] = await db
+      .update(reviews)
+      .set({ status: 'pending', skipReason: null, skippedAt: null, skippedById: null, updatedAt: new Date() })
+      .where(eq(reviews.id, review.id))
+      .returning();
+
+    if (!review.invoice) {
+      await db.insert(invoices).values({ reviewId: review.id, contractId: review.contractId, status: 'pending', emailBounced: false });
+    }
+
+    await createAuditLog({
+      userId: req.auth!.userId,
+      userEmail: req.auth!.email,
+      action: 'unskip_review',
+      entityType: 'review',
+      entityId: review.id,
+      payload: { scheduledMonth: review.scheduledMonth, previousReason: review.skipReason },
       req,
     });
 

@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import { monthsAgo } from '@/lib/utils';
 
 interface EmailTemplate {
   id: string;
@@ -31,16 +32,6 @@ function formatFileSize(bytes: number) {
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
-}
-
-function monthsAgo(scheduledMonth: string): number {
-  const now = new Date();
-  const scheduled = new Date(scheduledMonth + 'T00:00:00');
-  const nowYear = now.getFullYear();
-  const nowMonth = now.getMonth();
-  const schYear = scheduled.getFullYear();
-  const schMonth = scheduled.getMonth();
-  return (nowYear - schYear) * 12 + (nowMonth - schMonth);
 }
 
 interface ReviewUploadDialogProps {

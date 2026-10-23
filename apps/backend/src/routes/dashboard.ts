@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql, and, gte, lte, lt, inArray, isNotNull } from 'drizzle-orm';
+import { eq, ne, sql, and, gte, lte, lt, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
 import { contracts, reviews, invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -44,7 +44,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     ),
     db.select({ pendingInvoices: sql<number>`count(*)` }).from(invoices).where(eq(invoices.status, 'pending')),
     db.select({ totalThisMonth: sql<number>`count(*)` }).from(reviews).where(
-      and(gte(reviews.scheduledMonth, monthStart), lte(reviews.scheduledMonth, monthEnd)),
+      and(ne(reviews.status, 'skipped'), gte(reviews.scheduledMonth, monthStart), lte(reviews.scheduledMonth, monthEnd)),
     ),
     db.select({ completedThisMonth: sql<number>`count(*)` }).from(reviews).where(
       and(

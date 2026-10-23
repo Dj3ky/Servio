@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { CalendarDays, CheckCircle, AlertCircle, Clock, Mail, FolderOpen, ChevronDown, ChevronRight, MinusCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatScheduledMonth, formatDate } from '@/lib/utils';
+import { formatScheduledMonth, formatDate, isMissedReview, monthsAgo } from '@/lib/utils';
 
 interface ReviewItem {
   id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
   scheduledMonth: string;
+  skipReason: string | null;
   completedAt: string | null;
   emailSent: boolean;
   emailBounced: boolean;
@@ -48,11 +49,43 @@ function invoiceBadgeVariant(status: string): 'warning' | 'info' | 'success' | '
 }
 
 function reviewSortKey(r: ReviewItem): number {
-  if (r.status === 'pending') return 0;
-  if (r.status === 'in_progress') return 1;
-  if (r.status === 'failed') return 2;
-  if (r.invoice && r.invoice.status !== 'completed') return 3; // review done, invoice not done
-  return 4; // fully done
+  if (isMissedReview(r)) return 0;
+  if (r.status === 'failed') return 1;
+  if (r.status === 'pending') return 2; // due this month
+  if (r.status === 'in_progress') return 3;
+  if (r.status === 'skipped') return 6;
+  if (r.invoice && r.invoice.status !== 'completed') return 4; // review done, invoice not done
+  return 5; // fully done
+}
+
+type BadgeVariant = 'success' | 'warning' | 'destructive' | 'info' | 'secondary';
+
+interface ReviewLook {
+  dot: string;
+  badge: BadgeVariant;
+  name?: string;
+  label?: { text: string; className: string; icon: typeof Clock };
+}
+
+// Red = missed (late), blue = due this month, amber = invoice pending, green = done, gray = skipped
+function reviewLook(r: ReviewItem, t: (key: string, opts?: Record<string, unknown>) => string): ReviewLook {
+  if (r.status === 'skipped') return { dot: 'bg-slate-400', badge: 'secondary' };
+  if (r.status === 'completed') {
+    return r.invoice && r.invoice.status !== 'completed'
+      ? { dot: 'bg-amber-500', badge: 'success', label: { text: t('contractTimeline.invoicePending'), className: 'text-amber-500', icon: Clock } }
+      : { dot: 'bg-green-500', badge: 'success' };
+  }
+  if (r.status === 'failed') return { dot: 'bg-rose-500', badge: 'destructive' };
+  if (isMissedReview(r)) {
+    return {
+      dot: 'bg-rose-500',
+      badge: 'destructive',
+      name: 'text-rose-600 dark:text-rose-400',
+      label: { text: t('contractTimeline.missed', { count: monthsAgo(r.scheduledMonth) }), className: 'text-rose-500', icon: AlertCircle },
+    };
+  }
+  if (r.status === 'in_progress') return { dot: 'bg-blue-500', badge: 'info' };
+  return { dot: 'bg-blue-500', badge: 'info', label: { text: t('contractTimeline.dueThisMonth'), className: 'text-blue-500', icon: Clock } };
 }
 
 function sortReviews(reviews: ReviewItem[]): ReviewItem[] {
@@ -115,7 +148,8 @@ export default function ContractTimelinePage() {
             const isCurrentMonth = month === currentMonth;
             const sorted = sortReviews(reviews);
             const completed = reviews.filter((r) => r.status === 'completed').length;
-            const notDone = reviews.filter((r) => r.status !== 'completed').length;
+            const skipped = reviews.filter((r) => r.status === 'skipped').length;
+            const notDone = reviews.filter((r) => r.status !== 'completed' && r.status !== 'skipped').length;
 
             return (
               <Card key={month} className={isCurrentMonth ? 'border-primary' : ''}>
@@ -142,12 +176,23 @@ export default function ContractTimelinePage() {
                           {completed} {t('reviews.completed').toLowerCase()}
                         </span>
                       )}
-                      {notDone > 0 && (
-                        <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          {notDone} {t('contractTimeline.notDone')}
+                      {skipped > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <MinusCircle className="h-3.5 w-3.5" />
+                          {skipped} {t('reviews.skipped').toLowerCase()}
                         </span>
                       )}
+                      {notDone > 0 && (isCurrentMonth ? (
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                          <Clock className="h-3.5 w-3.5" />
+                          {notDone} {t('contractTimeline.notDone')}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          {notDone} {t('contractTimeline.missedCount')}
+                        </span>
+                      ))}
                       {reviews.length === 0 && (
                         <span className="text-muted-foreground">{t('contractTimeline.noReviews')}</span>
                       )}
@@ -160,45 +205,28 @@ export default function ContractTimelinePage() {
                     <div className="relative pl-6">
                       <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
                       {sorted.map((r, idx) => {
-                        const isNotDone = r.status !== 'completed';
-                        const invoiceNeedsAction = !!r.invoice && r.invoice.status !== 'completed';
-                        const dotColor =
-                          r.status === 'completed'
-                            ? invoiceNeedsAction ? 'bg-amber-500' : 'bg-green-500'
-                            : r.status === 'in_progress'
-                              ? 'bg-blue-500'
-                              : r.status === 'failed'
-                                ? 'bg-rose-500'
-                                : isCurrentMonth
-                                  ? 'bg-rose-500'
-                                  : 'bg-amber-500';
-
-                        const badgeVariant =
-                          r.status === 'completed'
-                            ? 'success'
-                            : r.status === 'failed' || isCurrentMonth
-                              ? 'destructive'
-                              : 'warning';
+                        const look = reviewLook(r, t as any);
+                        const LabelIcon = look.label?.icon;
 
                         return (
                           <div key={r.id} className={`relative ${idx !== sorted.length - 1 ? 'pb-4' : ''}`}>
-                            <div className={`absolute -left-[14px] top-1.5 h-3 w-3 rounded-full border-2 border-background ${dotColor}`} />
-                            <div className="min-w-0">
-                              {/* Line 1: facility + customer + needs action */}
+                            <div className={`absolute -left-[14px] top-1.5 h-3 w-3 rounded-full border-2 border-background ${look.dot}`} />
+                            <div className={`min-w-0 ${r.status === 'skipped' ? 'opacity-70' : ''}`}>
+                              {/* Line 1: facility + customer + state label */}
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Link
                                   to={`/facilities/${r.contract.facility.id}`}
-                                  className={`text-sm font-medium hover:underline ${isNotDone && isCurrentMonth ? 'text-rose-600 dark:text-rose-400' : ''}`}
+                                  className={`text-sm font-medium hover:underline ${look.name ?? ''}`}
                                 >
                                   {r.contract.facility.name}
                                 </Link>
                                 <span className="text-xs text-muted-foreground">
                                   {r.contract.customer.name} · {r.contract.contractNumber}
                                 </span>
-                                {((isNotDone && isCurrentMonth) || (!isNotDone && invoiceNeedsAction)) && (
-                                  <span className={`flex items-center gap-0.5 text-xs ${!isNotDone && invoiceNeedsAction ? 'text-amber-500' : 'text-rose-500'}`}>
-                                    <Clock className="h-3 w-3" />
-                                    {t('contractTimeline.pendingAction')}
+                                {look.label && LabelIcon && (
+                                  <span className={`flex items-center gap-0.5 text-xs ${look.label.className}`}>
+                                    <LabelIcon className="h-3 w-3" />
+                                    {look.label.text}
                                   </span>
                                 )}
                               </div>
@@ -206,7 +234,7 @@ export default function ContractTimelinePage() {
                               <div className="mt-1 flex items-center gap-3">
                                 <span className="flex items-center gap-1">
                                   <span className="text-xs text-muted-foreground">{t('contractTimeline.review')}:</span>
-                                  <Badge variant={badgeVariant} className="text-xs">
+                                  <Badge variant={look.badge} className="text-xs">
                                     {t(`reviews.${r.status}` as any)}
                                   </Badge>
                                 </span>
@@ -219,6 +247,9 @@ export default function ContractTimelinePage() {
                                   </span>
                                 )}
                               </div>
+                              {r.status === 'skipped' && r.skipReason && (
+                                <p className="mt-1 text-xs text-muted-foreground italic">{t('reviews.skipReason')}: {r.skipReason}</p>
+                              )}
                               {/* Line 3: detail row */}
                               {(r.completedAt || r.emailSent || r.emailBounced || r.smbSaved || r.invoice?.invoiceNumber || r.invoice?.status === 'sent_email' || (r.invoice?.status === 'completed' && r.contract.invoiceDelivery === 'email')) && (
                                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

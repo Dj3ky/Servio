@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Upload, ArrowLeft, CheckCircle, XCircle, FilePlus, FileText, Trash2, FileDown, RotateCcw, List, GitCommit, Eye, EyeOff, Building2, SkipForward, Undo2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { formatDate, formatDateTime, formatScheduledMonth } from '@/lib/utils';
+import { formatDate, formatDateTime, formatScheduledMonth, isMissedReview, monthsAgo } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
 import { useAuthStore } from '@/stores/authStore';
+import { usePermissionsStore } from '@/stores/permissionsStore';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Review {
   id: string;
@@ -32,7 +34,18 @@ interface Review {
   emailSent: boolean;
   emailBounced: boolean;
   smbSaved: boolean;
+  skipReason: string | null;
   completedBy: { name: string } | null;
+}
+
+// Badge + timeline dot for a review: red = missed, blue = due this month, gray = skipped
+function reviewLook(r: Review, t: (key: string, opts?: Record<string, unknown>) => string) {
+  if (r.status === 'completed') return { variant: 'success' as const, text: t('reviews.completed'), dot: 'bg-green-500' };
+  if (r.status === 'skipped') return { variant: 'secondary' as const, text: t('reviews.skipped'), dot: 'bg-slate-400' };
+  if (r.status === 'failed') return { variant: 'destructive' as const, text: t('reviews.failed'), dot: 'bg-rose-500' };
+  if (isMissedReview(r)) return { variant: 'destructive' as const, text: t('contractTimeline.missed', { count: monthsAgo(r.scheduledMonth) }), dot: 'bg-rose-500' };
+  if (r.status === 'in_progress') return { variant: 'info' as const, text: t('reviews.inProgress'), dot: 'bg-blue-500' };
+  return { variant: 'info' as const, text: t('contractTimeline.dueThisMonth'), dot: 'bg-blue-500' };
 }
 
 interface Invoice {
@@ -107,13 +120,16 @@ export default function FacilityDetailPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const perms = usePermissionsStore((s) => s.perms);
 
   const [reviewsView, setReviewsView] = useState<'table' | 'timeline'>('timeline');
   const [invoiceDialog, setInvoiceDialog] = useState<Invoice | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [accountingInvoice, setAccountingInvoice] = useState<Invoice | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState<Review | null>(null);
+  const [skipTarget, setSkipTarget] = useState<Review | null>(null);
+  const [skipReason, setSkipReason] = useState('');
   const [resetTarget, setResetTarget] = useState<string | null>(null);
   const [resetInvoiceTarget, setResetInvoiceTarget] = useState<string | null>(null);
   const [emailInvoiceTarget, setEmailInvoiceTarget] = useState<Invoice | null>(null);
@@ -264,6 +280,35 @@ export default function FacilityDetailPage() {
     onError: () => toast.error(t('errors.internal')),
   });
 
+  function refreshAfterSkipChange() {
+    refetchReviews();
+    refetchInvoices();
+    queryClient.invalidateQueries({ queryKey: ['contracts'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['reviews-timeline'] });
+  }
+
+  const skipReviewMutation = useMutation({
+    mutationFn: ({ reviewId, reason }: { reviewId: string; reason: string }) =>
+      api.post(`/reviews/${reviewId}/skip`, { reason }),
+    onSuccess: () => {
+      refreshAfterSkipChange();
+      toast.success(t('reviews.skipSuccess'));
+      setSkipTarget(null);
+      setSkipReason('');
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
+  const unskipReviewMutation = useMutation({
+    mutationFn: (reviewId: string) => api.post(`/reviews/${reviewId}/unskip`, {}),
+    onSuccess: () => {
+      refreshAfterSkipChange();
+      toast.success(t('reviews.unskipSuccess'));
+    },
+    onError: () => toast.error(t('errors.internal')),
+  });
+
   const resetInvoiceMutation = useMutation({
     mutationFn: (invoiceId: string) => api.post(`/invoices/${invoiceId}/reset`, {}),
     onSuccess: () => {
@@ -305,6 +350,7 @@ export default function FacilityDetailPage() {
   const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician' || user?.role === 'project_manager';
   const canManageInvoices = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'accountant';
   const canManageContracts = user?.role === 'admin' || user?.role === 'manager';
+  const canSkip = user ? (perms.reviews?.skip ?? []).includes(user.role) : false;
 
   if (facilityLoading) {
     return (
@@ -319,7 +365,8 @@ export default function FacilityDetailPage() {
 
   const reviews = reviewsData?.data ?? [];
   const invoices = invoicesData?.data ?? [];
-  const pendingReview = reviews.find((r) => r.status === 'pending');
+  // Oldest first, so missed months sit at the top
+  const pendingReviews = reviews.filter((r) => r.status === 'pending').sort((a, b) => a.scheduledMonth.localeCompare(b.scheduledMonth));
   const pendingInvoices = invoices.filter((inv) => inv.status !== 'completed');
   const invoiceByReviewId = Object.fromEntries(invoices.map((inv) => [inv.reviewId, inv]));
   const hasCurrentMonthReview = reviews.some((r) => r.scheduledMonth === currentMonthIso());
@@ -393,17 +440,34 @@ export default function FacilityDetailPage() {
             </Card>
           )}
 
-          {canUpload && pendingReview && (
+          {(canUpload || canSkip) && pendingReviews.length > 0 && (
             <Card>
-              <CardContent className="pt-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="warning">{formatScheduledMonth(pendingReview.scheduledMonth, i18n.language)}</Badge>
-                  <span>{t('reviews.pending')}</span>
-                </div>
-                <Button onClick={() => setUploadDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  {t('reviews.uploadPdf')}
-                </Button>
+              <CardContent className="pt-6 space-y-3">
+                {pendingReviews.map((r) => {
+                  const look = reviewLook(r, t as any);
+                  return (
+                    <div key={r.id} className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium">{formatScheduledMonth(r.scheduledMonth, i18n.language)}</span>
+                        <Badge variant={look.variant}>{look.text}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canSkip && (
+                          <Button variant="outline" onClick={() => { setSkipTarget(r); setSkipReason(''); }}>
+                            <SkipForward className="h-4 w-4 mr-2" />
+                            {t('reviews.skip')}
+                          </Button>
+                        )}
+                        {canUpload && (
+                          <Button onClick={() => setUploadTarget(r)}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            {t('reviews.uploadPdf')}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           )}
@@ -479,18 +543,18 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('reviews.completedBy')}</TableHead>
                       <TableHead>{t('reviews.invoiceNo')}</TableHead>
                       <TableHead>{t('reviews.invoiceSent')}</TableHead>
-                      {user?.role === 'admin' && <TableHead></TableHead>}
+                      {(user?.role === 'admin' || canSkip) && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={user?.role === 'admin' || canSkip ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
                         <TableCell>
-                          <Badge variant={r.status === 'completed' ? 'success' : r.status === 'pending' ? 'warning' : 'destructive'}>
-                            {t(`reviews.${r.status}` as any)}
+                          <Badge variant={reviewLook(r, t as any).variant} title={r.skipReason ?? undefined}>
+                            {reviewLook(r, t as any).text}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -509,12 +573,18 @@ export default function FacilityDetailPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {invoiceByReviewId[r.id]?.completedAt ? formatDate(invoiceByReviewId[r.id].completedAt!) : '-'}
                         </TableCell>
-                        {user?.role === 'admin' && (
+                        {(user?.role === 'admin' || canSkip) && (
                           <TableCell className="text-right">
-                            {r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
+                            {user?.role === 'admin' && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
                               <Button size="sm" variant="outline" onClick={() => setResetTarget(r.id)}>
                                 <RotateCcw className="h-3 w-3 mr-1" />
                                 {t('reviews.resetReview')}
+                              </Button>
+                            )}
+                            {canSkip && r.status === 'skipped' && (
+                              <Button size="sm" variant="outline" disabled={unskipReviewMutation.isPending} onClick={() => unskipReviewMutation.mutate(r.id)}>
+                                <Undo2 className="h-3 w-3 mr-1" />
+                                {t('reviews.unskip')}
                               </Button>
                             )}
                           </TableCell>
@@ -532,18 +602,21 @@ export default function FacilityDetailPage() {
                     <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border" />
                     {reviews.map((r, idx) => {
                       const inv = invoiceByReviewId[r.id];
-                      const dotColor = r.status === 'completed' ? 'bg-green-500' : r.status === 'pending' ? 'bg-amber-500' : 'bg-rose-500';
+                      const look = reviewLook(r, t as any);
                       return (
                         <div key={r.id} className={`relative ${idx !== reviews.length - 1 ? 'pb-5' : ''}`}>
-                          <div className={`absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background ${dotColor}`} />
+                          <div className={`absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background ${look.dot}`} />
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">{formatScheduledMonth(r.scheduledMonth, i18n.language)}</span>
-                                <Badge variant={r.status === 'completed' ? 'success' : r.status === 'pending' ? 'warning' : 'destructive'} className="text-xs">
-                                  {t(`reviews.${r.status}` as any)}
+                                <Badge variant={look.variant} className="text-xs">
+                                  {look.text}
                                 </Badge>
                               </div>
+                              {r.status === 'skipped' && r.skipReason && (
+                                <p className="mt-1 text-xs text-muted-foreground italic">{t('reviews.skipReason')}: {r.skipReason}</p>
+                              )}
                               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                 {r.completedAt && <span>{t('reviews.reviewDone')}: {formatDate(r.completedAt)}</span>}
                                 {r.completedBy && <span>{t('reviews.completedBy')}: {r.completedBy.name}</span>}
@@ -558,6 +631,12 @@ export default function FacilityDetailPage() {
                               <Button size="sm" variant="outline" className="shrink-0" onClick={() => setResetTarget(r.id)}>
                                 <RotateCcw className="h-3 w-3 mr-1" />
                                 {t('reviews.resetReview')}
+                              </Button>
+                            )}
+                            {canSkip && r.status === 'skipped' && (
+                              <Button size="sm" variant="outline" className="shrink-0" disabled={unskipReviewMutation.isPending} onClick={() => unskipReviewMutation.mutate(r.id)}>
+                                <Undo2 className="h-3 w-3 mr-1" />
+                                {t('reviews.unskip')}
                               </Button>
                             )}
                           </div>
@@ -871,6 +950,36 @@ export default function FacilityDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!skipTarget} onOpenChange={(open) => { if (!open) setSkipTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t('reviews.skipTitle', { month: skipTarget ? formatScheduledMonth(skipTarget.scheduledMonth, i18n.language) : '' })}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('reviews.skipDescription')}</p>
+          <div className="space-y-2">
+            <Label htmlFor="skip-reason">{t('reviews.skipReason')}</Label>
+            <Textarea
+              id="skip-reason"
+              value={skipReason}
+              maxLength={500}
+              placeholder={t('reviews.skipReasonPlaceholder')}
+              onChange={(e) => setSkipReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSkipTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              disabled={!skipReason.trim() || skipReviewMutation.isPending}
+              onClick={() => skipTarget && skipReviewMutation.mutate({ reviewId: skipTarget.id, reason: skipReason.trim() })}
+            >
+              {skipReviewMutation.isPending ? t('common.loading') : t('reviews.skip')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!resetInvoiceTarget} onOpenChange={(open) => { if (!open) setResetInvoiceTarget(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -909,14 +1018,15 @@ export default function FacilityDetailPage() {
         facilityId={id}
       />
 
-      {pendingReview && (
+      {uploadTarget && (
         <ReviewUploadDialog
-          open={uploadDialogOpen}
-          onClose={() => setUploadDialogOpen(false)}
-          reviewId={pendingReview.id}
+          key={uploadTarget.id}
+          open={!!uploadTarget}
+          onClose={() => setUploadTarget(null)}
+          reviewId={uploadTarget.id}
           hasEmail={hasEmail}
           contractEmailTemplateId={activeContract?.emailTemplateId}
-          scheduledMonth={pendingReview.scheduledMonth}
+          scheduledMonth={uploadTarget.scheduledMonth}
           onSuccess={handleUploadSuccess}
         />
       )}

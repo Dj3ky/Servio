@@ -12,6 +12,7 @@ export const ReviewStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   failed: 'failed',
+  skipped: 'skipped',
 } as const;
 export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus];
 
@@ -61,6 +62,8 @@ export const AuditAction = {
   reset: 'reset',
   restart_services: 'restart_services',
   backfill: 'backfill',
+  skip_review: 'skip_review',
+  unskip_review: 'unskip_review',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 

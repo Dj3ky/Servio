@@ -88,6 +88,7 @@ const REVIEW_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive
   pending: 'warning',
   in_progress: 'info' as any,
   failed: 'destructive',
+  skipped: 'secondary',
 };
 
 const INVOICE_STATUS_VARIANT: Record<string, 'success' | 'info' | 'secondary' | 'warning'> = {

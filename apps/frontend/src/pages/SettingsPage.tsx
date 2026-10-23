@@ -1861,6 +1861,7 @@ function PermissionsTab() {
     { label: t('settings.perm.reviews'), rows: [
       { section: 'reviews', action: 'upload', label: t('settings.perm.reviewsUpload') },
       { section: 'reviews', action: 'backfill', label: t('settings.perm.reviewsBackfill') },
+      { section: 'reviews', action: 'skip', label: t('settings.perm.reviewsSkip') },
     ]},
     { label: t('settings.perm.invoices'), rows: [
       { section: 'invoices', action: 'access', label: t('settings.perm.invoicesAccess') },

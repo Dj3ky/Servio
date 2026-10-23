@@ -18,6 +18,7 @@ export const permissions = {
   reviews: {
     upload:   r('admin', 'manager', 'technician', 'project_manager'),
     backfill: r('admin'),
+    skip:     r('admin', 'manager'),
   },
   invoices: {
     access: r('admin', 'manager', 'accountant'),

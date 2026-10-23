@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-export const reviewStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'failed']);
+export const reviewStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'failed', 'skipped']);
+
+export const skipReviewSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
 
 export const completeReviewSchema = z.object({
   notes: z.string().max(2000).optional(),
@@ -22,9 +26,13 @@ export const reviewSchema = z.object({
   emailSent: z.boolean(),
   emailBounced: z.boolean(),
   smbSaved: z.boolean(),
+  skipReason: z.string().nullable(),
+  skippedAt: z.string().datetime().nullable(),
+  skippedById: z.string().uuid().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 
 export type Review = z.infer<typeof reviewSchema>;
 export type CompleteReviewRequest = z.infer<typeof completeReviewSchema>;
+export type SkipReviewRequest = z.infer<typeof skipReviewSchema>;

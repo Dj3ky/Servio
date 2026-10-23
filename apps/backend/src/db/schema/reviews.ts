@@ -3,7 +3,7 @@ import { contracts } from './contracts';
 import { facilities } from './facilities';
 import { users } from './users';
 
-export const reviewStatusEnum = pgEnum('review_status', ['pending', 'in_progress', 'completed', 'failed']);
+export const reviewStatusEnum = pgEnum('review_status', ['pending', 'in_progress', 'completed', 'failed', 'skipped']);
 
 export const reviews = pgTable('reviews', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -21,6 +21,9 @@ export const reviews = pgTable('reviews', {
   emailBounced: boolean('email_bounced').notNull().default(false),
   smbSaved: boolean('smb_saved').notNull().default(false),
   filesJson: jsonb('files_json').$type<Array<{ path: string; filename: string; size: number }>>(),
+  skipReason: text('skip_reason'),
+  skippedAt: timestamp('skipped_at'),
+  skippedById: uuid('skipped_by_id').references(() => users.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
