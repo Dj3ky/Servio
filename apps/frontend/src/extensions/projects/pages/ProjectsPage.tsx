@@ -188,11 +188,13 @@ export default function ProjectsPage() {
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
           <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>
-          <td style="width:200px;border-left:1px solid #e2e8f0">&nbsp;</td>
+          <td style="border-left:1px solid #e2e8f0">&nbsp;</td>
         </tr>`;
       }).join('');
 
-      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Rok</th><th style="width:200px">Opombe</th>`;
+      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Rok</th><th>Opombe</th>`;
+      // Fixed widths so columns line up across all group tables
+      const colGroup = `<colgroup><col style="width:28%"><col style="width:22%"><col style="width:22%"><col style="width:10%"><col style="width:18%"></colgroup>`;
 
       const groupHeader = groupByEmployee
         ? `<div style="background:${bgColor};border-left:4px solid #6366f1;padding:6px 10px;font-weight:700;font-size:12px;margin-top:16px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
@@ -200,6 +202,7 @@ export default function ProjectsPage() {
 
       return `${groupHeader}
         <table>
+          ${colGroup}
           <thead><tr>${headerRow}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -212,7 +215,8 @@ export default function ProjectsPage() {
         body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
         h2 { font-size: 14px; margin: 0 0 2px 0; }
         .meta { font-size: 10px; color: #666; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
+        table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
+        td { overflow-wrap: anywhere; }
         th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
         td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; height: 32px; }
         tr:last-child td { border-bottom: none; }
@@ -231,6 +235,32 @@ export default function ProjectsPage() {
     win.focus();
     setTimeout(() => win.print(), 400);
   }
+
+  // Shared column widths so grouped tables line up with each other
+  const tableColGroup = archiveMode ? (
+    <colgroup>
+      <col style={{ width: '26%' }} />
+      <col style={{ width: '22%' }} />
+      {!groupByEmployee && <col style={{ width: '16%' }} />}
+      <col style={{ width: '14%' }} />
+      <col style={{ width: '14%' }} />
+      <col style={{ width: '14%' }} />
+      <col style={{ width: '40px' }} />
+    </colgroup>
+  ) : (
+    <colgroup>
+      <col style={{ width: '20%' }} />
+      <col style={{ width: '16%' }} />
+      {!groupByEmployee && <col style={{ width: '12%' }} />}
+      <col style={{ width: '8%' }} />
+      <col style={{ width: '9%' }} />
+      <col style={{ width: '11%' }} />
+      <col style={{ width: '11%' }} />
+      <col style={{ width: '11%' }} />
+      <col style={{ width: '10%' }} />
+      <col style={{ width: '40px' }} />
+    </colgroup>
+  );
 
   const tableHeaders = archiveMode ? (
     <tr className="border-b bg-muted/50 text-muted-foreground">
@@ -377,7 +407,8 @@ export default function ProjectsPage() {
       {/* Flat list view */}
       {!groupByEmployee && !isLoading && (
         <div className="rounded-md border overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[900px] table-fixed text-sm">
+            {tableColGroup}
             <thead>{tableHeaders}</thead>
             <tbody>
               {projects.length === 0 && (
@@ -410,7 +441,8 @@ export default function ProjectsPage() {
                 </button>
                 {!collapsed && (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[900px] table-fixed text-sm">
+                      {tableColGroup}
                       <thead>{tableHeaders}</thead>
                       <tbody>{group.projects.map(renderProjectRow)}</tbody>
                     </table>
