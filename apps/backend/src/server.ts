@@ -69,6 +69,8 @@ async function ensureSettingsColumns() {
     ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS audit_log_retention_months integer NOT NULL DEFAULT 0
   `);
+  // All settings updates target id = 1 — without this row every save silently does nothing
+  await db.execute(sql`INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at)`);
 }

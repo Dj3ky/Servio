@@ -100,5 +100,12 @@
       "tag": "0013_add_review_skipped",
       "breakpoints": true
     }
+    ,{
+      "idx": 14,
+      "version": "7",
+      "when": 1781193600000,
+      "tag": "0014_settings_columns_and_default_row",
+      "breakpoints": true
+    }
   ]
 }
