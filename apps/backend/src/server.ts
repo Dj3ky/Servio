@@ -71,6 +71,12 @@ async function ensureSettingsColumns() {
   `);
   // All settings updates target id = 1 — without this row every save silently does nothing
   await db.execute(sql`INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+  // Invoices only exist once a review is completed — drop pending ones created earlier for open reviews
+  await db.execute(sql`
+    DELETE FROM invoices i
+    USING reviews r
+    WHERE i.review_id = r.id AND i.status = 'pending' AND r.status <> 'completed'
+  `);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at)`);
 }

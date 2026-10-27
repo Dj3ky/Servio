@@ -147,7 +147,8 @@ export default function ContractTimelinePage() {
           {data.map(({ month, reviews }) => {
             const isCurrentMonth = month === currentMonth;
             const sorted = sortReviews(reviews);
-            const completed = reviews.filter((r) => r.status === 'completed').length;
+            const invoicePending = reviews.filter((r) => r.status === 'completed' && r.invoice && r.invoice.status !== 'completed').length;
+            const completed = reviews.filter((r) => r.status === 'completed').length - invoicePending;
             const skipped = reviews.filter((r) => r.status === 'skipped').length;
             const notDone = reviews.filter((r) => r.status !== 'completed' && r.status !== 'skipped').length;
 
@@ -173,24 +174,30 @@ export default function ContractTimelinePage() {
                       {completed > 0 && (
                         <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                           <CheckCircle className="h-3.5 w-3.5" />
-                          {completed} {t('reviews.completed').toLowerCase()}
+                          {t('contractTimeline.completedCount', { count: completed })}
+                        </span>
+                      )}
+                      {invoicePending > 0 && (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <Clock className="h-3.5 w-3.5" />
+                          {t('contractTimeline.invoicePendingCount', { count: invoicePending })}
                         </span>
                       )}
                       {skipped > 0 && (
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <MinusCircle className="h-3.5 w-3.5" />
-                          {skipped} {t('reviews.skipped').toLowerCase()}
+                          {t('contractTimeline.skippedCount', { count: skipped })}
                         </span>
                       )}
                       {notDone > 0 && (isCurrentMonth ? (
                         <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                           <Clock className="h-3.5 w-3.5" />
-                          {notDone} {t('contractTimeline.notDone')}
+                          {t('contractTimeline.notDoneCount', { count: notDone })}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
                           <AlertCircle className="h-3.5 w-3.5" />
-                          {notDone} {t('contractTimeline.missedCount')}
+                          {t('contractTimeline.missedCountLabel', { count: notDone })}
                         </span>
                       ))}
                       {reviews.length === 0 && (

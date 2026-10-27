@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { db } from '../db';
-import { reviews, invoices } from '../db/schema';
+import { reviews } from '../db/schema';
 import { format, startOfMonth, subMonths } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
@@ -49,20 +49,14 @@ export async function createPendingReviews(targetDate?: Date): Promise<number> {
 
     if (existing) continue;
 
-    const [review] = await db.insert(reviews).values({
+    // The invoice is created only once the review is completed
+    await db.insert(reviews).values({
       contractId: contract.id,
       facilityId: contract.facilityId,
       scheduledMonth,
       status: 'pending',
       emailSent: false,
       smbSaved: false,
-    }).returning();
-
-    await db.insert(invoices).values({
-      reviewId: review.id,
-      contractId: contract.id,
-      status: 'pending',
-      emailBounced: false,
     });
 
     created++;
@@ -116,19 +110,13 @@ export async function backfillMissingReviews(monthsBack = 12): Promise<number> {
 
       if (existingSet.has(`${contract.id}:${scheduledMonth}`)) continue;
 
-      const [review] = await db.insert(reviews).values({
+      await db.insert(reviews).values({
         contractId: contract.id,
         facilityId: contract.facilityId,
         scheduledMonth,
         status: 'pending',
         emailSent: false,
         smbSaved: false,
-      }).returning();
-
-      await db.insert(invoices).values({
-        reviewId: review.id,
-        contractId: contract.id,
-        status: 'pending',
       });
 
       existingSet.add(`${contract.id}:${scheduledMonth}`);

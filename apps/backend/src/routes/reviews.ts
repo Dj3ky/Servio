@@ -289,10 +289,8 @@ router.post(
     if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
     if (review.status !== 'completed') { res.status(409).json({ error: 'errors.validation' }); return; }
 
-    await db
-      .update(invoices)
-      .set({ status: 'pending', invoiceNumber: null, completedAt: null, completedById: null, notes: null })
-      .where(and(eq(invoices.reviewId, req.params.id), eq(invoices.status, 'pending')));
+    // Back to an open review — its invoice is no longer pending until it is completed again
+    await db.delete(invoices).where(and(eq(invoices.reviewId, req.params.id), eq(invoices.status, 'pending')));
 
     const [updated] = await db
       .update(reviews)
@@ -377,7 +375,6 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     const review = await db.query.reviews.findFirst({
       where: (r, { eq }) => eq(r.id, req.params.id),
-      with: { invoice: { columns: { id: true } } },
     });
     if (!review) { res.status(404).json({ error: 'errors.not_found' }); return; }
     if (review.status !== 'skipped') { res.status(409).json({ error: 'errors.validation' }); return; }
@@ -387,10 +384,6 @@ router.post(
       .set({ status: 'pending', skipReason: null, skippedAt: null, skippedById: null, updatedAt: new Date() })
       .where(eq(reviews.id, review.id))
       .returning();
-
-    if (!review.invoice) {
-      await db.insert(invoices).values({ reviewId: review.id, contractId: review.contractId, status: 'pending', emailBounced: false });
-    }
 
     await createAuditLog({
       userId: req.auth!.userId,
