@@ -148,7 +148,7 @@ export default function ContractTimelinePage() {
             const isCurrentMonth = month === currentMonth;
             const sorted = sortReviews(reviews);
             const invoicePending = reviews.filter((r) => r.status === 'completed' && r.invoice && r.invoice.status !== 'completed').length;
-            const completed = reviews.filter((r) => r.status === 'completed').length - invoicePending;
+            const completed = reviews.filter((r) => r.status === 'completed').length;
             const skipped = reviews.filter((r) => r.status === 'skipped').length;
             const notDone = reviews.filter((r) => r.status !== 'completed' && r.status !== 'skipped').length;
 
