@@ -123,6 +123,9 @@ async function ensurePmTables() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    // Columns from migration 0012 — re-added here because tables recreated above won't have them
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS received_amount NUMERIC(12,2) NOT NULL DEFAULT 0`);
+    await db.execute(sql`ALTER TABLE pm_project_invoices ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'issued'`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
