@@ -151,7 +151,9 @@ router.post('/import', requireRole('projects', 'manage'), documentUpload.single(
   if (missing.length > 0) { res.status(400).json({ error: 'errors.validation', details: { file: [`Missing columns: ${missing.join(', ')}`] } }); return; }
 
   const allUsers = await db.select({ id: users.id, name: users.name, email: users.email }).from(users);
-  const existingNumbers = new Set((await db.select({ n: pmProjects.projectNumber }).from(pmProjects)).map((r) => r.n));
+  // Project numbers may repeat, so a row is only a duplicate if number + name both match
+  const projectKey = (n: string, name: string) => `${n.trim().toLowerCase()}\u0000${name.trim().toLowerCase()}`;
+  const existingKeys = new Set((await db.select({ n: pmProjects.projectNumber, name: pmProjects.name }).from(pmProjects)).map((r) => projectKey(r.n, r.name)));
 
   const created: string[] = [];
   const skipped: string[] = [];
@@ -165,7 +167,8 @@ router.post('/import', requireRole('projects', 'manage'), documentUpload.single(
     const projectNumber = row['project_number'];
     if (!projectNumber) { errors.push(`Row ${i}: missing project_number`); continue; }
     if (!row['name']) { errors.push(`Row ${i} (${projectNumber}): missing name`); continue; }
-    if (existingNumbers.has(projectNumber)) { skipped.push(projectNumber); continue; }
+    const key = projectKey(projectNumber, row['name']);
+    if (existingKeys.has(key)) { skipped.push(`${projectNumber} (${row['name']})`); continue; }
 
     try {
       // Match project manager by email first, then by exact name
@@ -196,7 +199,7 @@ router.post('/import', requireRole('projects', 'manage'), documentUpload.single(
         completedAt: status === 'completed' ? new Date() : null,
       });
 
-      existingNumbers.add(projectNumber);
+      existingKeys.add(key);
       created.push(projectNumber);
     } catch (err) {
       errors.push(`Row ${i} (${projectNumber}): ${err instanceof Error ? err.message : 'unknown error'}`);
