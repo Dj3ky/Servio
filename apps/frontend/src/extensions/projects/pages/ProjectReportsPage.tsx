@@ -165,13 +165,13 @@ export default function ProjectReportsPage() {
       return sortByEmployeeOrder(groups, employeeOrder);
     }
 
-    function projectTable(projects: any[], showCompleted = false) {
+    function projectTable(projects: any[], showCompleted = false, groupHeader = '') {
       if (projects.length === 0) return '<p style="color:#888;font-size:11px;padding:6px 0">—</p>';
       const rows = projects.map(p => {
         const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
         const isOverdue = !showCompleted && p.endDate && new Date(p.endDate) < new Date();
         return `<tr>
-          <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#666">${p.projectNumber}</span></td>
+          <td><span style="color:#666">${p.projectNumber}</span> <strong>${p.name}</strong></td>
           <td>${p.customerName ?? '—'}</td>
           <td>${p.facilityName ?? '—'}</td>
           ${showCompleted
@@ -186,7 +186,7 @@ export default function ProjectReportsPage() {
       // Fixed widths so columns line up across all manager groups
       return `<table class="fixed">
         <colgroup><col style="width:22%"><col style="width:18%"><col style="width:18%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:10%"></colgroup>
-        <thead><tr>
+        <thead>${groupHeader}<tr>
         <th>Delovni nalog</th><th>Naročnik</th><th>Objekt</th><th>${dateHeader}</th>
         <th style="text-align:right">Vrednost</th><th style="text-align:right">Fakturirano</th><th style="text-align:right">${showCompleted ? 'Nefakt.' : 'Ostalo'}</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
@@ -197,12 +197,10 @@ export default function ProjectReportsPage() {
       return groups.map((g, i) => {
         const COLORS = ['#dbeafe','#d1fae5','#ede9fe','#fef3c7','#fee2e2','#cffafe','#ffedd5','#ccfbf1'];
         const bg = COLORS[i % COLORS.length];
-        return `<div style="margin-bottom:12px">
-          <div style="background:${bg};border-left:4px solid #6366f1;padding:5px 10px;font-weight:700;font-size:11px;margin-bottom:3px">
-            ${g.employeeName ?? 'Nedodeljeno'} (${g.projects.length})
-          </div>
-          ${projectTable(g.projects, showCompleted)}
-        </div>`;
+        // Group header lives in <thead> so it never gets orphaned at a page bottom
+        // and repeats on each page the group spans
+        const header = `<tr><th colspan="7" class="group-header" style="background:${bg}">${g.employeeName ?? 'Nedodeljeno'} (${g.projects.length})</th></tr>`;
+        return `<div style="margin-bottom:10px">${projectTable(g.projects, showCompleted, header)}</div>`;
       }).join('');
     }
 
@@ -238,7 +236,7 @@ export default function ProjectReportsPage() {
       <title>Poročilo projektov ${revenueYear}</title>
       <style>
         @page { size: A4 landscape; margin: 12mm; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h2 { font-size: 15px; margin: 0 0 2px 0; }
         h3 { font-size: 12px; margin: 16px 0 6px 0; border-bottom: 2px solid #6366f1; padding-bottom: 3px; color: #4338ca; }
         .meta { font-size: 10px; color: #666; margin-bottom: 14px; }
@@ -247,9 +245,12 @@ export default function ProjectReportsPage() {
         .stat-label { font-size: 9px; color: #888; margin-bottom: 2px; }
         .stat-value { font-size: 14px; font-weight: 700; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
-        th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
-        td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        th { background: #f1f5f9; text-align: left; padding: 3px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
+        td { padding: 2px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         tr:last-child td { border-bottom: none; }
+        thead { display: table-header-group; break-after: avoid; }
+        tr { break-inside: avoid; }
+        th.group-header { border: 1px solid #cbd5e1; border-left: 4px solid #6366f1; padding: 5px 10px; font-size: 11px; }
         table.fixed { table-layout: fixed; }
         table.fixed td { overflow-wrap: anywhere; }
         .page-break { page-break-before: always; }
