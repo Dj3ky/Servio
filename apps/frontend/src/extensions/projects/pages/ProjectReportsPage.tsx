@@ -81,6 +81,16 @@ function fmtShort(v: number) {
   return `€${v.toFixed(0)}`;
 }
 
+// Same group order as the Projects page: saved manual order, then the rest, unassigned last
+function sortByEmployeeOrder<T extends { employeeId: string | null }>(groups: T[], order: string[]): T[] {
+  const rank = (id: string | null) => {
+    if (!id) return Number.MAX_SAFE_INTEGER;
+    const i = order.indexOf(id);
+    return i === -1 ? order.length : i;
+  };
+  return [...groups].sort((a, b) => rank(a.employeeId) - rank(b.employeeId));
+}
+
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
@@ -105,6 +115,11 @@ export default function ProjectReportsPage() {
   const { data: workload, isLoading: loadingWorkload } = useQuery<WorkloadGroup[]>({
     queryKey: ['pm-report', 'workload'],
     queryFn: () => api.get('/pm/reports/workload'),
+  });
+
+  const { data: employeeOrder = [] } = useQuery<string[]>({
+    queryKey: ['pm-employee-order'],
+    queryFn: () => api.get('/pm/projects/employee-order'),
   });
 
   const { data: overdue, isLoading: loadingOverdue } = useQuery<OverdueProject[]>({
@@ -152,14 +167,14 @@ export default function ProjectReportsPage() {
     });
 
     function groupByEmp(projects: any[]) {
-      const groups: { employeeName: string | null; projects: any[] }[] = [];
+      const groups: { employeeId: string | null; employeeName: string | null; projects: any[] }[] = [];
       const seen = new Map<string, number>();
       for (const p of projects) {
         const key = p.employeeId ?? '__none__';
-        if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ employeeName: p.employeeName, projects: [] }); }
+        if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ employeeId: p.employeeId, employeeName: p.employeeName, projects: [] }); }
         groups[seen.get(key)!].projects.push(p);
       }
-      return groups;
+      return sortByEmployeeOrder(groups, employeeOrder);
     }
 
     function projectTable(projects: any[], showCompleted = false) {
@@ -515,7 +530,7 @@ export default function ProjectReportsPage() {
           {(workload ?? []).length === 0 && !loadingWorkload && (
             <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
           )}
-          {(workload ?? []).map((group, idx) => {
+          {sortByEmployeeOrder(workload ?? [], employeeOrder).map((group, idx) => {
             const key = group.employeeId ?? '__unassigned__';
             const collapsed = collapsedWorkload.has(key);
             return (
