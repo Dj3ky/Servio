@@ -168,7 +168,7 @@ router.get('/active-projects/list', async (req: Request, res: Response): Promise
   const before = typeof req.query.before === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.before) ? req.query.before : null;
   const result = await db.execute(sql`
     SELECT
-      p.id, p.project_number, p.name, p.priority, p.status, p.created_at,
+      p.id, p.project_number, p.name, p.priority, p.status, p.created_at, p.notes,
       p.employee_id, u.name AS employee_name,
       le.entry_status AS last_entry_status,
       le.notes AS last_entry_notes,
@@ -195,6 +195,7 @@ router.get('/active-projects/list', async (req: Request, res: Response): Promise
     priority: r.priority,
     status: r.status,
     createdAt: r.created_at,
+    notes: r.notes ?? null,
     employeeId: r.employee_id,
     employeeName: r.employee_name,
     lastEntryStatus: r.last_entry_status ?? null,

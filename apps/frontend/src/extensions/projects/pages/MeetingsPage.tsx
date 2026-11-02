@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink, StickyNote } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 
 interface Meeting {
@@ -27,9 +28,11 @@ interface MeetingEntry {
   projectCreatedAt: string | null;
   employeeId: string | null; employeeName: string | null;
   lastEntryNotes?: string | null; lastMeetingDate?: string | null;
+  projectNotes?: string | null;
 }
 interface ActiveProject {
   id: string; projectNumber: string; name: string; priority: string; status: string; createdAt: string;
+  notes: string | null;
   employeeId: string | null; employeeName: string | null;
   lastEntryStatus: string | null; lastEntryNotes: string | null; lastMeetingDate: string | null;
 }
@@ -38,6 +41,22 @@ interface EntryDraft {
   entryStatus: string; notes: string;
   employeeId: string | null; employeeName: string | null;
   lastMeetingDate: string | null; lastEntryNotes: string | null;
+  projectNotes: string | null;
+}
+
+// Icon next to the project name that previews the project's own notes on hover
+function ProjectNotesHint({ notes }: { notes: string | null | undefined }) {
+  if (!notes?.trim()) return null;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-500 cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-sm whitespace-pre-wrap text-xs">{notes}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 interface QuickViewProject {
@@ -132,6 +151,7 @@ export default function MeetingsPage() {
       employeeName: p.employeeName,
       lastMeetingDate: p.lastMeetingDate,
       lastEntryNotes: p.lastEntryNotes,
+      projectNotes: p.notes,
     })));
     setCollapsedDialogGroups(new Set());
   }
@@ -252,7 +272,7 @@ export default function MeetingsPage() {
     const list: MeetingEntry[] = [
       ...detail.entries.map(e => {
         const p = activeById.get(e.projectId);
-        return { ...e, notes: e.notes ?? '', lastEntryNotes: p?.lastEntryNotes ?? null, lastMeetingDate: p?.lastMeetingDate ?? null };
+        return { ...e, notes: e.notes ?? '', lastEntryNotes: p?.lastEntryNotes ?? null, lastMeetingDate: p?.lastMeetingDate ?? null, projectNotes: p?.notes ?? null };
       }),
       ...activeProjects.filter(p => !existingIds.has(p.id)).map(p => ({
         id: '',
@@ -267,6 +287,7 @@ export default function MeetingsPage() {
         employeeName: p.employeeName,
         lastEntryNotes: p.lastEntryNotes,
         lastMeetingDate: p.lastMeetingDate,
+        projectNotes: p.notes,
       })),
     ];
     // Oldest project first within each employee, like the backend and the Projects page
@@ -483,10 +504,13 @@ export default function MeetingsPage() {
                             {group.entries.map(entry => (
                               <tr key={entry.projectId} className="border-b">
                                 <td className="px-3 py-2">
-                                  <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                    {entry.projectName}
-                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                  </button>
+                                  <div className="flex items-center gap-1.5">
+                                    <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
+                                      {entry.projectName}
+                                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                    <ProjectNotesHint notes={entry.projectNotes} />
+                                  </div>
                                   <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                                 </td>
                                 <td className="px-3 py-2">
@@ -629,10 +653,13 @@ export default function MeetingsPage() {
                         {group.entries.map(entry => (
                           <tr key={entry.projectId} className="border-b">
                             <td className="px-3 py-2">
-                              <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                {entry.projectName}
-                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
+                                  {entry.projectName}
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                                <ProjectNotesHint notes={entry.projectNotes} />
+                              </div>
                               <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                             </td>
                             <td className="px-3 py-2">
