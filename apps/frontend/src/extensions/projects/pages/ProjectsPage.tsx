@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 
 interface PmProject {
   id: string;
@@ -170,10 +171,7 @@ export default function ProjectsPage() {
     enabled: dialogOpen,
   });
 
-  const { data: employeeOrder = [] } = useQuery<string[]>({
-    queryKey: ['pm-employee-order'],
-    queryFn: () => api.get('/pm/projects/employee-order'),
-  });
+  const employeeOrder = useEmployeeOrder();
 
   const orderMutation = useMutation({
     mutationFn: (userIds: string[]) => api.put('/pm/projects/employee-order', { userIds }),
@@ -222,23 +220,17 @@ export default function ProjectsPage() {
 
   // Group projects by employee for the grouped view
   const grouped = useMemo(() => {
-    const groups: { key: string; employeeName: string | null; projects: PmProject[] }[] = [];
+    const groups: { key: string; employeeId: string | null; employeeName: string | null; projects: PmProject[] }[] = [];
     const seen = new Map<string, number>();
     for (const p of projects) {
       const key = p.employeeId ?? '__none__';
       if (!seen.has(key)) {
         seen.set(key, groups.length);
-        groups.push({ key, employeeName: p.employeeName, projects: [] });
+        groups.push({ key, employeeId: p.employeeId, employeeName: p.employeeName, projects: [] });
       }
       groups[seen.get(key)!].projects.push(p);
     }
-    // Saved manual order first, users without a position after them, unassigned always last
-    const rank = (key: string) => {
-      if (key === '__none__') return Number.MAX_SAFE_INTEGER;
-      const i = employeeOrder.indexOf(key);
-      return i === -1 ? employeeOrder.length : i;
-    };
-    return groups.sort((a, b) => rank(a.key) - rank(b.key));
+    return sortByEmployeeOrder(groups, employeeOrder);
   }, [projects, employeeOrder]);
 
   // Swap a user with the neighbouring visible group, keeping positions of users hidden by filters
@@ -272,23 +264,22 @@ export default function ProjectsPage() {
     const groupHtml = groupsToRender.map((g, idx) => {
       const bgColor = groupByEmployee ? PRINT_GROUP_COLORS[idx % PRINT_GROUP_COLORS.length] : 'transparent';
       const rows = g.projects.map(p => {
-        const deadline = p.endDate ? formatDate(p.endDate) : '—';
-        const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
+        const notes = p.notes
+          ? p.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          : '&nbsp;';
         return `<tr>
           <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#555">${p.projectNumber}</span></td>
           <td>${p.customerName ?? '—'}</td>
-          <td>${p.facilityName ?? '—'}</td>
-          <td style="${isOverdue ? 'color:#dc2626;font-weight:600' : ''}">${deadline}</td>
-          <td style="border-left:1px solid #e2e8f0">&nbsp;</td>
+          <td style="border-left:1px solid #e2e8f0;white-space:pre-wrap">${notes}</td>
         </tr>`;
       }).join('');
 
-      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Objekt</th><th>Rok</th><th>Opombe</th>`;
+      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Opombe</th>`;
       // Fixed widths so columns line up across all group tables
-      const colGroup = `<colgroup><col style="width:28%"><col style="width:22%"><col style="width:22%"><col style="width:10%"><col style="width:18%"></colgroup>`;
+      const colGroup = `<colgroup><col style="width:32%"><col style="width:26%"><col style="width:42%"></colgroup>`;
 
       const groupHeader = groupByEmployee
-        ? `<div style="background:${bgColor};border-left:4px solid #6366f1;padding:6px 10px;font-weight:700;font-size:12px;margin-top:16px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
+        ? `<div style="background:${bgColor};border:1px solid #cbd5e1;border-left:6px solid #6366f1;padding:7px 10px;font-weight:700;font-size:13px;margin-top:18px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
         : '';
 
       return `${groupHeader}
@@ -303,7 +294,7 @@ export default function ProjectsPage() {
       <title>${title}</title>
       <style>
         @page { size: A4 landscape; margin: 15mm; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h2 { font-size: 14px; margin: 0 0 2px 0; }
         .meta { font-size: 10px; color: #666; margin-bottom: 12px; }
         table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }

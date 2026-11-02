@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 
 interface SummaryData {
   statusCounts: { status: string; count: number }[];
@@ -81,16 +82,6 @@ function fmtShort(v: number) {
   return `€${v.toFixed(0)}`;
 }
 
-// Same group order as the Projects page: saved manual order, then the rest, unassigned last
-function sortByEmployeeOrder<T extends { employeeId: string | null }>(groups: T[], order: string[]): T[] {
-  const rank = (id: string | null) => {
-    if (!id) return Number.MAX_SAFE_INTEGER;
-    const i = order.indexOf(id);
-    return i === -1 ? order.length : i;
-  };
-  return [...groups].sort((a, b) => rank(a.employeeId) - rank(b.employeeId));
-}
-
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
@@ -117,10 +108,7 @@ export default function ProjectReportsPage() {
     queryFn: () => api.get('/pm/reports/workload'),
   });
 
-  const { data: employeeOrder = [] } = useQuery<string[]>({
-    queryKey: ['pm-employee-order'],
-    queryFn: () => api.get('/pm/projects/employee-order'),
-  });
+  const employeeOrder = useEmployeeOrder();
 
   const { data: overdue, isLoading: loadingOverdue } = useQuery<OverdueProject[]>({
     queryKey: ['pm-report', 'overdue'],
@@ -676,7 +664,7 @@ export default function ProjectReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.employeeStats.map(e => {
+                  {sortByEmployeeOrder(summary.employeeStats, employeeOrder).map(e => {
                     const remaining = parseFloat(e.totalValue ?? '0') - parseFloat(e.totalInvoiced ?? '0');
                     return (
                       <tr key={e.employeeId ?? 'unassigned'} className="border-b last:border-0">

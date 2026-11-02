@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 
 interface Meeting {
   id: string; meetingDate: string; notes: string | null;
@@ -23,11 +24,12 @@ interface MeetingDetail extends Meeting {
 interface MeetingEntry {
   id: string; projectId: string; projectNumber: string; projectName: string;
   projectPriority: string; entryStatus: string; notes: string | null;
+  projectCreatedAt: string | null;
   employeeId: string | null; employeeName: string | null;
   lastEntryNotes?: string | null; lastMeetingDate?: string | null;
 }
 interface ActiveProject {
-  id: string; projectNumber: string; name: string; priority: string; status: string;
+  id: string; projectNumber: string; name: string; priority: string; status: string; createdAt: string;
   employeeId: string | null; employeeName: string | null;
   lastEntryStatus: string | null; lastEntryNotes: string | null; lastMeetingDate: string | null;
 }
@@ -88,6 +90,8 @@ export default function MeetingsPage() {
     queryKey: ['pm-meetings', yearFilter],
     queryFn: () => api.get(`/pm/meetings?limit=100&year=${yearFilter}`),
   });
+
+  const employeeOrder = useEmployeeOrder();
 
   const { data: quickViewProject } = useQuery<QuickViewProject>({
     queryKey: ['pm-project-quickview', quickViewId],
@@ -150,34 +154,34 @@ export default function MeetingsPage() {
 
   // Group new-meeting entries by employee
   const entriesByEmployee = useMemo(() => {
-    const groups: { key: string; employeeName: string | null; entries: EntryDraft[] }[] = [];
+    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: EntryDraft[] }[] = [];
     const seen = new Map<string, number>();
     for (const e of entries) {
       const key = e.employeeId ?? '__none__';
       if (!seen.has(key)) {
         seen.set(key, groups.length);
-        groups.push({ key, employeeName: e.employeeName, entries: [] });
+        groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] });
       }
       groups[seen.get(key)!].entries.push(e);
     }
-    return groups;
-  }, [entries]);
+    return sortByEmployeeOrder(groups, employeeOrder);
+  }, [entries, employeeOrder]);
 
   // Group detail entries by employee
   const detailByEmployee = useMemo(() => {
     if (!detail) return [];
-    const groups: { key: string; employeeName: string | null; entries: MeetingEntry[] }[] = [];
+    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: MeetingEntry[] }[] = [];
     const seen = new Map<string, number>();
     for (const e of detail.entries) {
       const key = e.employeeId ?? '__none__';
       if (!seen.has(key)) {
         seen.set(key, groups.length);
-        groups.push({ key, employeeName: e.employeeName, entries: [] });
+        groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] });
       }
       groups[seen.get(key)!].entries.push(e);
     }
-    return groups;
-  }, [detail]);
+    return sortByEmployeeOrder(groups, employeeOrder);
+  }, [detail, employeeOrder]);
 
   if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
     initEntries(activeProjects);
@@ -256,6 +260,7 @@ export default function MeetingsPage() {
         projectNumber: p.projectNumber,
         projectName: p.name,
         projectPriority: p.priority,
+        projectCreatedAt: p.createdAt,
         entryStatus: 'active',
         notes: '',
         employeeId: p.employeeId,
@@ -264,11 +269,8 @@ export default function MeetingsPage() {
         lastMeetingDate: p.lastMeetingDate,
       })),
     ];
-    // Grouping by employee relies on order, so sort like the backend does
-    list.sort((a, b) =>
-      (a.employeeName === null ? 1 : 0) - (b.employeeName === null ? 1 : 0)
-      || (a.employeeName ?? '').localeCompare(b.employeeName ?? '')
-      || (a.projectNumber ?? '').localeCompare(b.projectNumber ?? ''));
+    // Oldest project first within each employee, like the backend and the Projects page
+    list.sort((a, b) => (a.projectCreatedAt ?? '').localeCompare(b.projectCreatedAt ?? ''));
     setEditNotes(notes);
     setEditEntries(list);
     setEditSnapshot(editFormKey(notes, list));
@@ -315,15 +317,15 @@ export default function MeetingsPage() {
 
   // Group edit entries by employee
   const editEntriesByEmployee = useMemo(() => {
-    const groups: { key: string; employeeName: string | null; entries: MeetingEntry[] }[] = [];
+    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: MeetingEntry[] }[] = [];
     const seen = new Map<string, number>();
     for (const e of editEntries) {
       const key = e.employeeId ?? '__none__';
-      if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ key, employeeName: e.employeeName, entries: [] }); }
+      if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] }); }
       groups[seen.get(key)!].entries.push(e);
     }
-    return groups;
-  }, [editEntries]);
+    return sortByEmployeeOrder(groups, employeeOrder);
+  }, [editEntries, employeeOrder]);
 
   const meetings = data?.data ?? [];
 
