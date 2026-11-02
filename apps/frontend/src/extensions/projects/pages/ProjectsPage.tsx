@@ -276,7 +276,7 @@ export default function ProjectsPage() {
         </tr>`;
       }).join('');
 
-      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Opombe</th><th>Lastne opombe</th>`;
+      const headerRow = `<th>Delovni nalog</th><th>Naročnik</th><th>Opombe</th><th>Lastne opombe</th>`;
       // Fixed widths so columns line up across all group tables
       const colGroup = `<colgroup><col style="width:26%"><col style="width:20%"><col style="width:27%"><col style="width:27%"></colgroup>`;
 
