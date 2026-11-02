@@ -72,7 +72,8 @@ export default function AuditLogPage() {
     observerRef.current.observe(node);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const entries = data?.pages.flatMap((p) => p.data) ?? [];
+  // Must be referentially stable — a new array each render makes react-table reset state and re-render forever
+  const entries = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.total ?? 0;
 
   const columns = useMemo(() => [
