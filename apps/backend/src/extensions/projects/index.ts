@@ -123,6 +123,12 @@ async function ensurePmTables() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_employee_order (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        sort_index INTEGER NOT NULL
+      )
+    `);
     // Columns from migration 0012 — re-added here because tables recreated above won't have them
     await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS received_amount NUMERIC(12,2) NOT NULL DEFAULT 0`);
     await db.execute(sql`ALTER TABLE pm_project_invoices ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'issued'`);
@@ -182,6 +188,8 @@ router.patch('/config', requireAuth, requireRole('settings', 'manage'), async (r
 // This is irreversible. Admin only.
 router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'), async (_req: Request, res: Response): Promise<void> => {
   // Drop in child-first order
+  await db.execute(sql`DROP TABLE IF EXISTS pm_employee_order CASCADE`);
+  await db.execute(sql`DROP TABLE IF EXISTS pm_project_invoices CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_documents CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_meeting_entries CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_phases CASCADE`);

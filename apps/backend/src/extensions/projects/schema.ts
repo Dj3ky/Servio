@@ -97,7 +97,13 @@ export const pmProjectInvoices = pgTable('pm_project_invoices', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-export type DbPmCustomer = typeof pmCustomers.$inferSelect;
+// Manual display order of employee groups on the Projects page
+export const pmEmployeeOrder = pgTable('pm_employee_order', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  sortIndex: integer('sort_index').notNull(),
+});
+
+export type DbPmCustomer =typeof pmCustomers.$inferSelect;
 export type DbPmFacility = typeof pmFacilities.$inferSelect;
 export type DbPmProject = typeof pmProjects.$inferSelect;
 export type DbPmProjectPhase = typeof pmProjectPhases.$inferSelect;

@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { eq, ne, ilike, sql, and, or, desc } from 'drizzle-orm';
-import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema } from '@servio/shared';
+import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmEmployeeOrderSchema } from '@servio/shared';
 import { db } from '../../../db';
-import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices } from '../schema';
+import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder } from '../schema';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
@@ -83,7 +83,29 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   res.json({ data, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
 });
 
-const CSV_HEADER = 'project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';
+// Manual order of employee groups — returns user ids in display order
+router.get('/employee-order', async (_req: Request, res: Response): Promise<void> => {
+  const rows = await db.select({ userId: pmEmployeeOrder.userId })
+    .from(pmEmployeeOrder)
+    .orderBy(pmEmployeeOrder.sortIndex);
+  res.json(rows.map((r) => r.userId));
+});
+
+router.put('/employee-order', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = updatePmEmployeeOrderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const userIds = [...new Set(parsed.data.userIds)];
+  await db.transaction(async (tx) => {
+    await tx.delete(pmEmployeeOrder);
+    if (userIds.length > 0) {
+      await tx.insert(pmEmployeeOrder).values(userIds.map((userId, sortIndex) => ({ userId, sortIndex })));
+    }
+  });
+  res.json(userIds);
+});
+
+const CSV_HEADER ='project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';
 
 router.get('/export', async (_req: Request, res: Response): Promise<void> => {
   const data = await db.select({

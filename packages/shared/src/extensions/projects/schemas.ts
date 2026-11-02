@@ -77,6 +77,11 @@ export const createPmInvoiceSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+// PM Employee group order (Projects page)
+export const updatePmEmployeeOrderSchema = z.object({
+  userIds: z.array(z.string().uuid()),
+});
+
 // Extension config
 export const updateExtensionConfigSchema = z.object({
   extension: z.string().min(1),
@@ -94,3 +99,4 @@ export type UpdatePmPhase = z.infer<typeof updatePmPhaseSchema>;
 export type CreatePmMeeting = z.infer<typeof createPmMeetingSchema>;
 export type UpdatePmMeeting = z.infer<typeof updatePmMeetingSchema>;
 export type CreatePmInvoice = z.infer<typeof createPmInvoiceSchema>;
+export type UpdatePmEmployeeOrder = z.infer<typeof updatePmEmployeeOrderSchema>;

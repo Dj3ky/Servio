@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown } from 'lucide-react';
+import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -170,6 +170,20 @@ export default function ProjectsPage() {
     enabled: dialogOpen,
   });
 
+  const { data: employeeOrder = [] } = useQuery<string[]>({
+    queryKey: ['pm-employee-order'],
+    queryFn: () => api.get('/pm/projects/employee-order'),
+  });
+
+  const orderMutation = useMutation({
+    mutationFn: (userIds: string[]) => api.put('/pm/projects/employee-order', { userIds }),
+    onMutate: (userIds) => { qc.setQueryData(['pm-employee-order'], userIds); },
+    onError: () => {
+      toast.error(t('pm.projects.orderSaveError'));
+      qc.invalidateQueries({ queryKey: ['pm-employee-order'] });
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: (body: typeof form) =>
       editingId
@@ -218,8 +232,27 @@ export default function ProjectsPage() {
       }
       groups[seen.get(key)!].projects.push(p);
     }
-    return groups;
-  }, [projects]);
+    // Saved manual order first, users without a position after them, unassigned always last
+    const rank = (key: string) => {
+      if (key === '__none__') return Number.MAX_SAFE_INTEGER;
+      const i = employeeOrder.indexOf(key);
+      return i === -1 ? employeeOrder.length : i;
+    };
+    return groups.sort((a, b) => rank(a.key) - rank(b.key));
+  }, [projects, employeeOrder]);
+
+  // Swap a user with the neighbouring visible group, keeping positions of users hidden by filters
+  function moveGroup(key: string, direction: -1 | 1) {
+    const visible = grouped.map(g => g.key).filter(k => k !== '__none__');
+    const idx = visible.indexOf(key);
+    const neighbour = visible[idx + direction];
+    if (idx === -1 || !neighbour) return;
+    const full = [...employeeOrder, ...visible.filter(k => !employeeOrder.includes(k))];
+    const a = full.indexOf(key);
+    const b = full.indexOf(neighbour);
+    [full[a], full[b]] = [full[b], full[a]];
+    orderMutation.mutate(full);
+  }
 
   function printProjects() {
     const date = new Date().toLocaleDateString('sl-SI');
@@ -493,19 +526,44 @@ export default function ProjectsPage() {
           {grouped.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>}
           {grouped.map((group, idx) => {
             const collapsed = collapsedGroups.has(group.key);
+            const movable = group.key !== '__none__';
+            const isFirst = idx === 0;
+            const isLastMovable = !grouped[idx + 1] || grouped[idx + 1].key === '__none__';
             return (
               <div key={group.key} className="rounded-md border overflow-hidden">
-                <button
-                  className={`w-full px-4 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
-                  onClick={() => toggleGroup(group.key)}
-                >
-                  <Users className="h-4 w-4 opacity-70 shrink-0" />
-                  <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
-                  <span className="font-normal text-muted-foreground">({group.projects.length})</span>
-                  {collapsed
-                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
-                </button>
+                <div className={`flex items-center ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}>
+                  {movable && (
+                    <div className="flex items-center pl-2">
+                      <button
+                        className="p-1 rounded hover:bg-background/60 disabled:opacity-30 disabled:pointer-events-none"
+                        disabled={isFirst || orderMutation.isPending}
+                        onClick={() => moveGroup(group.key, -1)}
+                        title={t('pm.projects.moveUp')}
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-background/60 disabled:opacity-30 disabled:pointer-events-none"
+                        disabled={isLastMovable || orderMutation.isPending}
+                        onClick={() => moveGroup(group.key, 1)}
+                        title={t('pm.projects.moveDown')}
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    className={`flex-1 py-2 pr-4 ${movable ? 'pl-2' : 'pl-4'} text-sm font-semibold flex items-center gap-2 text-left`}
+                    onClick={() => toggleGroup(group.key)}
+                  >
+                    <Users className="h-4 w-4 opacity-70 shrink-0" />
+                    <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
+                    <span className="font-normal text-muted-foreground">({group.projects.length})</span>
+                    {collapsed
+                      ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                </div>
                 {!collapsed && (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] table-fixed text-sm">
