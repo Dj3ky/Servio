@@ -268,7 +268,7 @@ export default function ProjectsPage() {
           ? p.notes.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
           : '&nbsp;';
         return `<tr>
-          <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#555">${p.projectNumber}</span></td>
+          <td><span style="color:#555">${p.projectNumber}</span> <strong>${p.name}</strong></td>
           <td>${p.customerName ?? '—'}</td>
           <td style="border-left:1px solid #e2e8f0;white-space:pre-wrap">${notes}</td>
           <td style="border-left:1px solid #e2e8f0">&nbsp;</td>
@@ -279,14 +279,15 @@ export default function ProjectsPage() {
       // Fixed widths so columns line up across all group tables
       const colGroup = `<colgroup><col style="width:26%"><col style="width:20%"><col style="width:27%"><col style="width:27%"></colgroup>`;
 
+      // Group header lives in <thead> so it never gets orphaned at a page bottom
+      // and repeats on each page the group spans
       const groupHeader = groupByEmployee
-        ? `<div style="background:${bgColor};border:1px solid #cbd5e1;border-left:6px solid #6366f1;padding:7px 10px;font-weight:700;font-size:13px;margin-top:18px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
+        ? `<tr><th colspan="4" class="group-header" style="background:${bgColor}">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</th></tr>`
         : '';
 
-      return `${groupHeader}
-        <table>
+      return `<table${groupByEmployee ? ' style="margin-top:12px"' : ''}>
           ${colGroup}
-          <thead><tr>${headerRow}</tr></thead>
+          <thead>${groupHeader}<tr>${headerRow}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
     }).join('');
@@ -300,9 +301,12 @@ export default function ProjectsPage() {
         .meta { font-size: 10px; color: #666; margin-bottom: 12px; }
         table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
         td { overflow-wrap: anywhere; }
-        th { background: #f1f5f9; text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
-        td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; height: 32px; }
+        th { background: #f1f5f9; text-align: left; padding: 3px 6px; border-bottom: 1px solid #cbd5e1; font-size: 10px; }
+        td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; height: 20px; }
         tr:last-child td { border-bottom: none; }
+        thead { display: table-header-group; break-after: avoid; }
+        tr { break-inside: avoid; }
+        th.group-header { border: 1px solid #cbd5e1; border-left: 6px solid #6366f1; padding: 5px 10px; font-size: 12px; }
         @media print { button { display: none; } }
       </style>
     </head><body>
