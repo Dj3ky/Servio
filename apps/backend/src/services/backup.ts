@@ -11,6 +11,19 @@ import { saveToSmb, listSmbFiles, deleteFromSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
 
+const NAS_COPY_ATTEMPTS = 3;
+const NAS_RETRY_DELAY_MS = 30000;
+
+async function notifyBackupFailed(title: string, message: string): Promise<void> {
+  try {
+    const [notif] = await db
+      .insert(notifications)
+      .values({ type: 'backup_failed', title, message, entityType: null, entityId: null })
+      .returning();
+    broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
+  } catch {}
+}
+
 export function localTimestamp(): string {
   const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -125,15 +138,33 @@ export async function createBackup(): Promise<string> {
   await createAuditLog({ action: 'create_backup', payload: { filename: bundleFilename } });
 
   if (s?.backupToNas) {
+    const nasDir = (s.backupNasPath || 'Backups').replace(/\/+$/, '');
+    const remotePath = `${nasDir}/${bundleFilename}`;
     try {
       const buffer = await fs.readFile(bundleFilePath);
-      const nasDir = (s.backupNasPath || 'Backups').replace(/\/+$/, '');
-      const remotePath = `${nasDir}/${bundleFilename}`;
-      await saveToSmb(remotePath, buffer);
+      // A sleeping NAS (typical during the night) can take a while to spin up, so retry.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await saveToSmb(remotePath, buffer);
+          break;
+        } catch (err) {
+          if (attempt >= NAS_COPY_ATTEMPTS) throw err;
+          console.warn(`[backup] NAS copy attempt ${attempt} failed, retrying in ${NAS_RETRY_DELAY_MS / 1000}s:`, err);
+          await new Promise((r) => setTimeout(r, NAS_RETRY_DELAY_MS));
+        }
+      }
       console.log('[backup] Backup copied to NAS:', remotePath);
-      await applyNasRetentionPolicy(nasDir);
     } catch (err) {
       console.error('[backup] Failed to copy backup to NAS:', err);
+      await notifyBackupFailed(
+        'Backup NAS Copy Failed',
+        `${bundleFilename} was saved locally but could not be copied to the NAS: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    try {
+      await applyNasRetentionPolicy(nasDir);
+    } catch (err) {
+      console.error('[backup] NAS retention failed:', err);
     }
   }
 
@@ -171,19 +202,7 @@ export async function rescheduleBackup(): Promise<void> {
       console.log('[backup] Backup created:', file);
     } catch (err) {
       console.error('[backup] Backup failed:', err);
-      try {
-        const [notif] = await db
-          .insert(notifications)
-          .values({
-            type: 'backup_failed',
-            title: 'Backup Failed',
-            message: err instanceof Error ? err.message : 'Unknown error',
-            entityType: null,
-            entityId: null,
-          })
-          .returning();
-        broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
-      } catch {}
+      await notifyBackupFailed('Backup Failed', err instanceof Error ? err.message : 'Unknown error');
     }
   }, options);
 

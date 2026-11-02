@@ -26,7 +26,7 @@ async function getSmbConfig(): Promise<SmbConfig | null> {
 
 // Password is passed via PASSWD env var — keeps it out of the process list.
 // smbclient uses NTLMv2 by default on modern samba-client packages.
-function runSmbclient(cfg: SmbConfig, command: string): Promise<string> {
+function runSmbclient(cfg: SmbConfig, command: string, timeoutMs = 15000): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn(
       'smbclient',
@@ -38,7 +38,7 @@ function runSmbclient(cfg: SmbConfig, command: string): Promise<string> {
       ],
       {
         env: { ...process.env, PASSWD: cfg.password },
-        timeout: 15000,
+        timeout: timeoutMs,
       },
     );
 
@@ -49,6 +49,7 @@ function runSmbclient(cfg: SmbConfig, command: string): Promise<string> {
 
     proc.on('close', (code) => {
       if (code === 0) resolve(stdout);
+      else if (code === null) reject(new Error(`smbclient timed out after ${timeoutMs / 1000}s (killed) — is the NAS reachable / awake?`));
       else reject(new Error(stderr.trim() || stdout.trim() || `smbclient exited with code ${code}`));
     });
 
@@ -111,7 +112,9 @@ export async function saveToSmb(remotePath: string, buffer: Buffer): Promise<voi
     const dir = parts.join('/');
     if (dir) await ensureDir(cfg, dir);
 
-    await runSmbclient(cfg, `put "${tmpFile}" "${remotePath}"`);
+    // Large files (backups) need more than the default timeout; allow ~1 MB/s plus a minute of slack.
+    const putTimeout = 60000 + Math.ceil(buffer.length / 1_000_000) * 1000;
+    await runSmbclient(cfg, `put "${tmpFile}" "${remotePath}"`, putTimeout);
   } finally {
     await fs.unlink(tmpFile).catch(() => {});
   }
