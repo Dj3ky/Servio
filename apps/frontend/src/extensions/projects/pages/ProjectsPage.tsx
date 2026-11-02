@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
+import { ProjectNotesHint } from '../ProjectNotesHint';
 
 interface PmProject {
   id: string;
@@ -380,7 +381,10 @@ export default function ProjectsPage() {
     return (
       <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
         <td className="px-4 py-3">
-          <div className="font-medium">{p.name}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{p.name}</span>
+            <ProjectNotesHint notes={p.notes} />
+          </div>
           <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
         </td>
         <td className="px-4 py-3 text-muted-foreground text-sm">{p.customerName ?? '—'}</td>

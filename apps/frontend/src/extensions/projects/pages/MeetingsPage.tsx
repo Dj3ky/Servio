@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink, StickyNote } from 'lucide-react';
+import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
+import { ProjectNotesHint } from '../ProjectNotesHint';
 
 interface Meeting {
   id: string; meetingDate: string; notes: string | null;
@@ -42,21 +42,6 @@ interface EntryDraft {
   employeeId: string | null; employeeName: string | null;
   lastMeetingDate: string | null; lastEntryNotes: string | null;
   projectNotes: string | null;
-}
-
-// Icon next to the project name that previews the project's own notes on hover
-function ProjectNotesHint({ notes }: { notes: string | null | undefined }) {
-  if (!notes?.trim()) return null;
-  return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-500 cursor-help" />
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-sm whitespace-pre-wrap text-xs">{notes}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 interface QuickViewProject {
