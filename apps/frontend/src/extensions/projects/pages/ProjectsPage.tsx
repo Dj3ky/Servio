@@ -271,12 +271,13 @@ export default function ProjectsPage() {
           <td><strong>${p.name}</strong><br><span style="font-size:9px;color:#555">${p.projectNumber}</span></td>
           <td>${p.customerName ?? '—'}</td>
           <td style="border-left:1px solid #e2e8f0;white-space:pre-wrap">${notes}</td>
+          <td style="border-left:1px solid #e2e8f0">&nbsp;</td>
         </tr>`;
       }).join('');
 
-      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Opombe</th>`;
+      const headerRow = `<th>Delovni nalog</th><th>Kupec</th><th>Opombe</th><th>Lastne opombe</th>`;
       // Fixed widths so columns line up across all group tables
-      const colGroup = `<colgroup><col style="width:32%"><col style="width:26%"><col style="width:42%"></colgroup>`;
+      const colGroup = `<colgroup><col style="width:26%"><col style="width:20%"><col style="width:27%"><col style="width:27%"></colgroup>`;
 
       const groupHeader = groupByEmployee
         ? `<div style="background:${bgColor};border:1px solid #cbd5e1;border-left:6px solid #6366f1;padding:7px 10px;font-weight:700;font-size:13px;margin-top:18px;margin-bottom:4px">${g.employeeName ?? t('pm.reports.unassigned')} (${g.projects.length})</div>`
