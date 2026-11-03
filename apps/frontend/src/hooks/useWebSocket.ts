@@ -1,12 +1,20 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import i18n from 'i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useInboxStore } from '@/stores/inboxStore';
 import { queryClient } from '@/lib/queryClient';
-import { WsEvent } from '@servio/shared';
+import { showDesktopNotification, notificationLink } from '@/lib/desktopNotifications';
+import { WsEvent, NotificationCreatedPayload } from '@servio/shared';
 
 export function useWebSocket() {
   const token = useAuthStore((s) => s.token);
+  // Kept in a ref so the socket effect doesn't reconnect when navigate changes
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const addNotification = useNotificationStore((s) => s.addNotification);
   const setUnreadCount = useInboxStore((s) => s.setUnreadCount);
   const wsRef = useRef<WebSocket | null>(null);
@@ -38,6 +46,17 @@ export function useWebSocket() {
       };
     }
 
+    // Personal notifications: a Windows notification when the app is in the background,
+    // an in-app toast when the user is looking at it
+    function showPersonalNotification(payload: NotificationCreatedPayload) {
+      const title = i18n.t(`notifications.${payload.type}` as any, payload.title) as string;
+      const link = notificationLink(payload);
+      const open = () => { if (link) navigateRef.current(link); };
+      const inFocus = document.visibilityState === 'visible' && document.hasFocus();
+      if (!inFocus && showDesktopNotification({ title, body: payload.message, tag: payload.id, onClick: open })) return;
+      toast(`${title}: ${payload.message}`, { icon: '🔔', duration: 6000 });
+    }
+
     function handleEvent(event: WsEvent) {
       switch (event.type) {
         case 'review_completed':
@@ -51,18 +70,25 @@ export function useWebSocket() {
           queryClient.invalidateQueries({ queryKey: ['contracts'] });
           break;
         case 'notification_created': {
-          const payload = event.payload as { id: string; type: string; title: string; message: string };
+          const payload = event.payload as NotificationCreatedPayload;
           addNotification({
             id: payload.id || crypto.randomUUID(),
             type: payload.type,
             title: payload.title,
             message: payload.message,
             isRead: false,
-            entityType: null,
-            entityId: null,
+            entityType: payload.entityType ?? null,
+            entityId: payload.entityId ?? null,
             createdAt: event.timestamp,
           });
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          if (payload.personal) {
+            showPersonalNotification(payload);
+            if (payload.type.startsWith('pm_task_')) {
+              queryClient.invalidateQueries({ queryKey: ['pm-my-tasks'] });
+              queryClient.invalidateQueries({ queryKey: ['pm-my-task-count'] });
+            }
+          }
           break;
         }
         case 'dashboard_refresh':

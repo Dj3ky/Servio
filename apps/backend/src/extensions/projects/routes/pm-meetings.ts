@@ -4,6 +4,7 @@ import { createPmMeetingSchema, updatePmMeetingSchema, type CreatePmMeeting } fr
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects, pmProjectTasks } from '../schema';
 import { selectTasks } from '../tasks';
+import { notifyTasksAssigned } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 
@@ -101,18 +102,21 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type EntryInput = { projectId: string; entryStatus: string; notes?: string | null };
 type TaskChanges = NonNullable<CreatePmMeeting['tasks']>;
 
-// Task changes from the meeting form: new tasks are linked to this meeting, and so are tasks closed here
-async function applyTaskChanges(tx: Tx, meetingId: string, userId: string, changes: TaskChanges | undefined) {
-  if (!changes) return;
+// Task changes from the meeting form: new tasks are linked to this meeting, and so are tasks closed here.
+// Returns the ids of the created tasks.
+async function applyTaskChanges(tx: Tx, meetingId: string, userId: string, changes: TaskChanges | undefined): Promise<string[]> {
+  if (!changes) return [];
+  let createdIds: string[] = [];
   if (changes.create.length > 0) {
-    await tx.insert(pmProjectTasks).values(changes.create.map(c => ({
+    const created = await tx.insert(pmProjectTasks).values(changes.create.map(c => ({
       projectId: c.projectId,
       title: c.title,
       assigneeId: c.assigneeId ?? null,
       dueDate: c.dueDate || null,
       meetingId,
       createdById: userId,
-    })));
+    }))).returning({ id: pmProjectTasks.id });
+    createdIds = created.map(t => t.id);
   }
   if (changes.complete.length > 0) {
     await tx.update(pmProjectTasks)
@@ -121,9 +125,10 @@ async function applyTaskChanges(tx: Tx, meetingId: string, userId: string, chang
   }
   if (changes.reopen.length > 0) {
     await tx.update(pmProjectTasks)
-      .set({ status: 'open', completedAt: null, completedMeetingId: null, updatedAt: new Date() })
+      .set({ status: 'open', completedAt: null, completedMeetingId: null, dueNotifiedAt: null, overdueNotifiedAt: null, updatedAt: new Date() })
       .where(inArray(pmProjectTasks.id, changes.reopen));
   }
+  return createdIds;
 }
 
 async function insertEntries(tx: Tx, meetingId: string, entries: EntryInput[]) {
@@ -149,17 +154,19 @@ router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Re
   const parsed = createPmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  const meeting = await db.transaction(async (tx) => {
+  const { meeting, createdTaskIds } = await db.transaction(async (tx) => {
     const [created] = await tx.insert(pmWeeklyMeetings).values({
       meetingDate: parsed.data.meetingDate,
       notes: parsed.data.notes ?? null,
       createdById: req.auth!.userId,
     }).returning();
     await insertEntries(tx, created.id, parsed.data.entries);
-    await applyTaskChanges(tx, created.id, req.auth!.userId, parsed.data.tasks);
-    return created;
+    const taskIds = await applyTaskChanges(tx, created.id, req.auth!.userId, parsed.data.tasks);
+    return { meeting: created, createdTaskIds: taskIds };
   });
 
+  // After commit, so notifications never point at tasks that were rolled back
+  await notifyTasksAssigned(createdTaskIds, req.auth!.userId);
   res.status(201).json(meeting);
 });
 
@@ -168,13 +175,14 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   const parsed = updatePmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  let createdTaskIds: string[] = [];
   const updated = await db.transaction(async (tx) => {
     const [meeting] = await tx.update(pmWeeklyMeetings)
       .set({ notes: parsed.data.notes ?? null, updatedAt: new Date() })
       .where(eq(pmWeeklyMeetings.id, req.params.id))
       .returning();
     if (!meeting) return meeting;
-    await applyTaskChanges(tx, req.params.id, req.auth!.userId, parsed.data.tasks);
+    createdTaskIds = await applyTaskChanges(tx, req.params.id, req.auth!.userId, parsed.data.tasks);
     if (!parsed.data.entries) return meeting;
 
     const previouslyDone = await tx.select({ projectId: pmMeetingEntries.projectId })
@@ -202,6 +210,7 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   });
 
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  await notifyTasksAssigned(createdTaskIds, req.auth!.userId);
   res.json(updated);
 });
 

@@ -38,6 +38,9 @@ export const NotificationType = {
   backup_failed: 'backup_failed',
   review_overdue: 'review_overdue',
   email_bounced: 'email_bounced',
+  pm_task_assigned: 'pm_task_assigned',
+  pm_task_due: 'pm_task_due',
+  pm_task_overdue: 'pm_task_overdue',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 

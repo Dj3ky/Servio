@@ -1,5 +1,7 @@
-import { Bell } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, MonitorSmartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -9,6 +11,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
+import { desktopNotificationPermission, requestDesktopNotifications, notificationLink } from '@/lib/desktopNotifications';
 
 interface NotificationItem {
   id: string;
@@ -23,7 +26,9 @@ interface NotificationItem {
 
 export function NotificationCenter() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { setNotifications, markRead, markAllRead, unreadCount } = useNotificationStore();
+  const [desktopPermission, setDesktopPermission] = useState(desktopNotificationPermission);
 
   const { data: licenseStatus } = useQuery<{ valid: boolean }>({
     queryKey: ['license-status'],
@@ -82,6 +87,18 @@ export function NotificationCenter() {
           )}
         </div>
         <DropdownMenuSeparator />
+        {desktopPermission === 'default' && (
+          <>
+            <DropdownMenuItem
+              className="gap-2 text-xs"
+              onSelect={e => { e.preventDefault(); requestDesktopNotifications().then(setDesktopPermission); }}
+            >
+              <MonitorSmartphone className="h-4 w-4 shrink-0" />
+              {t('notifications.enableDesktop')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {notifications.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">{t('notifications.noNotifications')}</div>
         ) : (
@@ -90,7 +107,11 @@ export function NotificationCenter() {
               <DropdownMenuItem
                 key={n.id}
                 className={`flex flex-col items-start gap-1 p-3 ${!n.isRead ? 'bg-muted/50' : ''}`}
-                onClick={() => !n.isRead && markReadMutation.mutate(n.id)}
+                onClick={() => {
+                  if (!n.isRead) markReadMutation.mutate(n.id);
+                  const link = notificationLink(n);
+                  if (link) navigate(link);
+                }}
               >
                 <div className="flex w-full items-center justify-between">
                   <span className="text-xs font-semibold">{t(`notifications.${n.type}` as any, n.title)}</span>

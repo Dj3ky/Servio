@@ -4,6 +4,7 @@ import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, upda
 import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks } from '../schema';
 import { selectTasks } from '../tasks';
+import { notifyTasksAssigned } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
@@ -527,6 +528,7 @@ router.post('/:id/tasks', requireRole('projects', 'manage'), async (req: Request
     createdById: req.auth!.userId,
   }).returning();
 
+  await notifyTasksAssigned([task.id], req.auth!.userId);
   res.status(201).json(task);
 });
 
@@ -534,19 +536,29 @@ router.patch('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (req
   const parsed = updatePmTaskSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  const where = and(eq(pmProjectTasks.id, req.params.taskId), eq(pmProjectTasks.projectId, req.params.id));
+  const [before] = await db.select().from(pmProjectTasks).where(where).limit(1);
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const { status, dueDate, ...rest } = parsed.data;
+  const newDueDate = dueDate !== undefined ? dueDate || null : before.dueDate;
+  // A new due date or a reopened task should get its reminders again
+  const resetReminders = newDueDate !== before.dueDate || (status === 'open' && before.status !== 'open');
   const [updated] = await db.update(pmProjectTasks)
     .set({
       ...rest,
-      ...(dueDate !== undefined ? { dueDate: dueDate || null } : {}),
+      dueDate: newDueDate,
       // Closed outside a meeting, so no completedMeetingId
       ...(status ? { status, completedAt: status === 'done' ? new Date() : null, completedMeetingId: null } : {}),
+      ...(resetReminders ? { dueNotifiedAt: null, overdueNotifiedAt: null } : {}),
       updatedAt: new Date(),
     })
-    .where(and(eq(pmProjectTasks.id, req.params.taskId), eq(pmProjectTasks.projectId, req.params.id)))
+    .where(where)
     .returning();
-  if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
+  if (updated.assigneeId && updated.assigneeId !== before.assigneeId) {
+    await notifyTasksAssigned([updated.id], req.auth!.userId);
+  }
   res.json(updated);
 });
 

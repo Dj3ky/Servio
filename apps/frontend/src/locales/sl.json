@@ -451,7 +451,11 @@
     "email_failed": "Napaka e-pošte",
     "backup_failed": "Napaka varnostne kopije",
     "review_overdue": "Pregled zamuden",
-    "email_bounced": "E-pošta vrnjena"
+    "email_bounced": "E-pošta vrnjena",
+    "pm_task_assigned": "Nova naloga",
+    "pm_task_due": "Naloga zapade jutri",
+    "pm_task_overdue": "Naloga zamuja",
+    "enableDesktop": "Vklopi obvestila v sistemu Windows"
   },
   "auditLog": {
     "title": "Revizijski dnevnik",

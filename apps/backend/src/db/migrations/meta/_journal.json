@@ -114,5 +114,12 @@
       "tag": "0015_pm_project_tasks",
       "breakpoints": true
     }
+    ,{
+      "idx": 16,
+      "version": "7",
+      "when": 1781366400000,
+      "tag": "0016_personal_notifications",
+      "breakpoints": true
+    }
   ]
 }

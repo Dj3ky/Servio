@@ -108,6 +108,9 @@ export const pmProjectTasks = pgTable('pm_project_tasks', {
   meetingId: uuid('meeting_id').references(() => pmWeeklyMeetings.id, { onDelete: 'set null' }),
   completedMeetingId: uuid('completed_meeting_id').references(() => pmWeeklyMeetings.id, { onDelete: 'set null' }),
   completedAt: timestamp('completed_at'),
+  // When the "due tomorrow" / "overdue" reminder was sent; cleared when the due date changes or the task reopens
+  dueNotifiedAt: timestamp('due_notified_at'),
+  overdueNotifiedAt: timestamp('overdue_notified_at'),
   createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

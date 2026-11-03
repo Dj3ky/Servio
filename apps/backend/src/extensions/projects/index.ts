@@ -13,6 +13,7 @@ import pmProjectsRoutes from './routes/pm-projects';
 import pmMeetingsRoutes from './routes/pm-meetings';
 import pmReportsRoutes from './routes/pm-reports';
 import pmTasksRoutes from './routes/pm-tasks';
+import { startTaskReminders } from './taskNotifications';
 
 const FEATURE_KEY = 'projects_extension';
 
@@ -151,6 +152,9 @@ async function ensurePmTables() {
       )
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_project_tasks_project_idx ON pm_project_tasks(project_id)`);
+    // Reminder bookkeeping so each task is notified once per event
+    await db.execute(sql`ALTER TABLE pm_project_tasks ADD COLUMN IF NOT EXISTS due_notified_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE pm_project_tasks ADD COLUMN IF NOT EXISTS overdue_notified_at TIMESTAMP`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
@@ -165,6 +169,8 @@ async function isEnabled(): Promise<boolean> {
   const cfg = s?.extensionsConfig as Record<string, { enabled: boolean }> | null;
   return cfg?.projects?.enabled === true;
 }
+
+startTaskReminders(isEnabled);
 
 async function requireExtension(req: Request, res: Response, next: NextFunction): Promise<void> {
   const enabled = await isEnabled();

@@ -79,6 +79,12 @@ async function ensureSettingsColumns() {
   `);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at)`);
+  // Personal notifications (migration 0016)
+  await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE CASCADE`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications (user_id)`);
+  await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_assigned'`);
+  await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_due'`);
+  await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_overdue'`);
 }
 
 async function start() {

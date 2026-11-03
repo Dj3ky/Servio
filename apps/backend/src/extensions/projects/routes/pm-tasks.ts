@@ -55,7 +55,14 @@ router.patch('/:taskId/status', async (req: Request, res: Response): Promise<voi
 
   const done = parsed.data.status === 'done';
   const [updated] = await db.update(pmProjectTasks)
-    .set({ status: parsed.data.status, completedAt: done ? new Date() : null, completedMeetingId: null, updatedAt: new Date() })
+    .set({
+      status: parsed.data.status,
+      completedAt: done ? new Date() : null,
+      completedMeetingId: null,
+      // A reopened task should get its reminders again
+      ...(done ? {} : { dueNotifiedAt: null, overdueNotifiedAt: null }),
+      updatedAt: new Date(),
+    })
     .where(eq(pmProjectTasks.id, req.params.taskId))
     .returning();
   res.json(updated);

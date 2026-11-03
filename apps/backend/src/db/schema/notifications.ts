@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, boolean, pgEnum, index } from 'drizzle-orm/pg-core';
+import { users } from './users';
 
 export const notificationTypeEnum = pgEnum('notification_type', [
   'smb_failed',
@@ -6,11 +7,16 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'backup_failed',
   'review_overdue',
   'email_bounced',
+  'pm_task_assigned',
+  'pm_task_due',
+  'pm_task_overdue',
 ]);
 
 export const notifications = pgTable('notifications', {
   id: uuid('id').defaultRandom().primaryKey(),
   type: notificationTypeEnum('type').notNull(),
+  // null = shared system notification seen by everyone; set = personal, only that user sees it
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   message: text('message').notNull(),
   isRead: boolean('is_read').notNull().default(false),
@@ -19,6 +25,7 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   createdAtIdx: index('notifications_created_at_idx').on(t.createdAt),
+  userIdx: index('notifications_user_id_idx').on(t.userId),
 }));
 
 export type DbNotification = typeof notifications.$inferSelect;

@@ -451,7 +451,11 @@
     "email_failed": "Email Error",
     "backup_failed": "Backup Error",
     "review_overdue": "Review Overdue",
-    "email_bounced": "Email Bounced"
+    "email_bounced": "Email Bounced",
+    "pm_task_assigned": "New task",
+    "pm_task_due": "Task due tomorrow",
+    "pm_task_overdue": "Task overdue",
+    "enableDesktop": "Enable Windows notifications"
   },
   "auditLog": {
     "title": "Audit Log",

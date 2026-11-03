@@ -46,6 +46,10 @@ export interface NotificationCreatedPayload {
   type: string;
   title: string;
   message: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  // Sent only to this user (e.g. task notifications) — these also show as desktop notifications
+  personal?: boolean;
 }
 
 export interface DashboardRefreshPayload {
