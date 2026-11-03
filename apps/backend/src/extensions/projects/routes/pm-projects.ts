@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { eq, ne, ilike, sql, and, or, desc } from 'drizzle-orm';
-import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema } from '@servio/shared';
+import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema, createPmTaskSchema, updatePmTaskSchema } from '@servio/shared';
 import { db } from '../../../db';
-import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder } from '../schema';
+import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks } from '../schema';
+import { selectTasks } from '../tasks';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
@@ -67,6 +68,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     employeeName: users.name,
     customerName: pmProjects.customerName,
     facilityName: pmProjects.facilityName,
+    openTaskCount: sql<number>`(select count(*)::int from pm_project_tasks t where t.project_id = ${pmProjects.id} and t.status = 'open')`,
+    overdueTaskCount: sql<number>`(select count(*)::int from pm_project_tasks t where t.project_id = ${pmProjects.id} and t.status = 'open' and t.due_date < current_date)`,
   };
 
   const [data, [{ count }]] = await Promise.all([
@@ -103,6 +106,21 @@ router.put('/employee-order', requireRole('projects', 'manage'), async (req: Req
     }
   });
   res.json(userIds);
+});
+
+// Distinct customer / facility names already used on projects, for form autocomplete
+router.get('/suggestions', async (_req: Request, res: Response): Promise<void> => {
+  const rows = await db.selectDistinct({ customerName: pmProjects.customerName, facilityName: pmProjects.facilityName })
+    .from(pmProjects)
+    .where(or(sql`${pmProjects.customerName} <> ''`, sql`${pmProjects.facilityName} <> ''`));
+
+  const customers = [...new Set(rows.map((r) => r.customerName?.trim()).filter((n): n is string => !!n))]
+    .sort((a, b) => a.localeCompare(b, 'sl'));
+  const facilities = rows
+    .filter((r) => r.facilityName?.trim())
+    .map((r) => ({ name: r.facilityName!.trim(), customerName: r.customerName?.trim() || null }));
+
+  res.json({ customers, facilities });
 });
 
 const CSV_HEADER ='project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';
@@ -485,6 +503,58 @@ router.delete('/:id/invoices/:invoiceId', requireRole('projects', 'manage'), asy
 
   await recalculateInvoiceTotals(req.params.id);
 
+  res.json({ success: true });
+});
+
+// --- Tasks ---
+
+router.get('/:id/tasks', async (req: Request, res: Response): Promise<void> => {
+  res.json(await selectTasks(eq(pmProjectTasks.projectId, req.params.id)));
+});
+
+router.post('/:id/tasks', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = createPmTaskSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const [project] = await db.select({ id: pmProjects.id }).from(pmProjects).where(eq(pmProjects.id, req.params.id)).limit(1);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  const [task] = await db.insert(pmProjectTasks).values({
+    projectId: req.params.id,
+    title: parsed.data.title,
+    assigneeId: parsed.data.assigneeId ?? null,
+    dueDate: parsed.data.dueDate || null,
+    createdById: req.auth!.userId,
+  }).returning();
+
+  res.status(201).json(task);
+});
+
+router.patch('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = updatePmTaskSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const { status, dueDate, ...rest } = parsed.data;
+  const [updated] = await db.update(pmProjectTasks)
+    .set({
+      ...rest,
+      ...(dueDate !== undefined ? { dueDate: dueDate || null } : {}),
+      // Closed outside a meeting, so no completedMeetingId
+      ...(status ? { status, completedAt: status === 'done' ? new Date() : null, completedMeetingId: null } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(pmProjectTasks.id, req.params.taskId), eq(pmProjectTasks.projectId, req.params.id)))
+    .returning();
+  if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  res.json(updated);
+});
+
+router.delete('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const [deleted] = await db.delete(pmProjectTasks)
+    .where(and(eq(pmProjectTasks.id, req.params.taskId), eq(pmProjectTasks.projectId, req.params.id)))
+    .returning();
+  if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });
 });
 

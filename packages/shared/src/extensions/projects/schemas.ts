@@ -49,6 +49,24 @@ export const createPmPhaseSchema = z.object({
 
 export const updatePmPhaseSchema = createPmPhaseSchema.partial();
 
+// PM Project Tasks
+export const createPmTaskSchema = z.object({
+  title: z.string().trim().min(1),
+  assigneeId: z.string().uuid().optional().nullable(),
+  dueDate: z.string().optional().nullable(),
+});
+
+export const updatePmTaskSchema = createPmTaskSchema.partial().extend({
+  status: z.enum(['open', 'done']).optional(),
+});
+
+// Task changes made inside a meeting form, applied together with the meeting save
+const pmMeetingTaskChangesSchema = z.object({
+  create: z.array(createPmTaskSchema.extend({ projectId: z.string().uuid() })).default([]),
+  complete: z.array(z.string().uuid()).default([]),
+  reopen: z.array(z.string().uuid()).default([]),
+});
+
 // PM Weekly Meetings
 export const createPmMeetingSchema = z.object({
   meetingDate: z.string().min(1),
@@ -58,6 +76,7 @@ export const createPmMeetingSchema = z.object({
     entryStatus: z.enum(['active', 'on_hold', 'completed']).default('active'),
     notes: z.string().optional().nullable(),
   })),
+  tasks: pmMeetingTaskChangesSchema.optional(),
 });
 
 export const updatePmMeetingSchema = z.object({
@@ -67,6 +86,7 @@ export const updatePmMeetingSchema = z.object({
     entryStatus: z.enum(['active', 'on_hold', 'completed']),
     notes: z.string().optional().nullable(),
   })).optional(),
+  tasks: pmMeetingTaskChangesSchema.optional(),
 });
 
 // PM Project Invoices
@@ -103,3 +123,5 @@ export type UpdatePmMeeting = z.infer<typeof updatePmMeetingSchema>;
 export type CreatePmInvoice = z.infer<typeof createPmInvoiceSchema>;
 export type UpdatePmInvoice = z.infer<typeof updatePmInvoiceSchema>;
 export type UpdatePmEmployeeOrder = z.infer<typeof updatePmEmployeeOrderSchema>;
+export type CreatePmTask = z.infer<typeof createPmTaskSchema>;
+export type UpdatePmTask = z.infer<typeof updatePmTaskSchema>;

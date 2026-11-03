@@ -681,6 +681,28 @@
       "deletedOk": "Faza izbrisana",
       "error": "Napaka"
     },
+    "tasks": {
+      "tab": "Naloge",
+      "add": "Naloga",
+      "addLong": "Dodaj nalogo",
+      "titlePlaceholder": "Kaj je treba narediti?",
+      "assignee": "Odgovoren",
+      "dueDate": "Rok",
+      "noAssignee": "Brez odgovornega",
+      "open": "Odprte",
+      "done": "Zaključene",
+      "openCount": "Odprte naloge: {{count}}",
+      "overdueCount": "Zamujene naloge: {{count}}",
+      "overdue": "Zamuja",
+      "fromMeeting": "Sestanek {{date}}",
+      "createdHere": "Nova naloga",
+      "closedHere": "Zaključena",
+      "deleteConfirm": "Izbriši nalogo?",
+      "addedOk": "Naloga dodana",
+      "updatedOk": "Naloga posodobljena",
+      "deletedOk": "Naloga izbrisana",
+      "error": "Napaka pri shranjevanju naloge"
+    },
     "documents": {
       "tab": "Dokumenti",
       "upload": "Naloži dokument",

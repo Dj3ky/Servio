@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
+import { NameSuggestionLists } from '../nameSuggestions';
 
 interface PmProject {
   id: string;
@@ -35,6 +36,8 @@ interface PmProject {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  openTaskCount: number;
+  overdueTaskCount: number;
 }
 
 interface User { id: string; name: string; }
@@ -147,6 +150,7 @@ export default function ProjectsPage() {
       setImportResult(data as ImportResult);
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
+      qc.invalidateQueries({ queryKey: ['pm-name-suggestions'] });
     } catch {
       toast.error(t('errors.internal'));
     } finally {
@@ -191,6 +195,7 @@ export default function ProjectsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
+      qc.invalidateQueries({ queryKey: ['pm-name-suggestions'] });
       toast.success(editingId ? t('pm.projects.savedOk') : t('pm.projects.createdOk'));
       setDialogOpen(false);
     },
@@ -384,6 +389,13 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-1.5">
             <span className="font-medium">{p.name}</span>
             <ProjectNotesHint notes={p.notes} />
+            {p.openTaskCount > 0 && (
+              <Badge variant={p.overdueTaskCount > 0 ? 'destructive' : 'outline'} className="text-[10px] px-1.5 py-0 font-normal">
+                {p.overdueTaskCount > 0
+                  ? t('pm.tasks.overdueCount', { count: p.overdueTaskCount })
+                  : t('pm.tasks.openCount', { count: p.openTaskCount })}
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
         </td>
@@ -611,12 +623,13 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
-                <Input placeholder={t('pm.fields.customer')} value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} />
+                <Input list="pm-new-customers" autoComplete="off" placeholder={t('pm.fields.customer')} value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
-                <Input placeholder={t('pm.fields.facility')} value={form.facilityName} onChange={e => setForm(f => ({ ...f, facilityName: e.target.value }))} />
+                <Input list="pm-new-facilities" autoComplete="off" placeholder={t('pm.fields.facility')} value={form.facilityName} onChange={e => setForm(f => ({ ...f, facilityName: e.target.value }))} />
               </div>
+              <NameSuggestionLists id="pm-new" customerName={form.customerName} enabled={dialogOpen} />
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
                 <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>

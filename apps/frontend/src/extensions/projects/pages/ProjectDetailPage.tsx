@@ -15,6 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
+import { ProjectTasksTab } from '../ProjectTasksTab';
+import { NameSuggestionLists } from '../nameSuggestions';
+import type { PmTask } from '../tasks';
 
 interface User { id: string; name: string; }
 
@@ -232,6 +235,12 @@ export default function ProjectDetailPage() {
     enabled: !!id,
   });
 
+  const { data: tasks } = useQuery<PmTask[]>({
+    queryKey: ['pm-project-tasks', id],
+    queryFn: () => api.get(`/pm/projects/${id}/tasks`),
+    enabled: !!id,
+  });
+
   const { data: usersData } = useQuery<User[]>({
     queryKey: ['pm-employees'],
     queryFn: () => api.get('/pm/employees'),
@@ -244,6 +253,7 @@ export default function ProjectDetailPage() {
       qc.invalidateQueries({ queryKey: ['pm-project', id] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
+      qc.invalidateQueries({ queryKey: ['pm-name-suggestions'] });
       toast.success(t('pm.projects.savedOk'));
       setEditDialogOpen(false);
     },
@@ -466,11 +476,17 @@ export default function ProjectDetailPage() {
       <Tabs defaultValue="meetings">
         <TabsList>
           <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="tasks">{t('pm.tasks.tab')} ({(tasks ?? []).filter(task => task.status === 'open').length})</TabsTrigger>
           <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
           <TabsTrigger value="invoicesIssued">{t('pm.invoices.tabIssued')} ({issuedInvoices.length})</TabsTrigger>
           <TabsTrigger value="invoicesReceived">{t('pm.invoices.tabReceived')} ({receivedInvoices.length})</TabsTrigger>
         </TabsList>
+
+        {/* Tasks */}
+        <TabsContent value="tasks">
+          <ProjectTasksTab projectId={project.id} tasks={tasks ?? []} defaultAssigneeId={project.employeeId} />
+        </TabsContent>
 
         {/* Phases */}
         <TabsContent value="phases" className="space-y-3 mt-4">
@@ -617,12 +633,13 @@ export default function ProjectDetailPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
-                <Input value={editForm.customerName ?? ''} onChange={e => setEditForm(f => ({ ...f, customerName: e.target.value }))} />
+                <Input list="pm-edit-customers" autoComplete="off" value={editForm.customerName ?? ''} onChange={e => setEditForm(f => ({ ...f, customerName: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
-                <Input value={editForm.facilityName ?? ''} onChange={e => setEditForm(f => ({ ...f, facilityName: e.target.value }))} />
+                <Input list="pm-edit-facilities" autoComplete="off" value={editForm.facilityName ?? ''} onChange={e => setEditForm(f => ({ ...f, facilityName: e.target.value }))} />
               </div>
+              <NameSuggestionLists id="pm-edit" customerName={editForm.customerName ?? ''} enabled={editDialogOpen} />
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
                 <Select value={editForm.priority ?? 'medium'} onValueChange={v => setEditForm(f => ({ ...f, priority: v }))}>

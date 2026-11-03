@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { eq, ne, desc, sql, inArray, and } from 'drizzle-orm';
-import { createPmMeetingSchema, updatePmMeetingSchema } from '@servio/shared';
+import { eq, ne, desc, sql, inArray, and, or } from 'drizzle-orm';
+import { createPmMeetingSchema, updatePmMeetingSchema, type CreatePmMeeting } from '@servio/shared';
 import { db } from '../../../db';
-import { pmWeeklyMeetings, pmMeetingEntries, pmProjects } from '../schema';
+import { pmWeeklyMeetings, pmMeetingEntries, pmProjects, pmProjectTasks } from '../schema';
+import { selectTasks } from '../tasks';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 
@@ -81,11 +82,49 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     .where(eq(pmMeetingEntries.meetingId, req.params.id))
     .orderBy(pmProjects.createdAt);
 
-  res.json({ ...meeting, entries });
+  // Tasks created or closed in this meeting
+  const tasks = await selectTasks(or(eq(pmProjectTasks.meetingId, req.params.id), eq(pmProjectTasks.completedMeetingId, req.params.id)));
+
+  res.json({ ...meeting, entries, tasks });
+});
+
+// Tasks for the meeting form: all open tasks, plus (when editing) tasks created or closed in that meeting
+router.get('/tasks/list', async (req: Request, res: Response): Promise<void> => {
+  const meetingId = typeof req.query.meetingId === 'string' && /^[0-9a-f-]{36}$/i.test(req.query.meetingId) ? req.query.meetingId : null;
+  const open = eq(pmProjectTasks.status, 'open');
+  res.json(await selectTasks(meetingId
+    ? or(open, eq(pmProjectTasks.meetingId, meetingId), eq(pmProjectTasks.completedMeetingId, meetingId))
+    : open));
 });
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type EntryInput = { projectId: string; entryStatus: string; notes?: string | null };
+type TaskChanges = NonNullable<CreatePmMeeting['tasks']>;
+
+// Task changes from the meeting form: new tasks are linked to this meeting, and so are tasks closed here
+async function applyTaskChanges(tx: Tx, meetingId: string, userId: string, changes: TaskChanges | undefined) {
+  if (!changes) return;
+  if (changes.create.length > 0) {
+    await tx.insert(pmProjectTasks).values(changes.create.map(c => ({
+      projectId: c.projectId,
+      title: c.title,
+      assigneeId: c.assigneeId ?? null,
+      dueDate: c.dueDate || null,
+      meetingId,
+      createdById: userId,
+    })));
+  }
+  if (changes.complete.length > 0) {
+    await tx.update(pmProjectTasks)
+      .set({ status: 'done', completedAt: new Date(), completedMeetingId: meetingId, updatedAt: new Date() })
+      .where(and(inArray(pmProjectTasks.id, changes.complete), eq(pmProjectTasks.status, 'open')));
+  }
+  if (changes.reopen.length > 0) {
+    await tx.update(pmProjectTasks)
+      .set({ status: 'open', completedAt: null, completedMeetingId: null, updatedAt: new Date() })
+      .where(inArray(pmProjectTasks.id, changes.reopen));
+  }
+}
 
 async function insertEntries(tx: Tx, meetingId: string, entries: EntryInput[]) {
   if (entries.length === 0) return;
@@ -117,6 +156,7 @@ router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Re
       createdById: req.auth!.userId,
     }).returning();
     await insertEntries(tx, created.id, parsed.data.entries);
+    await applyTaskChanges(tx, created.id, req.auth!.userId, parsed.data.tasks);
     return created;
   });
 
@@ -133,7 +173,9 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
       .set({ notes: parsed.data.notes ?? null, updatedAt: new Date() })
       .where(eq(pmWeeklyMeetings.id, req.params.id))
       .returning();
-    if (!meeting || !parsed.data.entries) return meeting;
+    if (!meeting) return meeting;
+    await applyTaskChanges(tx, req.params.id, req.auth!.userId, parsed.data.tasks);
+    if (!parsed.data.entries) return meeting;
 
     const previouslyDone = await tx.select({ projectId: pmMeetingEntries.projectId })
       .from(pmMeetingEntries)

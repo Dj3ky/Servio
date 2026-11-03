@@ -671,6 +671,28 @@
       "deletedOk": "Phase deleted",
       "error": "Error"
     },
+    "tasks": {
+      "tab": "Tasks",
+      "add": "Task",
+      "addLong": "Add task",
+      "titlePlaceholder": "What needs to be done?",
+      "assignee": "Owner",
+      "dueDate": "Due",
+      "noAssignee": "No owner",
+      "open": "Open",
+      "done": "Done",
+      "openCount": "Open tasks: {{count}}",
+      "overdueCount": "Overdue tasks: {{count}}",
+      "overdue": "Overdue",
+      "fromMeeting": "Meeting {{date}}",
+      "createdHere": "New task",
+      "closedHere": "Closed",
+      "deleteConfirm": "Delete task?",
+      "addedOk": "Task added",
+      "updatedOk": "Task updated",
+      "deletedOk": "Task deleted",
+      "error": "Error saving task"
+    },
     "documents": {
       "tab": "Documents",
       "upload": "Upload document",

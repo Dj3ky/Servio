@@ -1,9 +1,9 @@
-import { useState, useMemo, type KeyboardEvent } from 'react';
+import { useState, useMemo, Fragment, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { TaskLine, TaskForm, usePmEmployees, type PmTask, type TaskDraft } from '../tasks';
 
 interface Meeting {
   id: string; meetingDate: string; notes: string | null;
@@ -22,7 +23,9 @@ interface Meeting {
 }
 interface MeetingDetail extends Meeting {
   entries: MeetingEntry[];
+  tasks: PmTask[];
 }
+type NewTaskDraft = TaskDraft & { key: string; projectId: string };
 interface MeetingEntry {
   id: string; projectId: string; projectNumber: string; projectName: string;
   projectPriority: string; entryStatus: string; notes: string | null;
@@ -65,6 +68,12 @@ const GROUP_COLORS = [
   'bg-teal-500/10 border-l-4 border-l-teal-500',
 ];
 
+function groupTasksByProject(tasks: PmTask[]) {
+  const map = new Map<string, PmTask[]>();
+  for (const task of tasks) map.set(task.projectId, [...(map.get(task.projectId) ?? []), task]);
+  return map;
+}
+
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
@@ -90,6 +99,11 @@ export default function MeetingsPage() {
   const [discardTarget, setDiscardTarget] = useState<'new' | 'edit-cancel' | 'edit-close' | null>(null);
   // null = default state (only the most recent month expanded)
   const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
+  // Task changes in the open meeting form, sent together with the meeting save
+  const [newTasks, setNewTasks] = useState<NewTaskDraft[]>([]);
+  const [taskToggles, setTaskToggles] = useState<Record<string, boolean>>({}); // taskId -> done
+  const [addingTaskFor, setAddingTaskFor] = useState<string | null>(null);
+  const employees = usePmEmployees();
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings', yearFilter],
@@ -118,10 +132,46 @@ export default function MeetingsPage() {
     enabled: newOpen || !!lastBefore,
   });
 
+  // Open tasks to carry over; when editing, also the tasks created or closed in that meeting
+  const tasksMeetingId = editMode ? detailId : null;
+  const { data: formTasks } = useQuery<PmTask[]>({
+    queryKey: ['pm-meeting-tasks', tasksMeetingId],
+    queryFn: () => api.get(`/pm/meetings/tasks/list${tasksMeetingId ? `?meetingId=${tasksMeetingId}` : ''}`),
+    enabled: newOpen || editMode,
+  });
+  const tasksByProject = useMemo(() => groupTasksByProject(formTasks ?? []), [formTasks]);
+  const detailTasksByProject = useMemo(() => groupTasksByProject(detail?.tasks ?? []), [detail]);
+
+  function resetTaskChanges() {
+    setNewTasks([]);
+    setTaskToggles({});
+    setAddingTaskFor(null);
+  }
+
+  function toggleTask(task: PmTask, done: boolean) {
+    setTaskToggles(prev => {
+      const next = { ...prev };
+      if (done === (task.status === 'done')) delete next[task.id]; else next[task.id] = done;
+      return next;
+    });
+  }
+
+  function taskChangesPayload() {
+    const toggled = Object.entries(taskToggles);
+    return {
+      create: newTasks.map(({ key: _key, ...draft }) => draft),
+      complete: toggled.filter(([, done]) => done).map(([id]) => id),
+      reopen: toggled.filter(([, done]) => !done).map(([id]) => id),
+    };
+  }
+
+  const taskDirty = newTasks.length > 0 || Object.keys(taskToggles).length > 0;
+
   function openNew() {
     setMeetingDate(new Date().toISOString().split('T')[0]);
     setMeetingNotes('');
     setEntries([]);
+    resetTaskChanges();
     setNewOpen(true);
   }
 
@@ -212,10 +262,12 @@ export default function MeetingsPage() {
       meetingDate,
       notes: meetingNotes || null,
       entries: entries.map(e => ({ projectId: e.projectId, entryStatus: e.entryStatus, notes: e.notes || null })),
+      tasks: taskChangesPayload(),
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-meetings'] });
       qc.invalidateQueries({ queryKey: ['pm-active-projects'] });
+      invalidateTasks();
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
       toast.success(t('pm.meetings.savedOk'));
@@ -223,6 +275,12 @@ export default function MeetingsPage() {
     },
     onError: () => toast.error(t('pm.meetings.saveError')),
   });
+
+  function invalidateTasks() {
+    qc.invalidateQueries({ queryKey: ['pm-meeting-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-project-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-projects'] });
+  }
 
   const deleteMeeting = useMutation({
     mutationFn: (id: string) => api.delete(`/pm/meetings/${id}`),
@@ -237,9 +295,11 @@ export default function MeetingsPage() {
     mutationFn: (id: string) => api.patch(`/pm/meetings/${id}`, {
       notes: editNotes || null,
       entries: editEntries.map(e => ({ projectId: e.projectId, entryStatus: e.entryStatus, notes: e.notes || null })),
+      tasks: taskChangesPayload(),
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pm-meetings'] });
+      invalidateTasks();
       qc.invalidateQueries({ queryKey: ['pm-meeting-detail', detailId] });
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
@@ -281,6 +341,7 @@ export default function MeetingsPage() {
     setEditNotes(notes);
     setEditEntries(list);
     setEditSnapshot(editFormKey(notes, list));
+    resetTaskChanges();
     setCollapsedDetailGroups(new Set());
     setEditMode(true);
   }
@@ -289,8 +350,8 @@ export default function MeetingsPage() {
     return JSON.stringify([notes, list.map(e => [e.projectId, e.entryStatus, e.notes ?? ''])]);
   }
 
-  const newDirty = !!meetingNotes.trim() || entries.some(e => e.notes.trim() || e.entryStatus !== 'active');
-  const editDirty = editMode && editFormKey(editNotes, editEntries) !== editSnapshot;
+  const newDirty = !!meetingNotes.trim() || entries.some(e => e.notes.trim() || e.entryStatus !== 'active') || taskDirty;
+  const editDirty = editMode && (editFormKey(editNotes, editEntries) !== editSnapshot || taskDirty);
   const navBlocker = useUnsavedChangesGuard((newOpen && newDirty) || editDirty);
 
   function closeEdit() {
@@ -406,6 +467,64 @@ export default function MeetingsPage() {
     </colgroup>
   );
 
+  // "+ Task" button shown next to the project name in the meeting forms
+  function addTaskButton(projectId: string) {
+    return (
+      <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground ml-auto shrink-0"
+        onClick={() => setAddingTaskFor(addingTaskFor === projectId ? null : projectId)}>
+        <Plus className="h-3 w-3 mr-0.5" />{t('pm.tasks.add')}
+      </Button>
+    );
+  }
+
+  // Sub-row under a project in the meeting forms: existing tasks (tickable), new drafts, and the add form
+  function renderTaskRow(projectId: string, defaultAssigneeId: string | null) {
+    const existing = tasksByProject.get(projectId) ?? [];
+    const drafts = newTasks.filter(d => d.projectId === projectId);
+    const adding = addingTaskFor === projectId;
+    if (existing.length === 0 && drafts.length === 0 && !adding) return null;
+    return (
+      <tr className="border-b bg-muted/20">
+        <td colSpan={4} className="px-3 py-1.5 pl-8 space-y-1">
+          {existing.map(task => (
+            <TaskLine
+              key={task.id}
+              title={task.title}
+              assigneeName={task.assigneeName}
+              dueDate={task.dueDate}
+              done={taskToggles[task.id] ?? task.status === 'done'}
+              onToggle={done => toggleTask(task, done)}
+              meta={task.meetingDate && <span className="text-muted-foreground shrink-0">{t('pm.tasks.fromMeeting', { date: formatDate(task.meetingDate) })}</span>}
+            />
+          ))}
+          {drafts.map(d => (
+            <TaskLine
+              key={d.key}
+              title={d.title}
+              assigneeName={employees.find(u => u.id === d.assigneeId)?.name ?? null}
+              dueDate={d.dueDate}
+              done={false}
+              meta={<Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">{t('pm.tasks.createdHere')}</Badge>}
+            >
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" title={t('common.delete')}
+                onClick={() => setNewTasks(prev => prev.filter(x => x.key !== d.key))}>
+                <X className="h-3 w-3" />
+              </Button>
+            </TaskLine>
+          ))}
+          {adding && (
+            <TaskForm
+              autoFocus
+              defaultAssigneeId={defaultAssigneeId}
+              onAdd={draft => setNewTasks(prev => [...prev, { ...draft, projectId, key: crypto.randomUUID() }])}
+              onCancel={() => setAddingTaskFor(null)}
+            />
+          )}
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -501,7 +620,8 @@ export default function MeetingsPage() {
                           </thead>
                           <tbody>
                             {group.entries.map(entry => (
-                              <tr key={entry.projectId} className="border-b">
+                              <Fragment key={entry.projectId}>
+                              <tr className="border-b">
                                 <td className="px-3 py-2">
                                   <div className="flex items-center gap-1.5">
                                     <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
@@ -509,6 +629,7 @@ export default function MeetingsPage() {
                                       <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                     </button>
                                     <ProjectNotesHint notes={entry.projectNotes} />
+                                    {addTaskButton(entry.projectId)}
                                   </div>
                                   <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                                 </td>
@@ -538,6 +659,8 @@ export default function MeetingsPage() {
                                     : <span className="text-xs text-muted-foreground">—</span>}
                                 </td>
                               </tr>
+                              {renderTaskRow(entry.projectId, entry.employeeId)}
+                              </Fragment>
                             ))}
                           </tbody>
                         </table>
@@ -602,6 +725,25 @@ export default function MeetingsPage() {
                                 {t(`pm.status.${entry.entryStatus}`)}
                               </Badge>
                               {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
+                              {(detailTasksByProject.get(entry.projectId) ?? []).length > 0 && (
+                                <div className="mt-1.5 space-y-0.5">
+                                  {detailTasksByProject.get(entry.projectId)!.map(task => {
+                                    const closedHere = task.completedMeetingId === detail.id;
+                                    return (
+                                      <TaskLine
+                                        key={task.id}
+                                        title={task.title}
+                                        assigneeName={task.assigneeName}
+                                        dueDate={task.dueDate}
+                                        done={task.status === 'done'}
+                                        meta={<Badge variant={closedHere ? 'secondary' : 'outline'} className="text-[10px] px-1 py-0 shrink-0">
+                                          {t(closedHere ? 'pm.tasks.closedHere' : 'pm.tasks.createdHere')}
+                                        </Badge>}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -650,7 +792,8 @@ export default function MeetingsPage() {
                       </thead>
                       <tbody>
                         {group.entries.map(entry => (
-                          <tr key={entry.projectId} className="border-b">
+                          <Fragment key={entry.projectId}>
+                          <tr className="border-b">
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
                                 <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
@@ -658,6 +801,7 @@ export default function MeetingsPage() {
                                   <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                 </button>
                                 <ProjectNotesHint notes={entry.projectNotes} />
+                                {addTaskButton(entry.projectId)}
                               </div>
                               <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
                             </td>
@@ -687,6 +831,8 @@ export default function MeetingsPage() {
                                 : <span className="text-xs text-muted-foreground">—</span>}
                             </td>
                           </tr>
+                          {renderTaskRow(entry.projectId, entry.employeeId)}
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>}

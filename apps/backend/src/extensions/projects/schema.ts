@@ -97,6 +97,22 @@ export const pmProjectInvoices = pgTable('pm_project_invoices', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Action items on a project, usually created during a weekly meeting and carried over until done
+export const pmProjectTasks = pgTable('pm_project_tasks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
+  dueDate: date('due_date'),
+  status: text('status').notNull().default('open'),
+  meetingId: uuid('meeting_id').references(() => pmWeeklyMeetings.id, { onDelete: 'set null' }),
+  completedMeetingId: uuid('completed_meeting_id').references(() => pmWeeklyMeetings.id, { onDelete: 'set null' }),
+  completedAt: timestamp('completed_at'),
+  createdById: uuid('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Manual display order of employee groups on the Projects page
 export const pmEmployeeOrder = pgTable('pm_employee_order', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
@@ -111,3 +127,4 @@ export type DbPmWeeklyMeeting = typeof pmWeeklyMeetings.$inferSelect;
 export type DbPmMeetingEntry = typeof pmMeetingEntries.$inferSelect;
 export type DbPmProjectDocument = typeof pmProjectDocuments.$inferSelect;
 export type DbPmProjectInvoice = typeof pmProjectInvoices.$inferSelect;
+export type DbPmProjectTask = typeof pmProjectTasks.$inferSelect;

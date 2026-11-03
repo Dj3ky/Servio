@@ -132,6 +132,24 @@ async function ensurePmTables() {
     // Columns from migration 0012 — re-added here because tables recreated above won't have them
     await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS received_amount NUMERIC(12,2) NOT NULL DEFAULT 0`);
     await db.execute(sql`ALTER TABLE pm_project_invoices ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'issued'`);
+    // Table from migration 0015
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_project_tasks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        assignee_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        due_date DATE,
+        status TEXT NOT NULL DEFAULT 'open',
+        meeting_id UUID REFERENCES pm_weekly_meetings(id) ON DELETE SET NULL,
+        completed_meeting_id UUID REFERENCES pm_weekly_meetings(id) ON DELETE SET NULL,
+        completed_at TIMESTAMP,
+        created_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_project_tasks_project_idx ON pm_project_tasks(project_id)`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
@@ -189,6 +207,7 @@ router.patch('/config', requireAuth, requireRole('settings', 'manage'), async (r
 router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'), async (_req: Request, res: Response): Promise<void> => {
   // Drop in child-first order
   await db.execute(sql`DROP TABLE IF EXISTS pm_employee_order CASCADE`);
+  await db.execute(sql`DROP TABLE IF EXISTS pm_project_tasks CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_invoices CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_documents CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_meeting_entries CASCADE`);
