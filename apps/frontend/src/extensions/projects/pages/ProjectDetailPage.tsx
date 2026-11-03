@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
@@ -45,7 +46,8 @@ const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', acti
 function formatCurrency(v: string | null | undefined) {
   if (!v) return '—';
   const n = parseFloat(v);
-  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
+  // de-DE: same format as sl-SI, but sl-SI skips the thousands separator for 4-digit amounts
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
 }
 
 
@@ -91,11 +93,10 @@ function InvoiceList({
           <form className="flex flex-wrap gap-3 items-end" onSubmit={e => { e.preventDefault(); onSubmit(); }}>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">{t('pm.invoices.fieldDate')} *</label>
-              <Input
-                type="date"
+              <DateInput
                 className="w-[160px]"
                 value={form.invoiceDate}
-                onChange={e => onFormChange({ ...form, invoiceDate: e.target.value })}
+                onChange={v => onFormChange({ ...form, invoiceDate: v })}
                 required
               />
             </div>
@@ -136,11 +137,10 @@ function InvoiceList({
             onSubmit={e => { e.preventDefault(); saveEdit().catch(() => {}); }}
           >
             <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Input
-              type="date"
+            <DateInput
               className="w-[160px] h-8"
               value={editForm.invoiceDate}
-              onChange={e => setEditForm({ ...editForm, invoiceDate: e.target.value })}
+              onChange={v => setEditForm({ ...editForm, invoiceDate: v })}
               required
             />
             <Input
@@ -620,7 +620,7 @@ export default function ProjectDetailPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.orderDate')}</label>
-                <Input type="date" value={editForm.orderDate ?? ''} onChange={e => setEditForm(f => ({ ...f, orderDate: e.target.value }))} />
+                <DateInput value={editForm.orderDate ?? ''} onChange={v => setEditForm(f => ({ ...f, orderDate: v }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.employee')}</label>
@@ -665,11 +665,11 @@ export default function ProjectDetailPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.startDate')}</label>
-                <Input type="date" value={editForm.startDate ?? ''} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} />
+                <DateInput value={editForm.startDate ?? ''} onChange={v => setEditForm(f => ({ ...f, startDate: v }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.endDate')}</label>
-                <Input type="date" value={editForm.endDate ?? ''} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} />
+                <DateInput value={editForm.endDate ?? ''} onChange={v => setEditForm(f => ({ ...f, endDate: v }))} />
               </div>
               <div className="space-y-1 col-span-2">
                 <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>

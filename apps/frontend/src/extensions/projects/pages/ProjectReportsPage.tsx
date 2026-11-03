@@ -74,7 +74,8 @@ const chartStyle = {
 function fmt(v: string | number | null | undefined) {
   const n = parseFloat(String(v ?? 0));
   if (!v || isNaN(n)) return '—';
-  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
+  // de-DE: same format as sl-SI, but sl-SI skips the thousands separator for 4-digit amounts
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
 }
 
 function fmtShort(v: number) {
@@ -140,7 +141,7 @@ export default function ProjectReportsPage() {
   async function printReport() {
     const fmtEur = (v: number | string | null | undefined) => {
       const n = parseFloat(String(v ?? 0));
-      return isNaN(n) || n === 0 ? '—' : new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
+      return isNaN(n) || n === 0 ? '—' : new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
     };
     const generated = new Date().toLocaleDateString('sl-SI');
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
@@ -581,7 +582,7 @@ export default function MeetingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.meetings.fieldDate')} *</label>
-                <Input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
+                <DateInput value={meetingDate} onChange={setMeetingDate} />
               </div>
             </div>
             <div className="space-y-1">

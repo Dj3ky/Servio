@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isPastDue } from './dates';
 
@@ -96,7 +97,7 @@ export function TaskForm({
           {employees.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
         </SelectContent>
       </Select>
-      <Input type="date" className="h-7 text-xs w-[140px]" title={t('pm.tasks.dueDate')} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+      <DateInput className="h-7 text-xs w-[140px]" title={t('pm.tasks.dueDate')} value={dueDate} onChange={setDueDate} />
       <Button type="button" size="sm" className="h-7 text-xs" onClick={submit} disabled={!title.trim() || busy}>
         {initial ? t('common.save') : <><Plus className="h-3 w-3 mr-1" />{t('pm.tasks.addLong')}</>}
       </Button>

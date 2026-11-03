@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -69,7 +70,8 @@ const GROUP_COLORS = [
 
 function formatCurrency(v: string | null | undefined) {
   if (!v) return '—';
-  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(parseFloat(v));
+  // de-DE: same format as sl-SI, but sl-SI skips the thousands separator for 4-digit amounts
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(parseFloat(v));
 }
 
 const emptyForm = {
@@ -611,7 +613,7 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.orderDate')}</label>
-                <Input type="date" value={form.orderDate} onChange={e => setForm(f => ({ ...f, orderDate: e.target.value }))} />
+                <DateInput value={form.orderDate} onChange={v => setForm(f => ({ ...f, orderDate: v }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.employee')}</label>
@@ -656,11 +658,11 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.startDate')}</label>
-                <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+                <DateInput value={form.startDate} onChange={v => setForm(f => ({ ...f, startDate: v }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.endDate')}</label>
-                <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+                <DateInput value={form.endDate} onChange={v => setForm(f => ({ ...f, endDate: v }))} />
               </div>
               <div className="space-y-1 col-span-2">
                 <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>
