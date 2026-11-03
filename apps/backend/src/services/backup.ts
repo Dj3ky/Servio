@@ -5,8 +5,7 @@ import fs from 'fs/promises';
 import cron from 'node-cron';
 import { db } from '../db';
 import { createAuditLog } from '../utils/audit';
-import { notifications } from '../db/schema';
-import { broadcast } from '../ws';
+import { notifySystem } from './notify';
 import { saveToSmb, listSmbFiles, deleteFromSmb } from './smb';
 
 const execFileAsync = promisify(execFile);
@@ -16,11 +15,7 @@ const NAS_RETRY_DELAY_MS = 30000;
 
 async function notifyBackupFailed(title: string, message: string): Promise<void> {
   try {
-    const [notif] = await db
-      .insert(notifications)
-      .values({ type: 'backup_failed', title, message, entityType: null, entityId: null })
-      .returning();
-    broadcast('notification_created', { id: notif.id, type: notif.type, title: notif.title, message: notif.message });
+    await notifySystem({ type: 'backup_failed', title, message, entityType: null, entityId: null });
   } catch {}
 }
 

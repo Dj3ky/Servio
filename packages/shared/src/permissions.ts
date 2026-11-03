@@ -39,6 +39,12 @@ export const permissions = {
   auditLog: {
     access: r('admin', 'manager'),
   },
+  // Who sees the shared system notifications (personal ones, like tasks, always go to their user)
+  notifications: {
+    system:       r('admin'),                          // SMB save / backup failures
+    email:        r('admin', 'manager'),               // review email send failures and bounces
+    invoiceEmail: r('admin', 'manager', 'accountant'), // bounced invoice emails
+  },
   settings: {
     view:            r('admin', 'manager'),
     manage:          r('admin'),

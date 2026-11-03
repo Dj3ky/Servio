@@ -1893,6 +1893,11 @@ function PermissionsTab() {
     { label: t('settings.perm.auditLog'), rows: [
       { section: 'auditLog', action: 'access', label: t('settings.perm.auditLogAccess') },
     ]},
+    { label: t('settings.perm.notifications'), rows: [
+      { section: 'notifications', action: 'system', label: t('settings.perm.notificationsSystem') },
+      { section: 'notifications', action: 'email', label: t('settings.perm.notificationsEmail') },
+      { section: 'notifications', action: 'invoiceEmail', label: t('settings.perm.notificationsInvoiceEmail') },
+    ]},
     { label: t('settings.perm.settingsSection'), rows: [
       { section: 'settings', action: 'view', label: t('settings.perm.settingsView') },
       { section: 'settings', action: 'manage', label: t('settings.perm.settingsManage') },

@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { eq, sql, and } from 'drizzle-orm';
 import { db } from '../db';
-import { reviews, invoices, notifications } from '../db/schema';
+import { reviews, invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
 import { saveToSmb, buildSmbPath } from '../services/smb';
 import { sendMail, renderTemplate } from '../services/email';
 import { broadcast } from '../ws';
+import { notifySystem } from '../services/notify';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { documentUpload } from '../middleware/upload';
 import { skipReviewSchema } from '@servio/shared';
@@ -187,14 +188,13 @@ router.post(
       smbSaved = true;
     } catch (err) {
       smbError = err instanceof Error ? err.message : String(err);
-      await db.insert(notifications).values({
+      await notifySystem({
         type: 'smb_failed',
         title: 'SMB Save Failed',
         message: `Failed to save file for ${facility?.name ?? 'unknown'}: ${smbError}`,
         entityType: 'review',
         entityId: review.id,
       });
-      broadcast('notification_created', { id: '', type: 'smb_failed', title: 'SMB Save Failed', message: smbError });
     }
 
     if (!smbSaved) {
@@ -235,14 +235,13 @@ router.post(
         await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'send_email', entityType: 'review', entityId: review.id, payload: { to: customerEmail }, req });
       } catch (err) {
         emailError = err instanceof Error ? err.message : String(err);
-        await db.insert(notifications).values({
+        await notifySystem({
           type: 'email_failed',
           title: 'Email Send Failed',
           message: `Failed to send email for ${facility?.name ?? 'unknown'}: ${emailError}`,
           entityType: 'review',
           entityId: review.id,
         });
-        broadcast('notification_created', { id: '', type: 'email_failed', title: 'Email Send Failed', message: emailError });
       }
     }
 

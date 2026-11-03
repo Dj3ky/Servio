@@ -8,7 +8,7 @@ import { AuthPayload } from '../middleware/auth';
 let wss: WebSocketServer | null = null;
 
 // Connected sockets and the user each one belongs to
-const clients = new Map<WebSocket, string>();
+const clients = new Map<WebSocket, { userId: string; role: string }>();
 
 export function initWebSocket(server: Server): void {
   wss = new WebSocketServer({ server, path: '/ws' });
@@ -22,15 +22,15 @@ export function initWebSocket(server: Server): void {
       return;
     }
 
-    let userId: string;
+    let auth: AuthPayload;
     try {
-      userId = (jwt.verify(token, config.jwtSecret) as AuthPayload).userId;
+      auth = jwt.verify(token, config.jwtSecret) as AuthPayload;
     } catch {
       ws.close(4001, 'Invalid token');
       return;
     }
 
-    clients.set(ws, userId);
+    clients.set(ws, { userId: auth.userId, role: auth.role });
 
     ws.on('close', () => {
       clients.delete(ws);
@@ -48,10 +48,15 @@ export function broadcast<T>(type: WsEventType, payload: T): void {
 
 // Sends only to the sockets of one user (all their open tabs / windows)
 export function sendToUser<T>(userId: string, type: WsEventType, payload: T): void {
-  send(type, payload, (id) => id === userId);
+  send(type, payload, (c) => c.userId === userId);
 }
 
-function send<T>(type: WsEventType, payload: T, toUser: (userId: string) => boolean): void {
+// Sends only to users whose role is in `roles`
+export function sendToRoles<T>(roles: string[], type: WsEventType, payload: T): void {
+  send(type, payload, (c) => roles.includes(c.role));
+}
+
+function send<T>(type: WsEventType, payload: T, toClient: (c: { userId: string; role: string }) => boolean): void {
   if (!wss) return;
 
   const event: WsEvent<T> = {
@@ -63,10 +68,10 @@ function send<T>(type: WsEventType, payload: T, toUser: (userId: string) => bool
   const message = JSON.stringify(event);
   const dead: WebSocket[] = [];
 
-  for (const [client, userId] of clients) {
+  for (const [client, info] of clients) {
     if (client.readyState !== WebSocket.OPEN) {
       dead.push(client);
-    } else if (toUser(userId)) {
+    } else if (toClient(info)) {
       client.send(message);
     }
   }

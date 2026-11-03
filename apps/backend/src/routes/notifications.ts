@@ -1,19 +1,19 @@
 import { Router, Request, Response } from 'express';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { notifications } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
+import { notificationsVisibleTo } from '../services/notify';
 
 const router = Router();
 router.use(requireAuth);
 
-// Shared system notifications plus the user's own personal ones
-const visibleTo = (userId: string) => or(isNull(notifications.userId), eq(notifications.userId, userId));
+const visibleTo = (req: Request) => notificationsVisibleTo(req.auth!.userId, req.auth!.role);
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const unreadOnly = req.query.unread === 'true';
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
-  const visible = visibleTo(req.auth!.userId);
+  const visible = visibleTo(req);
 
   const data = await db.select().from(notifications)
     .where(unreadOnly ? and(visible, eq(notifications.isRead, false)) : visible)
@@ -30,13 +30,13 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.post('/:id/read', async (req: Request, res: Response): Promise<void> => {
   await db.update(notifications).set({ isRead: true })
-    .where(and(eq(notifications.id, req.params.id), visibleTo(req.auth!.userId)));
+    .where(and(eq(notifications.id, req.params.id), visibleTo(req)));
   res.json({ success: true });
 });
 
 router.post('/read-all', async (req: Request, res: Response): Promise<void> => {
   await db.update(notifications).set({ isRead: true })
-    .where(and(eq(notifications.isRead, false), visibleTo(req.auth!.userId)));
+    .where(and(eq(notifications.isRead, false), visibleTo(req)));
   res.json({ success: true });
 });
 
