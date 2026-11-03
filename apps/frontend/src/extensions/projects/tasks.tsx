@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isPastDue } from './dates';
 
 export interface PmTask {
   id: string; projectId: string; title: string;
@@ -20,7 +21,7 @@ export interface PmTask {
 export interface TaskDraft { title: string; assigneeId: string | null; dueDate: string | null; }
 
 export function isTaskOverdue(task: { status: string; dueDate: string | null }) {
-  return task.status === 'open' && !!task.dueDate && task.dueDate.slice(0, 10) < new Date().toLocaleDateString('sv-SE');
+  return task.status === 'open' && isPastDue(task.dueDate);
 }
 
 export function usePmEmployees(enabled = true) {

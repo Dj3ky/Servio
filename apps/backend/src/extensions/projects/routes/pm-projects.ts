@@ -21,16 +21,13 @@ async function ensureUploadsDir() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
 }
 
-// List projects
-router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const search = req.query.search as string | undefined;
-  const status = req.query.status as string | undefined;
-  const priority = req.query.priority as string | undefined;
-  const employeeId = req.query.employeeId as string | undefined;
-  const archived = req.query.archived as string | undefined;
-  const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
-  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
-  const offset = (page - 1) * limit;
+// Filters shared by the project list and the CSV export: archived, search, status, priority, employeeId
+function projectFilters(query: Request['query']) {
+  const search = query.search as string | undefined;
+  const status = query.status as string | undefined;
+  const priority = query.priority as string | undefined;
+  const employeeId = query.employeeId as string | undefined;
+  const archived = query.archived as string | undefined;
 
   const conditions = [];
   if (archived === 'true') {
@@ -38,17 +35,31 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   } else if (archived === 'false') {
     conditions.push(ne(pmProjects.status, 'completed'));
   }
-  if (search) conditions.push(or(
-    ilike(pmProjects.name, `%${search}%`),
-    ilike(pmProjects.projectNumber, `%${search}%`),
-    ilike(pmProjects.customerName, `%${search}%`),
-    ilike(pmProjects.facilityName, `%${search}%`),
-  ));
+  if (search) {
+    // Escape LIKE wildcards so "%" and "_" are matched literally
+    const pattern = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    conditions.push(or(
+      ilike(pmProjects.name, pattern),
+      ilike(pmProjects.projectNumber, pattern),
+      ilike(pmProjects.customerName, pattern),
+      ilike(pmProjects.facilityName, pattern),
+    ));
+  }
   if (status && archived !== 'true') conditions.push(eq(pmProjects.status, status));
   if (priority) conditions.push(eq(pmProjects.priority, priority));
   if (employeeId) conditions.push(eq(pmProjects.employeeId, employeeId));
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  return conditions.length > 0 ? and(...conditions) : undefined;
+}
+
+// List projects
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  const archived = req.query.archived as string | undefined;
+  const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
+  const offset = (page - 1) * limit;
+
+  const where = projectFilters(req.query);
 
   const baseSelect = {
     id: pmProjects.id,
@@ -126,7 +137,8 @@ router.get('/suggestions', async (_req: Request, res: Response): Promise<void> =
 
 const CSV_HEADER ='project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';
 
-router.get('/export', async (_req: Request, res: Response): Promise<void> => {
+// Exports the projects matching the same filters as the list
+router.get('/export', async (req: Request, res: Response): Promise<void> => {
   const data = await db.select({
     projectNumber: pmProjects.projectNumber,
     name: pmProjects.name,
@@ -146,6 +158,7 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
+    .where(projectFilters(req.query))
     .orderBy(pmProjects.projectNumber);
 
   const rows = data.map((p) => [
@@ -414,6 +427,9 @@ router.delete('/:id/phases/:phaseId', requireRole('projects', 'manage'), async (
 
 router.post('/:id/documents', requireRole('projects', 'manage'), documentUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.validation' }); return; }
+
+  const [project] = await db.select({ id: pmProjects.id }).from(pmProjects).where(eq(pmProjects.id, req.params.id)).limit(1);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
   await ensureUploadsDir();
 

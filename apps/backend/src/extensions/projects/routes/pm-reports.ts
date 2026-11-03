@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, ne, sql, and, gte, lte, desc } from 'drizzle-orm';
+import { eq, ne, sql, and, desc } from 'drizzle-orm';
 import { db } from '../../../db';
 import { pmProjects, pmWeeklyMeetings, pmMeetingEntries, pmProjectInvoices } from '../schema';
 import { users } from '../../../db/schema/users';
@@ -72,49 +72,8 @@ router.get('/by-employee', async (req: Request, res: Response): Promise<void> =>
   res.json(projects);
 });
 
-// Revenue summary
-router.get('/revenue', async (req: Request, res: Response): Promise<void> => {
-  const from = req.query.from as string | undefined;
-  const to = req.query.to as string | undefined;
-
-  const conditions = [];
-  if (from) conditions.push(gte(pmProjects.startDate, from));
-  if (to) conditions.push(lte(pmProjects.endDate, to));
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const [revenue, byEmployee] = await Promise.all([
-    db.select({
-      status: pmProjects.status,
-      contractValue: sql<string>`coalesce(sum(contract_value), 0)`,
-      invoicedAmount: sql<string>`coalesce(sum(invoiced_amount), 0)`,
-      remaining: sql<string>`coalesce(sum(contract_value - invoiced_amount), 0)`,
-      count: sql<number>`count(*)`,
-    })
-      .from(pmProjects)
-      .where(where)
-      .groupBy(pmProjects.status),
-
-    db.select({
-      employeeId: pmProjects.employeeId,
-      employeeName: users.name,
-      contractValue: sql<string>`coalesce(sum(contract_value), 0)`,
-      invoicedAmount: sql<string>`coalesce(sum(invoiced_amount), 0)`,
-      count: sql<number>`count(*)`,
-    })
-      .from(pmProjects)
-      .leftJoin(users, eq(pmProjects.employeeId, users.id))
-      .where(where)
-      .groupBy(pmProjects.employeeId, users.name)
-      .orderBy(desc(sql`sum(contract_value)`)),
-  ]);
-
-  res.json({ revenue, byEmployee });
-});
-
-// Overdue projects (past end_date and not completed)
+// Overdue projects (end_date before today and not completed)
 router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
-  const today = new Date().toISOString().split('T')[0];
-
   const projects = await db.select({
     id: pmProjects.id,
     projectNumber: pmProjects.projectNumber,
@@ -130,9 +89,8 @@ router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(and(
-      lte(pmProjects.endDate, today),
+      sql`${pmProjects.endDate} < current_date`,
       sql`${pmProjects.status} != 'completed'`,
-      sql`${pmProjects.endDate} is not null`,
     ))
     .orderBy(pmProjects.endDate);
 

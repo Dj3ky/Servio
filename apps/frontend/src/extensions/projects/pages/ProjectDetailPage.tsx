@@ -18,6 +18,7 @@ import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
 import { ProjectTasksTab } from '../ProjectTasksTab';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
+import { isPastDue } from '../dates';
 
 interface User { id: string; name: string; }
 
@@ -395,7 +396,7 @@ export default function ProjectDetailPage() {
   const remaining = contractVal - invoiced;
   const profit = invoiced - received;
   const invoicedPct = contractVal > 0 ? Math.min(100, (invoiced / contractVal) * 100) : 0;
-  const isOverdue = project.endDate && project.status !== 'completed' && new Date(project.endDate) < new Date();
+  const isOverdue = project.status !== 'completed' && isPastDue(project.endDate);
   const issuedInvoices = (invoices ?? []).filter(inv => inv.direction !== 'received');
   const receivedInvoices = (invoices ?? []).filter(inv => inv.direction === 'received');
 

@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
+import { isPastDue } from '../dates';
 
 interface SummaryData {
   statusCounts: { status: string; count: number }[];
@@ -169,7 +170,7 @@ export default function ProjectReportsPage() {
       if (projects.length === 0) return '<p style="color:#888;font-size:11px;padding:6px 0">—</p>';
       const rows = projects.map(p => {
         const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
-        const isOverdue = !showCompleted && p.endDate && new Date(p.endDate) < new Date();
+        const isOverdue = !showCompleted && isPastDue(p.endDate);
         return `<tr>
           <td><span style="color:#666">${p.projectNumber}</span> <strong>${p.name}</strong></td>
           <td>${p.customerName ?? '—'}</td>
@@ -558,7 +559,7 @@ export default function ProjectReportsPage() {
                       <tbody>
                         {group.projects.map(p => {
                           const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
-                          const isOverdue = p.endDate && new Date(p.endDate) < new Date();
+                          const isOverdue = isPastDue(p.endDate);
                           return (
                             <tr key={p.id} className="border-b last:border-0">
                               <td className="px-3 py-2">

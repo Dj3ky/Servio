@@ -16,6 +16,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { NameSuggestionLists } from '../nameSuggestions';
+import { isPastDue } from '../dates';
 
 interface PmProject {
   id: string;
@@ -117,7 +118,8 @@ export default function ProjectsPage() {
   async function handleExportCsv() {
     setExporting(true);
     try {
-      const res = await fetch('/api/pm/projects/export', {
+      // Same filters as the list on screen
+      const res = await fetch(`/api/pm/projects/export?${params}`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) { toast.error(t('errors.internal')); return; }
@@ -382,7 +384,7 @@ export default function ProjectsPage() {
 
   function renderProjectRow(p: PmProject) {
     const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
-    const isOverdue = p.endDate && p.status !== 'completed' && new Date(p.endDate) < new Date();
+    const isOverdue = p.status !== 'completed' && isPastDue(p.endDate);
     return (
       <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
         <td className="px-4 py-3">
