@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, FileText, Receipt, BarChart3, Settings, Users, ClipboardList, X, CalendarRange, KeyRound,
-  FolderKanban, CalendarCheck, PieChart, History,
+  FolderKanban, CalendarCheck, PieChart, History, ListTodo,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { usePermissionsStore } from '@/stores/permissionsStore';
@@ -55,6 +55,7 @@ const systemItems: NavItem[] = [
 
 const pmItems: NavItem[] = [
   { labelKey: 'nav.pmProjects', icon: FolderKanban, path: '/pm/projects' },
+  { labelKey: 'nav.pmMyTasks', icon: ListTodo, path: '/pm/tasks', permKey: 'projects.access' },
   { labelKey: 'nav.pmMeetings', icon: CalendarCheck, path: '/pm/meetings' },
   { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports' },
 ];
@@ -79,6 +80,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     queryFn: () => api.get<LicenseStatus>('/license/status'),
     enabled: user?.role === 'admin',
     staleTime: 5 * 60 * 1000,
+  });
+
+  const canSeeTasks = projectsEnabled && !!user && (perms.projects?.access ?? []).includes(user.role);
+  const { data: taskCount } = useQuery<{ open: number; overdue: number }>({
+    queryKey: ['pm-my-task-count'],
+    queryFn: () => api.get('/pm/tasks/my-count'),
+    enabled: canSeeTasks,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   function filterItems(items: NavItem[]) {
@@ -117,6 +126,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <Icon className="h-4 w-4 shrink-0" />
         {t(item.labelKey as any)}
+        {item.path === '/pm/tasks' && !!taskCount?.open && (
+          <span className={cn(
+            'ml-auto rounded-full px-1.5 min-w-5 text-center text-[10px] font-semibold leading-5',
+            taskCount.overdue > 0 ? 'bg-destructive text-destructive-foreground' : 'bg-sidebar-accent text-sidebar-accent-foreground',
+          )}>
+            {taskCount.open}
+          </span>
+        )}
       </NavLink>
     );
   }

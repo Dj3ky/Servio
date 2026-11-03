@@ -36,7 +36,7 @@ export function usePmEmployees(enabled = true) {
 export function TaskLine({
   title, assigneeName, dueDate, done, onToggle, meta, children, disabled,
 }: {
-  title: string; assigneeName: string | null; dueDate: string | null; done: boolean;
+  title: string; assigneeName: string | null | undefined; dueDate: string | null; done: boolean; // undefined hides the owner
   onToggle?: (done: boolean) => void; meta?: ReactNode; children?: ReactNode; disabled?: boolean;
 }) {
   const { t } = useTranslation();
@@ -48,7 +48,7 @@ export function TaskLine({
         : <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${done ? 'bg-green-500' : 'bg-primary'}`} />}
       <span className={`flex-1 min-w-0 break-words ${done ? 'line-through text-muted-foreground' : ''}`}>{title}</span>
       {meta}
-      <span className="text-muted-foreground shrink-0">{assigneeName ?? '—'}</span>
+      {assigneeName !== undefined && <span className="text-muted-foreground shrink-0">{assigneeName ?? '—'}</span>}
       <span className={`font-mono shrink-0 w-[78px] text-right ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}
         title={overdue ? t('pm.tasks.overdue') : undefined}>
         {dueDate ? formatDate(dueDate) : ''}

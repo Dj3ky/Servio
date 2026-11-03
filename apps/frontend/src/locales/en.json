@@ -65,6 +65,7 @@
     "pmProjects": "Projects",
     "pmMeetings": "Meetings",
     "pmReports": "Project Reports",
+    "pmMyTasks": "My Tasks",
     "changelogProjects": "Changelog",
     "sectionMaintenance": "Maintenance",
     "sectionProjects": "Projects",
@@ -691,7 +692,13 @@
       "addedOk": "Task added",
       "updatedOk": "Task updated",
       "deletedOk": "Task deleted",
-      "error": "Error saving task"
+      "error": "Error saving task",
+      "myTitle": "My Tasks",
+      "mySubtitle": "Open tasks from all projects",
+      "filterMine": "My tasks",
+      "filterAll": "All tasks",
+      "showDone": "Show done",
+      "noneOpen": "No open tasks."
     },
     "documents": {
       "tab": "Documents",

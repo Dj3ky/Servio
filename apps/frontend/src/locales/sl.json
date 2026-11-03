@@ -65,6 +65,7 @@
     "pmProjects": "Projekti",
     "pmMeetings": "Sestanki",
     "pmReports": "Poročila projektov",
+    "pmMyTasks": "Moje naloge",
     "changelogProjects": "Dnevnik sprememb",
     "sectionMaintenance": "Vzdrževanje",
     "sectionProjects": "Projekti",
@@ -701,7 +702,13 @@
       "addedOk": "Naloga dodana",
       "updatedOk": "Naloga posodobljena",
       "deletedOk": "Naloga izbrisana",
-      "error": "Napaka pri shranjevanju naloge"
+      "error": "Napaka pri shranjevanju naloge",
+      "myTitle": "Moje naloge",
+      "mySubtitle": "Odprte naloge iz vseh projektov",
+      "filterMine": "Moje naloge",
+      "filterAll": "Vse naloge",
+      "showDone": "Prikaži zaključene",
+      "noneOpen": "Ni odprtih nalog."
     },
     "documents": {
       "tab": "Dokumenti",

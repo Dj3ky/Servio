@@ -12,6 +12,7 @@ import pmFacilitiesRoutes from './routes/pm-facilities';
 import pmProjectsRoutes from './routes/pm-projects';
 import pmMeetingsRoutes from './routes/pm-meetings';
 import pmReportsRoutes from './routes/pm-reports';
+import pmTasksRoutes from './routes/pm-tasks';
 
 const FEATURE_KEY = 'projects_extension';
 
@@ -241,5 +242,6 @@ router.use('/facilities', requireExtension, pmFacilitiesRoutes);
 router.use('/projects', requireExtension, pmProjectsRoutes);
 router.use('/meetings', requireExtension, pmMeetingsRoutes);
 router.use('/reports', requireExtension, pmReportsRoutes);
+router.use('/tasks', requireExtension, pmTasksRoutes);
 
 export default router;

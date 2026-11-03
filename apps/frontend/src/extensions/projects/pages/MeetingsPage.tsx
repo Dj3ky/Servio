@@ -279,6 +279,8 @@ export default function MeetingsPage() {
   function invalidateTasks() {
     qc.invalidateQueries({ queryKey: ['pm-meeting-tasks'] });
     qc.invalidateQueries({ queryKey: ['pm-project-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-my-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-my-task-count'] });
     qc.invalidateQueries({ queryKey: ['pm-projects'] });
   }
 

@@ -20,6 +20,7 @@ const PmProjectsPage = lazy(() => import('@/extensions/projects/pages/ProjectsPa
 const PmProjectDetailPage = lazy(() => import('@/extensions/projects/pages/ProjectDetailPage'));
 const PmMeetingsPage = lazy(() => import('@/extensions/projects/pages/MeetingsPage'));
 const PmReportsPage = lazy(() => import('@/extensions/projects/pages/ProjectReportsPage'));
+const PmMyTasksPage = lazy(() => import('@/extensions/projects/pages/MyTasksPage'));
 const ChangelogProjectsPage = lazy(() => import('@/extensions/changelog/pages/ChangelogProjectsPage'));
 const ChangelogProjectDetailPage = lazy(() => import('@/extensions/changelog/pages/ChangelogProjectDetailPage'));
 const ChangelogActivityPage = lazy(() => import('@/extensions/changelog/pages/ChangelogActivityPage'));
@@ -136,6 +137,7 @@ export const router = createBrowserRouter([
       { path: 'pm/projects/:id', element: withSuspense(<PmProjectDetailPage />) },
       { path: 'pm/meetings', element: withSuspense(<PmMeetingsPage />) },
       { path: 'pm/reports', element: withSuspense(<PmReportsPage />) },
+      { path: 'pm/tasks', element: withSuspense(<PmMyTasksPage />) },
       { path: 'changelog/projects', element: withSuspense(<ChangelogProjectsPage />) },
       { path: 'changelog/projects/:id', element: withSuspense(<ChangelogProjectDetailPage />) },
       { path: 'changelog/activity', element: withSuspense(<ChangelogActivityPage />) },

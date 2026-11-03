@@ -19,6 +19,8 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['pm-project-tasks', projectId] });
     qc.invalidateQueries({ queryKey: ['pm-meeting-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-my-tasks'] });
+    qc.invalidateQueries({ queryKey: ['pm-my-task-count'] });
     qc.invalidateQueries({ queryKey: ['pm-projects'] });
   }
 

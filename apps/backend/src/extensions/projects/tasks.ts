@@ -1,7 +1,7 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db';
 import { users } from '../../db/schema/users';
-import { pmProjectTasks, pmWeeklyMeetings } from './schema';
+import { pmProjects, pmProjectTasks, pmWeeklyMeetings } from './schema';
 
 // Tasks with assignee name and the date of the meeting they were created in.
 // Open tasks first, then by due date (no date last), then oldest first.
@@ -19,8 +19,11 @@ export function selectTasks(where: SQL | undefined) {
     completedMeetingId: pmProjectTasks.completedMeetingId,
     completedAt: pmProjectTasks.completedAt,
     createdAt: pmProjectTasks.createdAt,
+    projectNumber: pmProjects.projectNumber,
+    projectName: pmProjects.name,
   })
     .from(pmProjectTasks)
+    .innerJoin(pmProjects, eq(pmProjectTasks.projectId, pmProjects.id))
     .leftJoin(users, eq(pmProjectTasks.assigneeId, users.id))
     .leftJoin(pmWeeklyMeetings, eq(pmProjectTasks.meetingId, pmWeeklyMeetings.id))
     .where(where)
