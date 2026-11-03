@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 interface Meeting {
   id: string; meetingDate: string; notes: string | null;
@@ -290,6 +291,7 @@ export default function MeetingsPage() {
 
   const newDirty = !!meetingNotes.trim() || entries.some(e => e.notes.trim() || e.entryStatus !== 'active');
   const editDirty = editMode && editFormKey(editNotes, editEntries) !== editSnapshot;
+  const navBlocker = useUnsavedChangesGuard((newOpen && newDirty) || editDirty);
 
   function closeEdit() {
     setEditMode(false);
@@ -310,7 +312,19 @@ export default function MeetingsPage() {
     closeEdit();
   }
 
+  function cancelDiscard() {
+    if (navBlocker.state === 'blocked') navBlocker.reset();
+    setDiscardTarget(null);
+  }
+
   function confirmDiscard() {
+    if (navBlocker.state === 'blocked') {
+      setNewOpen(false);
+      setDetailId(null);
+      closeEdit();
+      navBlocker.proceed();
+      return;
+    }
     if (discardTarget === 'new') setNewOpen(false);
     if (discardTarget === 'edit-cancel') closeEdit();
     if (discardTarget === 'edit-close') { setDetailId(null); closeEdit(); }
@@ -754,12 +768,12 @@ export default function MeetingsPage() {
       </Dialog>
 
       {/* Unsaved changes warning */}
-      <Dialog open={!!discardTarget} onOpenChange={o => { if (!o) setDiscardTarget(null); }}>
+      <Dialog open={!!discardTarget || navBlocker.state === 'blocked'} onOpenChange={o => { if (!o) cancelDiscard(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{t('pm.meetings.discardTitle')}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">{t('pm.meetings.discardText')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDiscardTarget(null)}>{t('pm.meetings.discardKeepEditing')}</Button>
+            <Button variant="outline" onClick={cancelDiscard}>{t('pm.meetings.discardKeepEditing')}</Button>
             <Button variant="destructive" onClick={confirmDiscard}>{t('pm.meetings.discardConfirm')}</Button>
           </DialogFooter>
         </DialogContent>
