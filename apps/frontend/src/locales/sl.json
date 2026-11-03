@@ -819,7 +819,18 @@
       "colDeadline": "Rok",
       "colValue": "Vrednost",
       "noOverdue": "Ni projektov z zamudo.",
-      "unassigned": "Nedodeljeno"
+      "unassigned": "Nedodeljeno",
+      "allCustomers": "Vsi naročniki — vpišite ali izberite naročnika",
+      "showingFor": "Naročnik: {{customer}}",
+      "clearFilter": "Počisti filter",
+      "pickCustomer": "Izberite naročnika s seznama",
+      "tabCustomers": "Po naročnikih",
+      "customersNote": "Vsi projekti (aktivni in zaključeni). Kliknite naročnika za filtriranje celotnega poročila.",
+      "colActive": "Aktivni",
+      "colCompleted": "Zaključeni",
+      "noCustomer": "Brez naročnika",
+      "variants": "Različnih zapisov: {{count}}",
+      "variantsHint": "Ime naročnika je na projektih zapisano na več načinov (velike/male črke ali presledki)."
     }
   },
   "changelog": {

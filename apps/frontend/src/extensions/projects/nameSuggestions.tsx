@@ -6,14 +6,19 @@ interface Suggestions {
   facilities: { name: string; customerName: string | null }[];
 }
 
-// Browser <datalist> suggestions for the free-text customer / facility fields, from names already used on projects.
-// Facilities are narrowed to the typed customer when that customer has any; otherwise all are offered.
-export function NameSuggestionLists({ id, customerName, enabled }: { id: string; customerName: string; enabled: boolean }) {
-  const { data } = useQuery<Suggestions>({
+// Customer / facility names already used on projects
+export function useNameSuggestions(enabled = true) {
+  return useQuery<Suggestions>({
     queryKey: ['pm-name-suggestions'],
     queryFn: () => api.get('/pm/projects/suggestions'),
     enabled,
-  });
+  }).data;
+}
+
+// Browser <datalist> suggestions for the free-text customer / facility fields, from names already used on projects.
+// Facilities are narrowed to the typed customer when that customer has any; otherwise all are offered.
+export function NameSuggestionLists({ id, customerName, enabled }: { id: string; customerName: string; enabled: boolean }) {
+  const data = useNameSuggestions(enabled);
 
   const customer = customerName.trim().toLowerCase();
   const forCustomer = (data?.facilities ?? []).filter(f => customer && f.customerName?.toLowerCase() === customer);

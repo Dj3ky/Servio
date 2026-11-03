@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Users, ChevronDown, ChevronUp, AlertCircle, Printer } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, AlertCircle, Printer, Building2, X } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { isPastDue } from '../dates';
+import { useNameSuggestions } from '../nameSuggestions';
+import { Input } from '@/components/ui/input';
 
 interface SummaryData {
   statusCounts: { status: string; count: number }[];
@@ -38,6 +40,12 @@ interface OverdueProject {
   id: string; projectNumber: string; name: string; priority: string; status: string;
   endDate: string | null; contractValue: string | null; invoicedAmount: string;
   employeeName: string | null; customerName: string | null;
+}
+
+interface CustomerRow {
+  customerName: string | null; variants: number;
+  activeCount: number; completedCount: number;
+  contractValue: string; invoiced: string; remainingActive: string; unbilledCompleted: string;
 }
 
 interface RevenueTrendRow { month: string; revenue: number; invoiceCount: number; }
@@ -78,6 +86,10 @@ function fmt(v: string | number | null | undefined) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
 }
 
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
 function fmtShort(v: number) {
   if (v === 0) return '0';
   if (v >= 1000) return `€${(v / 1000).toFixed(0)}k`;
@@ -91,6 +103,36 @@ export default function ProjectReportsPage() {
   const { t } = useTranslation();
   const [collapsedWorkload, setCollapsedWorkload] = useState<Set<string>>(new Set());
   const [revenueYear, setRevenueYear] = useState(currentYear);
+  // Customer filter: what is typed, and the applied customer (only set once the text matches a known customer)
+  const [customerInput, setCustomerInput] = useState('');
+  const [customer, setCustomer] = useState('');
+
+  const suggestions = useNameSuggestions();
+  // One entry per customer, ignoring case / spaces like the backend does
+  const customerOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const name of suggestions?.customers ?? []) {
+      const key = name.trim().toLowerCase();
+      if (!seen.has(key)) seen.set(key, name.trim());
+    }
+    return [...seen.values()];
+  }, [suggestions]);
+
+  function changeCustomerInput(value: string) {
+    setCustomerInput(value);
+    if (!value.trim()) { setCustomer(''); return; }
+    const match = customerOptions.find(c => c.toLowerCase() === value.trim().toLowerCase());
+    if (match) setCustomer(match);
+  }
+
+  function selectCustomer(name: string) {
+    setCustomerInput(name);
+    setCustomer(name);
+  }
+
+  // Adds the customer filter to a report URL
+  const withCustomer = (url: string) =>
+    customer ? `${url}${url.includes('?') ? '&' : '?'}customer=${encodeURIComponent(customer)}` : url;
 
   function toggleWorkload(key: string) {
     setCollapsedWorkload(prev => {
@@ -101,35 +143,41 @@ export default function ProjectReportsPage() {
   }
 
   const { data: summary, isLoading: loadingSummary } = useQuery<SummaryData>({
-    queryKey: ['pm-report', 'summary'],
-    queryFn: () => api.get('/pm/reports/summary'),
+    queryKey: ['pm-report', 'summary', customer],
+    queryFn: () => api.get(withCustomer('/pm/reports/summary')),
   });
 
   const { data: workload, isLoading: loadingWorkload } = useQuery<WorkloadGroup[]>({
-    queryKey: ['pm-report', 'workload'],
-    queryFn: () => api.get('/pm/reports/workload'),
+    queryKey: ['pm-report', 'workload', customer],
+    queryFn: () => api.get(withCustomer('/pm/reports/workload')),
   });
 
   const employeeOrder = useEmployeeOrder();
 
   const { data: overdue, isLoading: loadingOverdue } = useQuery<OverdueProject[]>({
-    queryKey: ['pm-report', 'overdue'],
-    queryFn: () => api.get('/pm/reports/overdue'),
+    queryKey: ['pm-report', 'overdue', customer],
+    queryFn: () => api.get(withCustomer('/pm/reports/overdue')),
   });
 
   const { data: revenueTrend, isLoading: loadingRevenue } = useQuery<RevenueTrendRow[]>({
-    queryKey: ['pm-report', 'revenue-trend', revenueYear],
-    queryFn: () => api.get(`/pm/reports/revenue-trend?year=${revenueYear}`),
+    queryKey: ['pm-report', 'revenue-trend', revenueYear, customer],
+    queryFn: () => api.get(withCustomer(`/pm/reports/revenue-trend?year=${revenueYear}`)),
   });
 
   const { data: completions, isLoading: loadingCompletions } = useQuery<CompletionsRow[]>({
-    queryKey: ['pm-report', 'completions', revenueYear],
-    queryFn: () => api.get(`/pm/reports/completions?year=${revenueYear}`),
+    queryKey: ['pm-report', 'completions', revenueYear, customer],
+    queryFn: () => api.get(withCustomer(`/pm/reports/completions?year=${revenueYear}`)),
   });
 
   const { data: outstanding, isLoading: loadingOutstanding } = useQuery<OutstandingProject[]>({
-    queryKey: ['pm-report', 'outstanding'],
-    queryFn: () => api.get('/pm/reports/outstanding'),
+    queryKey: ['pm-report', 'outstanding', customer],
+    queryFn: () => api.get(withCustomer('/pm/reports/outstanding')),
+  });
+
+  // Not filtered: it is the list of customers to choose from
+  const { data: byCustomer, isLoading: loadingByCustomer } = useQuery<CustomerRow[]>({
+    queryKey: ['pm-report', 'by-customer'],
+    queryFn: () => api.get('/pm/reports/by-customer'),
   });
 
   const totalOutstanding = (outstanding ?? []).reduce((sum, p) => {
@@ -147,8 +195,8 @@ export default function ProjectReportsPage() {
 
     // Fetch project lists on demand
     const [activeResp, archivedResp] = await Promise.all([
-      api.get<{ data: any[] }>(`/pm/projects?archived=false&limit=500`),
-      api.get<{ data: any[] }>(`/pm/projects?archived=true&limit=500`),
+      api.get<{ data: any[] }>(withCustomer(`/pm/projects?archived=false&limit=500`)),
+      api.get<{ data: any[] }>(withCustomer(`/pm/projects?archived=true&limit=500`)),
     ]);
     const activeProjects: any[] = activeResp.data ?? [];
     const completedThisYear: any[] = (archivedResp.data ?? []).filter((p: any) => {
@@ -235,7 +283,7 @@ export default function ProjectReportsPage() {
       s + parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0'), 0);
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>Poročilo projektov ${revenueYear}</title>
+      <title>Poročilo projektov ${revenueYear}${customer ? ` — ${escapeHtml(customer)}` : ''}</title>
       <style>
         @page { size: A4 landscape; margin: 12mm; }
         body { font-family: Arial, sans-serif; font-size: 11px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -260,7 +308,7 @@ export default function ProjectReportsPage() {
         @media print { button { display: none; } }
       </style>
     </head><body>
-      <h2>Poročilo projektov — ${revenueYear}</h2>
+      <h2>Poročilo projektov — ${revenueYear}${customer ? ` — Naročnik: ${escapeHtml(customer)}` : ''}</h2>
       <div class="meta">Generirano: ${generated} &nbsp;|&nbsp; Aktivni projekti: ${activeProjects.length} &nbsp;|&nbsp; Zaključeni ${revenueYear}: ${completedThisYear.length}</div>
 
       <!-- Summary -->
@@ -337,6 +385,33 @@ export default function ProjectReportsPage() {
         </Button>
       </div>
 
+      {/* Customer filter — applies to everything below and to the printed report */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Input
+          className="w-[280px]"
+          list="pm-report-customers"
+          autoComplete="off"
+          placeholder={t('pm.reports.allCustomers')}
+          value={customerInput}
+          onChange={e => changeCustomerInput(e.target.value)}
+        />
+        <datalist id="pm-report-customers">
+          {customerOptions.map(name => <option key={name} value={name} />)}
+        </datalist>
+        {customer && (
+          <Badge variant="secondary" className="gap-1 pr-1">
+            {t('pm.reports.showingFor', { customer })}
+            <button type="button" className="rounded-sm hover:bg-muted p-0.5" onClick={() => selectCustomer('')} title={t('pm.reports.clearFilter')}>
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        )}
+        {!customer && customerInput.trim() && (
+          <span className="text-xs text-muted-foreground">{t('pm.reports.pickCustomer')}</span>
+        )}
+      </div>
+
       {/* Summary cards */}
       {summary && (
         <div className="space-y-2">
@@ -371,6 +446,7 @@ export default function ProjectReportsPage() {
           <TabsTrigger value="status">{t('pm.reports.tabStatus')}</TabsTrigger>
           <TabsTrigger value="overdue">{t('pm.reports.tabOverdue')} {overdue && overdue.length > 0 && `(${overdue.length})`}</TabsTrigger>
           <TabsTrigger value="employee">{t('pm.reports.tabEmployee')}</TabsTrigger>
+          <TabsTrigger value="customers">{t('pm.reports.tabCustomers')}</TabsTrigger>
         </TabsList>
 
         {/* Revenue + Completions charts */}
@@ -676,6 +752,56 @@ export default function ProjectReportsPage() {
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalValue)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{fmt(e.totalInvoiced)}</td>
                         <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{fmt(remaining)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* By customer — all statuses; click a row to filter the whole page */}
+        <TabsContent value="customers" className="mt-4 space-y-2">
+          <p className="text-xs text-muted-foreground">{t('pm.reports.customersNote')}</p>
+          {loadingByCustomer && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+          {byCustomer && (
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-muted-foreground">
+                    <th className="text-left px-4 py-3 font-medium">{t('pm.reports.colCustomer')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colActive')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colCompleted')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colTotalValue')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colInvoiced')}</th>
+                    <th className="text-right px-4 py-3 font-medium">{t('pm.reports.colRemaining')}</th>
+                    <th className="text-right px-4 py-3 font-medium text-destructive">{t('pm.reports.colOutstanding')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byCustomer.map(c => {
+                    const selected = !!c.customerName && c.customerName.toLowerCase() === customer.toLowerCase();
+                    return (
+                      <tr
+                        key={c.customerName ?? '__none__'}
+                        className={`border-b last:border-0 ${c.customerName ? 'cursor-pointer hover:bg-muted/30' : ''} ${selected ? 'bg-primary/10' : ''}`}
+                        onClick={() => c.customerName && selectCustomer(selected ? '' : c.customerName)}
+                      >
+                        <td className="px-4 py-3 font-medium">
+                          {c.customerName ?? <span className="text-muted-foreground italic">{t('pm.reports.noCustomer')}</span>}
+                          {c.variants > 1 && (
+                            <Badge variant="outline" className="ml-2 text-[10px] font-normal" title={t('pm.reports.variantsHint')}>
+                              {t('pm.reports.variants', { count: c.variants })}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">{c.activeCount || '—'}</td>
+                        <td className="px-4 py-3 text-right">{c.completedCount || '—'}</td>
+                        <td className="px-4 py-3 text-right font-mono text-xs">{fmt(c.contractValue)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-xs">{fmt(c.invoiced)}</td>
+                        <td className={`px-4 py-3 text-right font-mono text-xs ${parseFloat(c.remainingActive) > 0 ? 'text-green-600' : ''}`}>{fmt(c.remainingActive)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-destructive">{fmt(c.unbilledCompleted)}</td>
                       </tr>
                     );
                   })}

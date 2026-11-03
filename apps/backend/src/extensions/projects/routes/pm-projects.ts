@@ -21,7 +21,7 @@ async function ensureUploadsDir() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
 }
 
-// Filters shared by the project list and the CSV export: archived, search, status, priority, employeeId
+// Filters shared by the project list and the CSV export: archived, search, status, priority, employeeId, customer
 function projectFilters(query: Request['query']) {
   const search = query.search as string | undefined;
   const status = query.status as string | undefined;
@@ -48,6 +48,9 @@ function projectFilters(query: Request['query']) {
   if (status && archived !== 'true') conditions.push(eq(pmProjects.status, status));
   if (priority) conditions.push(eq(pmProjects.priority, priority));
   if (employeeId) conditions.push(eq(pmProjects.employeeId, employeeId));
+  // Exact customer, ignoring case and surrounding spaces (same rule as the reports)
+  const customer = typeof query.customer === 'string' ? query.customer.trim() : '';
+  if (customer) conditions.push(sql`lower(trim(${pmProjects.customerName})) = lower(${customer})`);
 
   return conditions.length > 0 ? and(...conditions) : undefined;
 }

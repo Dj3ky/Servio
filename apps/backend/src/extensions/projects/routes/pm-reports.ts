@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, ne, sql, and, desc } from 'drizzle-orm';
+import { eq, ne, sql, and, desc, type SQL } from 'drizzle-orm';
 import { db } from '../../../db';
 import { pmProjects, pmWeeklyMeetings, pmMeetingEntries, pmProjectInvoices } from '../schema';
 import { users } from '../../../db/schema/users';
@@ -8,21 +8,30 @@ import { requireRole } from '../../../middleware/role';
 const router = Router();
 router.use(requireRole('projects', 'access'));
 
+// Optional ?customer= filter shared by all reports. Customer names are free text,
+// so they match ignoring case and surrounding spaces ("Petrol " = "PETROL").
+function customerFilter(req: Request): SQL | undefined {
+  const customer = typeof req.query.customer === 'string' ? req.query.customer.trim() : '';
+  return customer ? sql`lower(trim(${pmProjects.customerName})) = lower(${customer})` : undefined;
+}
+
 // Summary by status
-router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
+router.get('/summary', async (req: Request, res: Response): Promise<void> => {
+  const customer = customerFilter(req);
   const [statusCounts, totals, employeeStats] = await Promise.all([
     db.select({
       status: pmProjects.status,
       count: sql<number>`count(*)`,
     })
       .from(pmProjects)
+      .where(customer)
       .groupBy(pmProjects.status),
 
     db.select({
       totalContractValue: sql<string>`coalesce(sum(contract_value), 0)`,
       totalInvoiced: sql<string>`coalesce(sum(invoiced_amount), 0)`,
       totalRemaining: sql<string>`coalesce(sum(contract_value - invoiced_amount), 0)`,
-    }).from(pmProjects).where(ne(pmProjects.status, 'completed')),
+    }).from(pmProjects).where(and(ne(pmProjects.status, 'completed'), customer)),
 
     db.select({
       employeeId: pmProjects.employeeId,
@@ -33,7 +42,7 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
     })
       .from(pmProjects)
       .leftJoin(users, eq(pmProjects.employeeId, users.id))
-      .where(ne(pmProjects.status, 'completed'))
+      .where(and(ne(pmProjects.status, 'completed'), customer))
       .groupBy(pmProjects.employeeId, users.name)
       .orderBy(desc(sql`count(*)`)),
   ]);
@@ -72,8 +81,30 @@ router.get('/by-employee', async (req: Request, res: Response): Promise<void> =>
   res.json(projects);
 });
 
+// Per customer: project counts and money, all statuses. Spelling variants of one name are grouped together;
+// `variants` > 1 means the same customer is written in more than one way.
+router.get('/by-customer', async (_req: Request, res: Response): Promise<void> => {
+  const key = sql`coalesce(lower(trim(${pmProjects.customerName})), '')`;
+  const rows = await db.select({
+    // Most used spelling is shown as the name
+    customerName: sql<string | null>`nullif(mode() within group (order by trim(${pmProjects.customerName})), '')`,
+    variants: sql<number>`count(distinct trim(${pmProjects.customerName}))::int`,
+    activeCount: sql<number>`(count(*) filter (where ${pmProjects.status} <> 'completed'))::int`,
+    completedCount: sql<number>`(count(*) filter (where ${pmProjects.status} = 'completed'))::int`,
+    contractValue: sql<string>`coalesce(sum(${pmProjects.contractValue}), 0)`,
+    invoiced: sql<string>`coalesce(sum(${pmProjects.invoicedAmount}), 0)`,
+    remainingActive: sql<string>`coalesce(sum(${pmProjects.contractValue} - ${pmProjects.invoicedAmount}) filter (where ${pmProjects.status} <> 'completed'), 0)`,
+    unbilledCompleted: sql<string>`coalesce(sum(greatest(${pmProjects.contractValue} - ${pmProjects.invoicedAmount}, 0)) filter (where ${pmProjects.status} = 'completed'), 0)`,
+  })
+    .from(pmProjects)
+    .groupBy(key)
+    .orderBy(desc(sql`coalesce(sum(${pmProjects.contractValue}), 0)`));
+
+  res.json(rows);
+});
+
 // Overdue projects (end_date before today and not completed)
-router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
+router.get('/overdue', async (req: Request, res: Response): Promise<void> => {
   const projects = await db.select({
     id: pmProjects.id,
     projectNumber: pmProjects.projectNumber,
@@ -91,6 +122,7 @@ router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
     .where(and(
       sql`${pmProjects.endDate} < current_date`,
       sql`${pmProjects.status} != 'completed'`,
+      customerFilter(req),
     ))
     .orderBy(pmProjects.endDate);
 
@@ -98,7 +130,7 @@ router.get('/overdue', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // Workload view — all active projects grouped by employee
-router.get('/workload', async (_req: Request, res: Response): Promise<void> => {
+router.get('/workload', async (req: Request, res: Response): Promise<void> => {
   const projects = await db.select({
     id: pmProjects.id,
     projectNumber: pmProjects.projectNumber,
@@ -114,7 +146,7 @@ router.get('/workload', async (_req: Request, res: Response): Promise<void> => {
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .where(eq(pmProjects.status, 'active'))
+    .where(and(eq(pmProjects.status, 'active'), customerFilter(req)))
     .orderBy(pmProjects.createdAt);
 
   // Group by employee
@@ -157,9 +189,11 @@ router.get('/revenue-trend', async (req: Request, res: Response): Promise<void> 
     invoiceCount: sql<number>`count(*)`,
   })
     .from(pmProjectInvoices)
+    .innerJoin(pmProjects, eq(pmProjectInvoices.projectId, pmProjects.id))
     .where(and(
       eq(pmProjectInvoices.direction, 'issued'),
       sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`,
+      customerFilter(req),
     ))
     .groupBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`)
     .orderBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`);
@@ -187,6 +221,7 @@ router.get('/completions', async (req: Request, res: Response): Promise<void> =>
       eq(pmProjects.status, 'completed'),
       sql`${pmProjects.completedAt} is not null`,
       sql`extract(year from ${pmProjects.completedAt}) = ${year}`,
+      customerFilter(req),
     ))
     .groupBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`)
     .orderBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`);
@@ -202,7 +237,7 @@ router.get('/completions', async (req: Request, res: Response): Promise<void> =>
 });
 
 // Completed projects with uninvoiced balance
-router.get('/outstanding', async (_req: Request, res: Response): Promise<void> => {
+router.get('/outstanding', async (req: Request, res: Response): Promise<void> => {
   const projects = await db.select({
     id: pmProjects.id,
     projectNumber: pmProjects.projectNumber,
@@ -219,6 +254,7 @@ router.get('/outstanding', async (_req: Request, res: Response): Promise<void> =
       eq(pmProjects.status, 'completed'),
       sql`${pmProjects.contractValue} is not null`,
       sql`${pmProjects.contractValue} > ${pmProjects.invoicedAmount}`,
+      customerFilter(req),
     ))
     .orderBy(desc(sql`${pmProjects.contractValue} - ${pmProjects.invoicedAmount}`));
 

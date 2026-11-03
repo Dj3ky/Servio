@@ -809,7 +809,18 @@
       "colDeadline": "Deadline",
       "colValue": "Value",
       "noOverdue": "No overdue projects.",
-      "unassigned": "Unassigned"
+      "unassigned": "Unassigned",
+      "allCustomers": "All customers — type or pick a customer",
+      "showingFor": "Customer: {{customer}}",
+      "clearFilter": "Clear filter",
+      "pickCustomer": "Pick a customer from the list",
+      "tabCustomers": "By customer",
+      "customersNote": "All projects (active and completed). Click a customer to filter the whole report.",
+      "colActive": "Active",
+      "colCompleted": "Completed",
+      "noCustomer": "No customer",
+      "variants": "{{count}} spellings",
+      "variantsHint": "This customer's name is written in more than one way on projects (capitals or spaces)."
     }
   },
   "changelog": {
