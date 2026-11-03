@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, desc, sql, inArray, and } from 'drizzle-orm';
+import { eq, ne, desc, sql, inArray, and } from 'drizzle-orm';
 import { createPmMeetingSchema, updatePmMeetingSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects } from '../schema';
@@ -84,35 +84,41 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json({ ...meeting, entries });
 });
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type EntryInput = { projectId: string; entryStatus: string; notes?: string | null };
+
+async function insertEntries(tx: Tx, meetingId: string, entries: EntryInput[]) {
+  if (entries.length === 0) return;
+  await tx.insert(pmMeetingEntries).values(entries.map(e => ({
+    meetingId,
+    projectId: e.projectId,
+    entryStatus: e.entryStatus,
+    notes: e.notes ?? null,
+  })));
+
+  // Auto-complete projects whose entry was marked done
+  const doneIds = entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId);
+  if (doneIds.length > 0) {
+    await tx.update(pmProjects)
+      .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+      .where(and(inArray(pmProjects.id, doneIds), ne(pmProjects.status, 'completed')));
+  }
+}
+
 // Create meeting with entries
 router.post('/', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = createPmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  const [meeting] = await db.insert(pmWeeklyMeetings).values({
-    meetingDate: parsed.data.meetingDate,
-    notes: parsed.data.notes ?? null,
-    createdById: req.auth!.userId,
-  }).returning();
-
-  if (parsed.data.entries.length > 0) {
-    await db.insert(pmMeetingEntries).values(
-      parsed.data.entries.map(e => ({
-        meetingId: meeting.id,
-        projectId: e.projectId,
-        entryStatus: e.entryStatus,
-        notes: e.notes ?? null,
-      }))
-    );
-
-    // Auto-complete projects whose entry was marked done
-    const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId);
-    if (doneIds.length > 0) {
-      await db.update(pmProjects)
-        .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
-        .where(inArray(pmProjects.id, doneIds));
-    }
-  }
+  const meeting = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(pmWeeklyMeetings).values({
+      meetingDate: parsed.data.meetingDate,
+      notes: parsed.data.notes ?? null,
+      createdById: req.auth!.userId,
+    }).returning();
+    await insertEntries(tx, created.id, parsed.data.entries);
+    return created;
+  });
 
   res.status(201).json(meeting);
 });
@@ -122,36 +128,38 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   const parsed = updatePmMeetingSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  const [updated] = await db.update(pmWeeklyMeetings)
-    .set({ notes: parsed.data.notes ?? null, updatedAt: new Date() })
-    .where(eq(pmWeeklyMeetings.id, req.params.id))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    const [meeting] = await tx.update(pmWeeklyMeetings)
+      .set({ notes: parsed.data.notes ?? null, updatedAt: new Date() })
+      .where(eq(pmWeeklyMeetings.id, req.params.id))
+      .returning();
+    if (!meeting || !parsed.data.entries) return meeting;
+
+    const previouslyDone = await tx.select({ projectId: pmMeetingEntries.projectId })
+      .from(pmMeetingEntries)
+      .where(and(eq(pmMeetingEntries.meetingId, req.params.id), eq(pmMeetingEntries.entryStatus, 'completed')));
+
+    // Replace all entries for this meeting
+    await tx.delete(pmMeetingEntries).where(eq(pmMeetingEntries.meetingId, req.params.id));
+    await insertEntries(tx, req.params.id, parsed.data.entries);
+
+    // Reopen projects that this meeting had completed but no longer does,
+    // unless another meeting also marked them completed
+    const stillDone = new Set(parsed.data.entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId));
+    const reopenIds = previouslyDone.map(r => r.projectId).filter(id => !stillDone.has(id));
+    if (reopenIds.length > 0) {
+      await tx.update(pmProjects)
+        .set({ status: 'active', completedAt: null, updatedAt: new Date() })
+        .where(and(
+          inArray(pmProjects.id, reopenIds),
+          eq(pmProjects.status, 'completed'),
+          sql`not exists (select 1 from ${pmMeetingEntries} where ${pmMeetingEntries.projectId} = ${pmProjects.id} and ${pmMeetingEntries.entryStatus} = 'completed')`,
+        ));
+    }
+    return meeting;
+  });
 
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
-
-  if (parsed.data.entries) {
-    // Replace all entries for this meeting
-    await db.delete(pmMeetingEntries).where(eq(pmMeetingEntries.meetingId, req.params.id));
-    if (parsed.data.entries.length > 0) {
-      await db.insert(pmMeetingEntries).values(
-        parsed.data.entries.map(e => ({
-          meetingId: req.params.id,
-          projectId: e.projectId,
-          entryStatus: e.entryStatus,
-          notes: e.notes ?? null,
-        }))
-      );
-
-      // Auto-complete projects whose entry was marked done
-      const doneIds = parsed.data.entries.filter(e => e.entryStatus === 'completed').map(e => e.projectId);
-      if (doneIds.length > 0) {
-        await db.update(pmProjects)
-          .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
-          .where(inArray(pmProjects.id, doneIds));
-      }
-    }
-  }
-
   res.json(updated);
 });
 

@@ -204,21 +204,41 @@ router.post('/import', requireRole('projects', 'manage'), documentUpload.single(
       const priority = ['high', 'medium', 'low'].includes(row['priority']) ? row['priority'] : 'medium';
       const status = ['active', 'on_hold', 'completed'].includes(row['status']) ? row['status'] : 'active';
 
-      await db.insert(pmProjects).values({
-        projectNumber,
-        name: row['name'],
-        customerName: row['customer_name'] || null,
-        facilityName: row['facility_name'] || null,
-        employeeId: employee?.id ?? null,
-        priority,
-        status,
-        orderDate: parseCsvDate(row['order_date']),
-        startDate: parseCsvDate(row['start_date']),
-        endDate: parseCsvDate(row['end_date']),
-        contractValue: parseCsvAmount(row['contract_value']),
-        invoicedAmount: parseCsvAmount(row['invoiced_amount']) ?? '0',
-        notes: row['notes'] || null,
-        completedAt: status === 'completed' ? new Date() : null,
+      const orderDate = parseCsvDate(row['order_date']);
+      const invoicedAmount = parseCsvAmount(row['invoiced_amount']) ?? '0';
+      const receivedAmount = parseCsvAmount(row['received_amount']) ?? '0';
+
+      await db.transaction(async (tx) => {
+        const [project] = await tx.insert(pmProjects).values({
+          projectNumber,
+          name: row['name'],
+          customerName: row['customer_name'] || null,
+          facilityName: row['facility_name'] || null,
+          employeeId: employee?.id ?? null,
+          priority,
+          status,
+          orderDate,
+          startDate: parseCsvDate(row['start_date']),
+          endDate: parseCsvDate(row['end_date']),
+          contractValue: parseCsvAmount(row['contract_value']),
+          invoicedAmount,
+          receivedAmount,
+          notes: row['notes'] || null,
+          completedAt: status === 'completed' ? new Date() : null,
+        }).returning({ id: pmProjects.id });
+
+        // Totals are recalculated from invoice rows, so imported amounts need
+        // an opening invoice each or the first real invoice would wipe them
+        const opening = ([['issued', invoicedAmount], ['received', receivedAmount]] as const)
+          .filter(([, amount]) => Number(amount) !== 0)
+          .map(([direction, amount]) => ({
+            projectId: project.id,
+            direction,
+            invoiceDate: orderDate ?? new Date().toISOString().slice(0, 10),
+            amount,
+            notes: 'Začetno stanje (uvoz CSV)',
+          }));
+        if (opening.length > 0) await tx.insert(pmProjectInvoices).values(opening);
       });
 
       existingKeys.add(key);
