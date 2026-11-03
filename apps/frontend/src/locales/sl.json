@@ -733,6 +733,7 @@
       "issuedAddedOk": "Izdana faktura dodana",
       "receivedAddedOk": "Prejeta faktura dodana",
       "deletedOk": "Faktura izbrisana",
+      "updatedOk": "Faktura posodobljena",
       "deleteConfirm": "Izbriši fakturo?",
       "error": "Napaka",
       "totalIssued": "Skupaj izdano",

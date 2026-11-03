@@ -723,6 +723,7 @@
       "issuedAddedOk": "Issued invoice added",
       "receivedAddedOk": "Received invoice added",
       "deletedOk": "Invoice deleted",
+      "updatedOk": "Invoice updated",
       "deleteConfirm": "Delete invoice?",
       "error": "Error",
       "totalIssued": "Total issued",

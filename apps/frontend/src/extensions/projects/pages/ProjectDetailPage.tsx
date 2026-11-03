@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -52,18 +52,33 @@ function PhaseIcon({ status }: { status: string }) {
 }
 
 function InvoiceList({
-  invoices, form, onFormChange, onSubmit, onDelete, isPending, addLabel, totalLabel,
+  invoices, form, onFormChange, onSubmit, onUpdate, onDelete, isPending, addLabel, totalLabel,
 }: {
   invoices: Invoice[];
   form: InvoiceForm;
   onFormChange: (form: InvoiceForm) => void;
   onSubmit: () => void;
+  onUpdate: (invoiceId: string, form: InvoiceForm) => Promise<unknown>;
   onDelete: (invoiceId: string) => void;
   isPending: boolean;
   addLabel: string;
   totalLabel: string;
 }) {
   const { t } = useTranslation();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<InvoiceForm>({ invoiceDate: '', amount: '', notes: '' });
+
+  function startEdit(inv: Invoice) {
+    setEditingId(inv.id);
+    setEditForm({ invoiceDate: inv.invoiceDate.slice(0, 10), amount: inv.amount, notes: inv.notes ?? '' });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    await onUpdate(editingId, editForm);
+    setEditingId(null);
+  }
+
   return (
     <div className="space-y-4 mt-4">
       <Card>
@@ -110,12 +125,55 @@ function InvoiceList({
 
       {invoices.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
       <div className="space-y-2">
-        {invoices.map(inv => (
+        {invoices.map(inv => editingId === inv.id ? (
+          <form
+            key={inv.id}
+            className="flex flex-wrap items-center gap-3 p-3 rounded-md border bg-card text-sm"
+            onSubmit={e => { e.preventDefault(); saveEdit().catch(() => {}); }}
+          >
+            <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Input
+              type="date"
+              className="w-[160px] h-8"
+              value={editForm.invoiceDate}
+              onChange={e => setEditForm({ ...editForm, invoiceDate: e.target.value })}
+              required
+            />
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-[140px] h-8"
+              value={editForm.amount}
+              onChange={e => setEditForm({ ...editForm, amount: e.target.value })}
+              required
+            />
+            <Input
+              className="flex-1 min-w-[180px] h-8"
+              placeholder={t('pm.invoices.fieldNotes') + '...'}
+              value={editForm.notes}
+              onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+            />
+            <Button type="submit" variant="ghost" size="icon" className="h-7 w-7 text-green-600 shrink-0" title={t('common.save')}>
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditingId(null)} title={t('common.cancel')}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </form>
+        ) : (
           <div key={inv.id} className="flex items-center gap-3 p-3 rounded-md border bg-card text-sm">
             <Receipt className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{formatDate(inv.invoiceDate)}</span>
             <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
             <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+              onClick={() => startEdit(inv)}
+              title={t('common.edit')}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
               onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) onDelete(inv.id); }}
@@ -235,6 +293,18 @@ export default function ProjectDetailPage() {
         toast.success(t('pm.invoices.receivedAddedOk'));
         setReceivedForm({ invoiceDate: '', amount: '', notes: '' });
       }
+    },
+    onError: () => toast.error(t('pm.invoices.error')),
+  });
+
+  const updateInvoice = useMutation({
+    mutationFn: ({ invoiceId, form }: { invoiceId: string; form: InvoiceForm }) => api.patch(`/pm/projects/${id}/invoices/${invoiceId}`, form),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project-invoices', id] });
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
+      toast.success(t('pm.invoices.updatedOk'));
     },
     onError: () => toast.error(t('pm.invoices.error')),
   });
@@ -493,6 +563,7 @@ export default function ProjectDetailPage() {
             form={issuedForm}
             onFormChange={setIssuedForm}
             onSubmit={() => addInvoice.mutate({ ...issuedForm, direction: 'issued' })}
+            onUpdate={(invoiceId, form) => updateInvoice.mutateAsync({ invoiceId, form })}
             onDelete={invoiceId => deleteInvoice.mutate(invoiceId)}
             isPending={addInvoice.isPending}
             addLabel={t('pm.invoices.addIssued')}
@@ -507,6 +578,7 @@ export default function ProjectDetailPage() {
             form={receivedForm}
             onFormChange={setReceivedForm}
             onSubmit={() => addInvoice.mutate({ ...receivedForm, direction: 'received' })}
+            onUpdate={(invoiceId, form) => updateInvoice.mutateAsync({ invoiceId, form })}
             onDelete={invoiceId => deleteInvoice.mutate(invoiceId)}
             isPending={addInvoice.isPending}
             addLabel={t('pm.invoices.addReceived')}

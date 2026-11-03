@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { eq, ne, ilike, sql, and, or, desc } from 'drizzle-orm';
-import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmEmployeeOrderSchema } from '@servio/shared';
+import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder } from '../schema';
 import { users } from '../../../db/schema/users';
@@ -440,6 +440,21 @@ router.post('/:id/invoices', requireRole('projects', 'manage'), async (req: Requ
   await recalculateInvoiceTotals(req.params.id);
 
   res.status(201).json(invoice);
+});
+
+router.patch('/:id/invoices/:invoiceId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = updatePmInvoiceSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const [updated] = await db.update(pmProjectInvoices)
+    .set(parsed.data)
+    .where(and(eq(pmProjectInvoices.id, req.params.invoiceId), eq(pmProjectInvoices.projectId, req.params.id)))
+    .returning();
+  if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  await recalculateInvoiceTotals(req.params.id);
+
+  res.json(updated);
 });
 
 router.delete('/:id/invoices/:invoiceId', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
