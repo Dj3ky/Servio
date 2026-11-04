@@ -56,6 +56,17 @@ function formErrors(node: unknown, field?: string): string[] {
   return [...own, ...Object.entries(children ?? {}).flatMap(([name, child]) => formErrors(child, name))];
 }
 
+// A JSON answer carries Kimai's own reason; anything else most likely came from a web server or firewall in front of it
+async function forbiddenError(res: Response, request: string): Promise<KimaiError> {
+  const text = await res.text();
+  try {
+    const { message } = JSON.parse(text) as { message?: string };
+    return new KimaiError('errors.kimai_forbidden', 502, [message ? `${request}: ${message}` : request]);
+  } catch {
+    return new KimaiError('errors.kimai_blocked', 502, [request]);
+  }
+}
+
 async function kimaiRequest<T>(connection: KimaiConnection, method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
@@ -64,6 +75,7 @@ async function kimaiRequest<T>(connection: KimaiConnection, method: string, path
       headers: {
         Authorization: `Bearer ${connection.token}`,
         Accept: 'application/json',
+        'User-Agent': 'Servio',
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -76,7 +88,7 @@ async function kimaiRequest<T>(connection: KimaiConnection, method: string, path
   }
 
   if (res.status === 401) throw new KimaiError('errors.kimai_unauthorized');
-  if (res.status === 403) throw new KimaiError('errors.kimai_forbidden');
+  if (res.status === 403) throw await forbiddenError(res, `${method} /api${path.split('?')[0]}`);
   if (res.status === 404) throw new KimaiError('errors.kimai_not_found', 404);
   if (res.status >= 300 && res.status < 400) throw new KimaiError('errors.kimai_invalid_response');
   if (res.status >= 500) throw new KimaiError('errors.kimai_unavailable');

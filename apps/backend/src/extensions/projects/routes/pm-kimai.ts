@@ -81,11 +81,12 @@ router.put('/settings', requireRole('settings', 'manage'), handle(async (req, re
 
 router.post('/test', requireRole('settings', 'manage'), handle(async (req, res) => {
   const connection = await connectionFromBody(req.body);
-  const [version, projects, customers] = await Promise.all([
-    getKimaiVersion(connection),
-    listKimaiProjects(connection),
-    listKimaiCustomers(connection),
-  ]).catch((err) => {
+  // One at a time, so a failure always names the first call that failed
+  const [version, projects, customers] = await (async () => [
+    await getKimaiVersion(connection),
+    await listKimaiProjects(connection),
+    await listKimaiCustomers(connection),
+  ] as const)().catch((err) => {
     // These routes always exist in Kimai, so a 404 means the URL points somewhere else
     throw err instanceof KimaiError && err.status === 404 ? new KimaiError('errors.kimai_invalid_response') : err;
   });
