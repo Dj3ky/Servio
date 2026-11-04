@@ -9,6 +9,7 @@ const INSERT_BATCH_SIZE = 1000;
 function toRow(projectId: string, t: KimaiTimesheet) {
   const user = typeof t.user === 'object' ? t.user.alias || t.user.username || `#${t.user.id}` : `#${t.user}`;
   const activity = t.activity && typeof t.activity === 'object' ? t.activity.name ?? null : null;
+  const cost = t.internalRate ?? null;
   return {
     id: t.id,
     projectId,
@@ -18,6 +19,10 @@ function toRow(projectId: string, t: KimaiTimesheet) {
     userName: user,
     activityName: activity,
     description: t.description || null,
+    // Null means the rate wasn't visible, which is not the same as a cost of 0
+    internalCost: cost === null ? null : cost.toFixed(2),
+    // With no internal rate set, Kimai falls back to the billing rate, so these may not be real costs
+    costUnreliable: cost !== null && (t.duration ?? 0) > 0 && (cost === 0 || cost === t.rate),
   };
 }
 

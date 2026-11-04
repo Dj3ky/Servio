@@ -28,6 +28,7 @@ export const permissions = {
     access: r('admin', 'manager', 'technician', 'project_manager'),
     manage: r('admin', 'manager', 'project_manager'),
     delete: r('admin'),
+    labourCost: r('admin'),
   },
   changelog: {
     access: r('admin', 'manager', 'accountant', 'technician', 'project_manager'),

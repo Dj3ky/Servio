@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/stores/authStore';
 import { usePermissionsStore } from '@/stores/permissionsStore';
 import { KimaiCustomerField, kimaiErrorMessage, normalizeKimaiName, useKimaiCustomerChoice, type KimaiProject } from './kimai';
+import { LabourCostPanel } from './LabourCostPanel';
+import { formatHours } from './hoursFormat';
 
 interface HoursProject {
   id: string;
@@ -33,16 +35,13 @@ interface HoursData {
   entries: { id: number; entryDate: string; seconds: number; userName: string; activityName: string | null; description: string | null }[];
 }
 
-function formatHours(seconds: number) {
-  return `${(seconds / 3600).toLocaleString('sl-SI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`;
-}
-
 function useInvalidateLink(projectId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['pm-project', projectId] });
     qc.invalidateQueries({ queryKey: ['pm-kimai-projects'] });
     qc.invalidateQueries({ queryKey: ['pm-kimai-hours', projectId] });
+    qc.invalidateQueries({ queryKey: ['pm-kimai-cost', projectId] });
   };
 }
 
@@ -59,7 +58,10 @@ function HoursPanel({ projectId }: { projectId: string }) {
     onSuccess: () => toast.success(t('pm.kimai.refreshedOk')),
     onError: (err) => toast.error(kimaiErrorMessage(err, t)),
     // A failed refresh still changes the saved error shown below
-    onSettled: () => qc.invalidateQueries({ queryKey: ['pm-kimai-hours', projectId] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['pm-kimai-hours', projectId] });
+      qc.invalidateQueries({ queryKey: ['pm-kimai-cost', projectId] });
+    },
   });
 
   if (isLoading || !data) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
@@ -281,6 +283,7 @@ export function ProjectHoursTab({ project }: { project: HoursProject }) {
   const user = useAuthStore(s => s.user);
   const perms = usePermissionsStore(s => s.perms);
   const canManage = !!user && (perms.projects?.manage ?? []).includes(user.role);
+  const canSeeCost = !!user && (perms.projects?.labourCost ?? []).includes(user.role);
   const invalidate = useInvalidateLink(project.id);
   const [dialog, setDialog] = useState<'link' | 'create' | null>(null);
   const linked = project.kimaiProjectId !== null;
@@ -317,6 +320,13 @@ export function ProjectHoursTab({ project }: { project: HoursProject }) {
           )}
         </CardContent>
       </Card>
+      {linked && canSeeCost && (
+        <Card>
+          <CardContent className="p-4">
+            <LabourCostPanel projectId={project.id} />
+          </CardContent>
+        </Card>
+      )}
       {linked && (
         <Card>
           <CardContent className="p-4">

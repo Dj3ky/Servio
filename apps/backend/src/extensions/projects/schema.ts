@@ -140,7 +140,7 @@ export const pmKimaiConfig = pgTable('pm_kimai_config', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Copy of Kimai timesheets for linked projects; hours are only ever edited in Kimai. Holds no rates.
+// Copy of Kimai timesheets for linked projects; hours are only ever edited in Kimai
 export const pmKimaiTimesheets = pgTable('pm_kimai_timesheets', {
   id: integer('id').primaryKey(),
   projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
@@ -149,6 +149,9 @@ export const pmKimaiTimesheets = pgTable('pm_kimai_timesheets', {
   userName: text('user_name').notNull(),
   activityName: text('activity_name'),
   description: text('description'),
+  // Kimai's internal rate, a total for the entry; only served to the labourCost permission. Null = rate not visible.
+  internalCost: numeric('internal_cost', { precision: 12, scale: 2 }),
+  costUnreliable: boolean('cost_unreliable').notNull().default(false),
 });
 
 export type DbPmCustomer =typeof pmCustomers.$inferSelect;

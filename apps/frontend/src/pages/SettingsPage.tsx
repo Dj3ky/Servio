@@ -1915,6 +1915,7 @@ function PermissionsTab() {
       { section: 'projects', action: 'access', label: t('settings.perm.projectsAccess') },
       { section: 'projects', action: 'manage', label: t('settings.perm.projectsManage') },
       { section: 'projects', action: 'delete', label: t('settings.perm.projectsDelete') },
+      { section: 'projects', action: 'labourCost', label: t('settings.perm.projectsLabourCost') },
     ]},
     { label: t('settings.perm.changelog'), rows: [
       { section: 'changelog', action: 'access', label: t('settings.perm.changelogAccess') },

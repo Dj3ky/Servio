@@ -243,6 +243,28 @@ router.get('/hours/:projectId', requireRole('projects', 'access'), handle(async 
   res.json({ ...project, ...totals[0], byUser, entries });
 }));
 
+// Separate from the hours above, so people without this permission never receive any cost data
+router.get('/cost/:projectId', requireRole('projects', 'labourCost'), handle(async (req, res) => {
+  const inProject = eq(pmKimaiTimesheets.projectId, req.params.projectId);
+  const cost = sql<string>`coalesce(sum(${pmKimaiTimesheets.internalCost}), 0)`;
+  const seconds = sql<number>`coalesce(sum(${pmKimaiTimesheets.durationSeconds}), 0)::int`;
+  const month = sql<string>`to_char(${pmKimaiTimesheets.entryDate}, 'YYYY-MM')`;
+
+  const [[totals], byMonth, byUser] = await Promise.all([
+    db.select({
+      totalCost: cost,
+      entryCount: sql<number>`count(*)::int`,
+      unknownEntries: sql<number>`(count(*) filter (where ${pmKimaiTimesheets.internalCost} is null))::int`,
+      unreliableEntries: sql<number>`(count(*) filter (where ${pmKimaiTimesheets.costUnreliable}))::int`,
+    }).from(pmKimaiTimesheets).where(inProject),
+    db.select({ month, cost, seconds }).from(pmKimaiTimesheets).where(inProject).groupBy(month).orderBy(month),
+    db.select({ userName: pmKimaiTimesheets.userName, cost, seconds })
+      .from(pmKimaiTimesheets).where(inProject)
+      .groupBy(pmKimaiTimesheets.userName).orderBy(desc(cost)),
+  ]);
+  res.json({ ...totals, byMonth, byUser });
+}));
+
 router.post('/hours/:projectId/refresh', requireRole('projects', 'access'), handle(async (req, res) => {
   const project = await findProject(req.params.projectId);
   if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }

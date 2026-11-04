@@ -34,6 +34,9 @@ export interface KimaiTimesheet {
   begin: string;
   duration?: number | null;
   description?: string | null;
+  // Totals for the entry, not hourly values; Kimai leaves both out if the user may not see rates
+  rate?: number | null;
+  internalRate?: number | null;
   user: number | { id: number; alias?: string | null; username?: string | null };
   activity?: number | { name?: string | null } | null;
 }
