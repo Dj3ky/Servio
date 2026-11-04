@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
 import { ProjectTasksTab } from '../ProjectTasksTab';
+import { ProjectHoursTab } from '../ProjectHoursTab';
+import { useKimaiStatus } from '../kimai';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
@@ -38,6 +40,7 @@ interface Project {
   employeeId: string | null; employeeName: string | null;
   customerName: string | null; facilityName: string | null;
   completedAt: string | null;
+  kimaiProjectId: number | null; kimaiProjectName: string | null;
   phases: Phase[]; documents: Document[];
 }
 
@@ -247,6 +250,8 @@ export default function ProjectDetailPage() {
     queryFn: () => api.get('/pm/employees'),
     enabled: editDialogOpen,
   });
+
+  const { data: kimaiStatus } = useKimaiStatus();
 
   const updateProject = useMutation({
     mutationFn: (body: Record<string, string>) => api.patch(`/pm/projects/${id}`, body),
@@ -482,7 +487,15 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
           <TabsTrigger value="invoicesIssued">{t('pm.invoices.tabIssued')} ({issuedInvoices.length})</TabsTrigger>
           <TabsTrigger value="invoicesReceived">{t('pm.invoices.tabReceived')} ({receivedInvoices.length})</TabsTrigger>
+          {kimaiStatus?.configured && <TabsTrigger value="hours">{t('pm.kimai.tab')}</TabsTrigger>}
         </TabsList>
+
+        {/* Hours (Kimai) */}
+        {kimaiStatus?.configured && (
+          <TabsContent value="hours">
+            <ProjectHoursTab project={project} />
+          </TabsContent>
+        )}
 
         {/* Tasks */}
         <TabsContent value="tasks">

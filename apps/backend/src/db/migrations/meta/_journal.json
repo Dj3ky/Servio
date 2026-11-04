@@ -128,5 +128,12 @@
       "tag": "0017_add_backup_retention",
       "breakpoints": true
     }
+    ,{
+      "idx": 18,
+      "version": "7",
+      "when": 1781539200000,
+      "tag": "0018_pm_kimai",
+      "breakpoints": true
+    }
   ]
 }

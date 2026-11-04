@@ -308,6 +308,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     employeeName: users.name,
     customerName: pmProjects.customerName,
     facilityName: pmProjects.facilityName,
+    kimaiProjectId: pmProjects.kimaiProjectId,
+    kimaiProjectName: pmProjects.kimaiProjectName,
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))

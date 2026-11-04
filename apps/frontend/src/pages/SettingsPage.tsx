@@ -34,6 +34,7 @@ import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatDateTime, cn } from '@/lib/utils';
+import { KimaiSettingsPanel } from '@/extensions/projects/KimaiSettingsPanel';
 
 interface FullSettings {
   appName: string;
@@ -168,6 +169,7 @@ function ExtensionRow({ config }: { config: ExtensionCardConfig }) {
       {!ext.licensed && (
         <p className="text-xs text-muted-foreground border-t pt-3">{t('extensions.requiresLicense')}</p>
       )}
+      {config.key === 'projects' && ext.enabled && <KimaiSettingsPanel />}
     </div>
   );
 }

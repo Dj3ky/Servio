@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, date, numeric, integer, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, date, numeric, integer, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from '../../db/schema/users';
 
 export const pmCustomers = pgTable('pm_customers', {
@@ -41,9 +41,15 @@ export const pmProjects = pgTable('pm_projects', {
   receivedAmount: numeric('received_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   notes: text('notes'),
   completedAt: timestamp('completed_at'),
+  // Linked Kimai project; the name is a copy so the link still shows when Kimai is down
+  kimaiProjectId: integer('kimai_project_id'),
+  kimaiProjectName: text('kimai_project_name'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (t) => ({
+  // A Kimai project shared by two Servio projects would double-count its hours
+  uniqKimaiProject: uniqueIndex('pm_projects_kimai_project_idx').on(t.kimaiProjectId),
+}));
 
 export const pmProjectPhases = pgTable('pm_project_phases', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -120,6 +126,14 @@ export const pmProjectTasks = pgTable('pm_project_tasks', {
 export const pmEmployeeOrder = pgTable('pm_employee_order', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   sortIndex: integer('sort_index').notNull(),
+});
+
+// Single-row Kimai connection settings; kept here so removing the extension data removes the token too
+export const pmKimaiConfig = pgTable('pm_kimai_config', {
+  id: integer('id').primaryKey().default(1),
+  url: text('url').notNull(),
+  tokenEncrypted: text('token_encrypted').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 export type DbPmCustomer =typeof pmCustomers.$inferSelect;

@@ -13,6 +13,7 @@ import pmProjectsRoutes from './routes/pm-projects';
 import pmMeetingsRoutes from './routes/pm-meetings';
 import pmReportsRoutes from './routes/pm-reports';
 import pmTasksRoutes from './routes/pm-tasks';
+import pmKimaiRoutes from './routes/pm-kimai';
 import { startTaskReminders } from './taskNotifications';
 
 const FEATURE_KEY = 'projects_extension';
@@ -155,6 +156,18 @@ async function ensurePmTables() {
     // Reminder bookkeeping so each task is notified once per event
     await db.execute(sql`ALTER TABLE pm_project_tasks ADD COLUMN IF NOT EXISTS due_notified_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE pm_project_tasks ADD COLUMN IF NOT EXISTS overdue_notified_at TIMESTAMP`);
+    // From migration 0018
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS kimai_project_id INTEGER`);
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS kimai_project_name TEXT`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS pm_projects_kimai_project_idx ON pm_projects(kimai_project_id)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_kimai_config (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        url TEXT NOT NULL,
+        token_encrypted TEXT NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
@@ -213,6 +226,7 @@ router.patch('/config', requireAuth, requireRole('settings', 'manage'), async (r
 // This is irreversible. Admin only.
 router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'), async (_req: Request, res: Response): Promise<void> => {
   // Drop in child-first order
+  await db.execute(sql`DROP TABLE IF EXISTS pm_kimai_config CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_employee_order CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_tasks CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_invoices CASCADE`);
@@ -249,5 +263,6 @@ router.use('/projects', requireExtension, pmProjectsRoutes);
 router.use('/meetings', requireExtension, pmMeetingsRoutes);
 router.use('/reports', requireExtension, pmReportsRoutes);
 router.use('/tasks', requireExtension, pmTasksRoutes);
+router.use('/kimai', requireExtension, pmKimaiRoutes);
 
 export default router;

@@ -4,9 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { DateInput } from '@/components/ui/date-input';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,7 @@ import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { NameSuggestionLists } from '../nameSuggestions';
 import { isPastDue } from '../dates';
+import { KimaiCustomerField, kimaiErrorMessage, useKimaiCustomerChoice, useKimaiStatus } from '../kimai';
 
 interface PmProject {
   id: string;
@@ -112,6 +115,11 @@ export default function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [createInKimai, setCreateInKimai] = useState(true);
+  const { data: kimaiStatus } = useKimaiStatus();
+  const offerKimai = !!kimaiStatus?.configured && !editingId;
+  const hasCustomer = !!form.customerName.trim();
+  const kimaiCustomer = useKimaiCustomerChoice(form.customerName, dialogOpen && offerKimai && createInKimai && hasCustomer);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -191,17 +199,34 @@ export default function ProjectsPage() {
     },
   });
 
+  // The Servio project is already saved here, so a Kimai problem is only a warning; it can be linked later on the Hours tab
+  async function createProjectInKimai(projectId: string) {
+    if (!hasCustomer || !kimaiCustomer.payload) {
+      toast(t(hasCustomer ? 'pm.kimai.savedOnlyUnavailable' : 'pm.kimai.savedOnlyNoCustomer'), { icon: '⚠️' });
+      return;
+    }
+    try {
+      await api.post(`/pm/kimai/create/${projectId}`, kimaiCustomer.payload);
+      toast.success(t('pm.kimai.createdOk'));
+    } catch (err) {
+      toast.error(t('pm.kimai.savedOnlyFailed', { reason: kimaiErrorMessage(err, t) }));
+    }
+    qc.invalidateQueries({ queryKey: ['pm-kimai-customers'] });
+    qc.invalidateQueries({ queryKey: ['pm-kimai-projects'] });
+  }
+
   const mutation = useMutation({
     mutationFn: (body: typeof form) =>
       editingId
-        ? api.patch(`/pm/projects/${editingId}`, body)
-        : api.post('/pm/projects', body),
-    onSuccess: () => {
+        ? api.patch<PmProject>(`/pm/projects/${editingId}`, body)
+        : api.post<PmProject>('/pm/projects', body),
+    onSuccess: (project) => {
       qc.invalidateQueries({ queryKey: ['pm-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-report'] });
       qc.invalidateQueries({ queryKey: ['pm-name-suggestions'] });
       toast.success(editingId ? t('pm.projects.savedOk') : t('pm.projects.createdOk'));
       setDialogOpen(false);
+      if (offerKimai && createInKimai) void createProjectInKimai(project.id);
     },
     onError: () => toast.error(t('pm.projects.saveError')),
   });
@@ -209,6 +234,7 @@ export default function ProjectsPage() {
   function openCreate() {
     setForm(emptyForm);
     setEditingId(null);
+    setCreateInKimai(true);
     setDialogOpen(true);
   }
 
@@ -673,6 +699,24 @@ export default function ProjectsPage() {
               <label className="text-sm font-medium">{t('pm.fields.notes')}</label>
               <Textarea placeholder={t('pm.fields.notes') + '...'} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} />
             </div>
+            {offerKimai && (
+              <div className="rounded-md border p-3 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <Checkbox checked={createInKimai} onCheckedChange={v => setCreateInKimai(v === true)} />
+                  {t('pm.kimai.createToo')}
+                </label>
+                {createInKimai && (
+                  <>
+                    {kimaiSafeName(form.name) !== form.name.trim() && (
+                      <p className="text-xs text-muted-foreground">{t('pm.kimai.createName', { name: kimaiSafeName(form.name) })}</p>
+                    )}
+                    {hasCustomer
+                      ? <KimaiCustomerField choice={kimaiCustomer} />
+                      : <p className="text-xs text-muted-foreground">{t('pm.kimai.customerRequired')}</p>}
+                  </>
+                )}
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? t('common.loading') : t('common.save')}</Button>

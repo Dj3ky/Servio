@@ -110,6 +110,31 @@ export const updateExtensionConfigSchema = z.object({
   enabled: z.boolean(),
 });
 
+// Kimai connection (settings and connection test); the token is optional so a saved one can be kept
+export const kimaiSettingsSchema = z.object({
+  url: z.string().trim().url()
+    .refine((v) => v.toLowerCase().startsWith('https://'))
+    .transform((v) => v.replace(/\/+$/, '')),
+  token: z.string().trim().optional(),
+});
+
+export const kimaiLinkSchema = z.object({
+  kimaiProjectId: z.number().int().positive(),
+  // Confirms taking over a Kimai project already linked to another Servio project
+  moveExisting: z.boolean().optional(),
+});
+
+// Create a project in Kimai under an existing customer or a new one
+export const kimaiCreateSchema = z.union([
+  z.object({ customerId: z.number().int().positive() }),
+  z.object({ newCustomerName: z.string().trim().min(1) }),
+]);
+
+// Name as Kimai will accept it: without the characters it rejects and within its 150 character limit
+export function kimaiSafeName(value: string): string {
+  return value.replace(/[<>"=]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150).trim();
+}
+
 export type CreatePmCustomer = z.infer<typeof createPmCustomerSchema>;
 export type UpdatePmCustomer = z.infer<typeof updatePmCustomerSchema>;
 export type CreatePmFacility = z.infer<typeof createPmFacilitySchema>;
@@ -125,3 +150,4 @@ export type UpdatePmInvoice = z.infer<typeof updatePmInvoiceSchema>;
 export type UpdatePmEmployeeOrder = z.infer<typeof updatePmEmployeeOrderSchema>;
 export type CreatePmTask = z.infer<typeof createPmTaskSchema>;
 export type UpdatePmTask = z.infer<typeof updatePmTaskSchema>;
+export type KimaiCreate = z.infer<typeof kimaiCreateSchema>;
