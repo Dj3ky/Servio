@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '@/lib/api';
 import { formatHours } from './hoursFormat';
 
@@ -12,7 +12,10 @@ export interface LabourCostData {
   unreliableEntries: number;
   byMonth: { month: string; cost: string; seconds: number }[];
   byUser: { userName: string; cost: string; seconds: number }[];
+  byActivity: { activityName: string | null; cost: string; seconds: number }[];
 }
+
+const MAX_ACTIVITY_LABEL = 20;
 
 const AXIS_TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
 
@@ -60,9 +63,41 @@ function CostTooltip({ active, payload }: { active?: boolean; payload?: { payloa
   );
 }
 
+// Rows sit 40px apart so bars stay thin however many activities there are; the full names are in the table below
+function ActivityChart({ rows }: { rows: { label: string; cost: number; seconds: number }[] }) {
+  return (
+    <div style={{ height: rows.length * 40 + 8 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 84, bottom: 4, left: 0 }}>
+          <XAxis type="number" hide domain={[0, 'dataMax']} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={120}
+            interval={0}
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(name: string) => (name.length > MAX_ACTIVITY_LABEL ? `${name.slice(0, MAX_ACTIVITY_LABEL - 1)}…` : name)}
+          />
+          <Tooltip content={<CostTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+          <Bar dataKey="cost" fill="hsl(var(--primary))" maxBarSize={24} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+            <LabelList dataKey="cost" position="right" formatter={formatCost} fontSize={11} fill="hsl(var(--foreground))" />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function LabourCostView({ data }: { data: LabourCostData }) {
   const { t } = useTranslation();
   const months = useMemo(() => withEmptyMonths(data.byMonth), [data.byMonth]);
+  const activities = useMemo(() => data.byActivity.map(a => ({
+    label: a.activityName ?? t('pm.kimai.noActivity'),
+    cost: Number(a.cost),
+    seconds: a.seconds,
+  })), [data.byActivity, t]);
   const allUnknown = data.unknownEntries === data.entryCount;
 
   return (
@@ -102,6 +137,34 @@ export function LabourCostView({ data }: { data: LabourCostData }) {
               </div>
             </div>
           )}
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('pm.kimai.costByActivity')}</p>
+            {/* A single activity is just the total above, so a chart would add nothing */}
+            {activities.length > 1 && <ActivityChart rows={activities} />}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">{t('pm.kimai.activity')}</th>
+                    <th className="py-2 pr-3 text-right font-medium">{t('pm.kimai.hours')}</th>
+                    <th className="py-2 pr-3 text-right font-medium">{t('pm.kimai.costPerHour')}</th>
+                    <th className="py-2 text-right font-medium">{t('pm.kimai.cost')}</th>
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums">
+                  {activities.map(a => (
+                    <tr key={a.label} className="border-b last:border-0">
+                      <td className="py-2 pr-3">{a.label}</td>
+                      <td className="py-2 pr-3 text-right whitespace-nowrap">{formatHours(a.seconds)}</td>
+                      <td className="py-2 pr-3 text-right whitespace-nowrap">{a.seconds > 0 ? formatCost(a.cost / (a.seconds / 3600)) : '—'}</td>
+                      <td className="py-2 text-right whitespace-nowrap">{formatCost(a.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

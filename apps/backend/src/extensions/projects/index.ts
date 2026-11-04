@@ -202,6 +202,8 @@ async function ensurePmTables() {
     // From migration 0021
     await db.execute(sql`ALTER TABLE pm_kimai_timesheets ADD COLUMN IF NOT EXISTS internal_cost NUMERIC(12,2)`);
     await db.execute(sql`ALTER TABLE pm_kimai_timesheets ADD COLUMN IF NOT EXISTS cost_unreliable BOOLEAN NOT NULL DEFAULT false`);
+    // From migration 0022
+    await db.execute(sql`ALTER TABLE pm_kimai_config ADD COLUMN IF NOT EXISTS rates_are_costs BOOLEAN NOT NULL DEFAULT false`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);

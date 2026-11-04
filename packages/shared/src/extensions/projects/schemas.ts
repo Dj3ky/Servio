@@ -124,6 +124,10 @@ export const kimaiSettingsSchema = z.object({
   token: z.string().trim().optional(),
 });
 
+export const kimaiCostModeSchema = z.object({
+  ratesAreCosts: z.boolean(),
+});
+
 export const kimaiLinkSchema = z.object({
   kimaiProjectId: z.number().int().positive(),
   // Confirms taking over a Kimai project already linked to another Servio project

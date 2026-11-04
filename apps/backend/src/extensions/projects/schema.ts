@@ -137,6 +137,8 @@ export const pmKimaiConfig = pgTable('pm_kimai_config', {
   id: integer('id').primaryKey().default(1),
   url: text('url').notNull(),
   tokenEncrypted: text('token_encrypted').notNull(),
+  // Normal Kimai rates hold the real costs here, so a cost equal to the rate is not suspicious
+  ratesAreCosts: boolean('rates_are_costs').notNull().default(false),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 

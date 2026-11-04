@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { kimaiErrorMessage } from './kimai';
 
-interface KimaiSettings { url: string; tokenSet: boolean; }
+interface KimaiSettings { url: string; tokenSet: boolean; ratesAreCosts: boolean; }
 interface KimaiTestResult { version: string; projectCount: number; customerCount: number; timesheetUsers: number; }
 
 export function KimaiSettingsPanel() {
@@ -35,6 +36,16 @@ export function KimaiSettingsPanel() {
       qc.invalidateQueries({ queryKey: ['pm-kimai-status'] });
       qc.invalidateQueries({ queryKey: ['pm-kimai-projects'] });
       qc.invalidateQueries({ queryKey: ['pm-kimai-customers'] });
+      toast.success(t('extensions.saved'));
+    },
+    onError: (err) => toast.error(kimaiErrorMessage(err, t)),
+  });
+
+  const costMode = useMutation({
+    mutationFn: (ratesAreCosts: boolean) => api.patch('/pm/kimai/settings/cost-mode', { ratesAreCosts }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-kimai-settings'] });
+      qc.invalidateQueries({ queryKey: ['pm-kimai-cost'] });
       toast.success(t('extensions.saved'));
     },
     onError: (err) => toast.error(kimaiErrorMessage(err, t)),
@@ -85,6 +96,20 @@ export function KimaiSettingsPanel() {
         <p className="text-xs text-amber-600 dark:text-amber-400">{t('pm.kimai.testOnePerson')}</p>
       )}
       {test.error && <p className="text-xs text-destructive">{kimaiErrorMessage(test.error, t)}</p>}
+      {saved?.tokenSet && (
+        <label className="flex items-start gap-2 cursor-pointer">
+          <Checkbox
+            className="mt-0.5"
+            checked={saved.ratesAreCosts}
+            disabled={costMode.isPending}
+            onCheckedChange={v => costMode.mutate(v === true)}
+          />
+          <span>
+            <span className="block text-sm font-medium">{t('pm.kimai.ratesAreCosts')}</span>
+            <span className="block text-xs text-muted-foreground">{t('pm.kimai.ratesAreCostsDesc')}</span>
+          </span>
+        </label>
+      )}
     </div>
   );
 }

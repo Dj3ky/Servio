@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
-import { kimaiSettingsSchema, kimaiLinkSchema, kimaiCreateSchema } from '@servio/shared';
+import { kimaiSettingsSchema, kimaiCostModeSchema, kimaiLinkSchema, kimaiCreateSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmKimaiConfig, pmKimaiTimesheets, pmProjects } from '../schema';
 import { requireRole } from '../../../middleware/role';
@@ -78,8 +78,20 @@ router.get('/status', requireRole('projects', 'access'), handle(async (_req, res
 }));
 
 router.get('/settings', requireRole('settings', 'view'), handle(async (_req, res) => {
-  const [row] = await db.select({ url: pmKimaiConfig.url }).from(pmKimaiConfig).limit(1);
-  res.json({ url: row?.url ?? '', tokenSet: !!row });
+  const [row] = await db.select({ url: pmKimaiConfig.url, ratesAreCosts: pmKimaiConfig.ratesAreCosts }).from(pmKimaiConfig).limit(1);
+  res.json({ url: row?.url ?? '', tokenSet: !!row, ratesAreCosts: row?.ratesAreCosts ?? false });
+}));
+
+router.patch('/settings/cost-mode', requireRole('settings', 'manage'), handle(async (req, res) => {
+  const parsed = kimaiCostModeSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const [updated] = await db.update(pmKimaiConfig)
+    .set({ ratesAreCosts: parsed.data.ratesAreCosts, updatedAt: new Date() })
+    .returning({ id: pmKimaiConfig.id });
+  if (!updated) throw new KimaiError('errors.kimai_not_configured', 409);
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'kimai', ratesAreCosts: parsed.data.ratesAreCosts }, req });
+  res.json({ success: true });
 }));
 
 router.put('/settings', requireRole('settings', 'manage'), handle(async (req, res) => {
@@ -250,19 +262,28 @@ router.get('/cost/:projectId', requireRole('projects', 'labourCost'), handle(asy
   const seconds = sql<number>`coalesce(sum(${pmKimaiTimesheets.durationSeconds}), 0)::int`;
   const month = sql<string>`to_char(${pmKimaiTimesheets.entryDate}, 'YYYY-MM')`;
 
-  const [[totals], byMonth, byUser] = await Promise.all([
+  const [config] = await db.select({ ratesAreCosts: pmKimaiConfig.ratesAreCosts }).from(pmKimaiConfig).limit(1);
+  // When rates are the real costs, only a cost of 0 still points to a missing rate
+  const unreliable = config?.ratesAreCosts
+    ? sql`${pmKimaiTimesheets.costUnreliable} and ${pmKimaiTimesheets.internalCost} = 0`
+    : sql`${pmKimaiTimesheets.costUnreliable}`;
+
+  const [[totals], byMonth, byUser, byActivity] = await Promise.all([
     db.select({
       totalCost: cost,
       entryCount: sql<number>`count(*)::int`,
       unknownEntries: sql<number>`(count(*) filter (where ${pmKimaiTimesheets.internalCost} is null))::int`,
-      unreliableEntries: sql<number>`(count(*) filter (where ${pmKimaiTimesheets.costUnreliable}))::int`,
+      unreliableEntries: sql<number>`(count(*) filter (where ${unreliable}))::int`,
     }).from(pmKimaiTimesheets).where(inProject),
     db.select({ month, cost, seconds }).from(pmKimaiTimesheets).where(inProject).groupBy(month).orderBy(month),
     db.select({ userName: pmKimaiTimesheets.userName, cost, seconds })
       .from(pmKimaiTimesheets).where(inProject)
       .groupBy(pmKimaiTimesheets.userName).orderBy(desc(cost)),
+    db.select({ activityName: pmKimaiTimesheets.activityName, cost, seconds })
+      .from(pmKimaiTimesheets).where(inProject)
+      .groupBy(pmKimaiTimesheets.activityName).orderBy(desc(cost)),
   ]);
-  res.json({ ...totals, byMonth, byUser });
+  res.json({ ...totals, byMonth, byUser, byActivity });
 }));
 
 router.post('/hours/:projectId/refresh', requireRole('projects', 'access'), handle(async (req, res) => {

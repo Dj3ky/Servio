@@ -156,5 +156,12 @@
       "tag": "0021_pm_kimai_labour_cost",
       "breakpoints": true
     }
+    ,{
+      "idx": 22,
+      "version": "7",
+      "when": 1781884800000,
+      "tag": "0022_pm_kimai_rates_are_costs",
+      "breakpoints": true
+    }
   ]
 }
