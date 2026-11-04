@@ -73,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     projectName: pmProjects.name,
     projectStatus: pmProjects.status,
     projectPriority: pmProjects.priority,
-    projectCreatedAt: pmProjects.createdAt,
+    projectSortIndex: pmProjects.sortIndex,
     employeeId: pmProjects.employeeId,
     employeeName: users.name,
   })
@@ -81,7 +81,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     .leftJoin(pmProjects, eq(pmMeetingEntries.projectId, pmProjects.id))
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(eq(pmMeetingEntries.meetingId, req.params.id))
-    .orderBy(pmProjects.createdAt);
+    .orderBy(pmProjects.sortIndex);
 
   // Tasks created or closed in this meeting
   const tasks = await selectTasks(or(eq(pmProjectTasks.meetingId, req.params.id), eq(pmProjectTasks.completedMeetingId, req.params.id)));
@@ -227,7 +227,7 @@ router.get('/active-projects/list', async (req: Request, res: Response): Promise
   const before = typeof req.query.before === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.before) ? req.query.before : null;
   const result = await db.execute(sql`
     SELECT
-      p.id, p.project_number, p.name, p.priority, p.status, p.created_at, p.notes,
+      p.id, p.project_number, p.name, p.priority, p.status, p.sort_index, p.notes,
       p.employee_id, u.name AS employee_name,
       le.entry_status AS last_entry_status,
       le.notes AS last_entry_notes,
@@ -244,7 +244,7 @@ router.get('/active-projects/list', async (req: Request, res: Response): Promise
       LIMIT 1
     ) le ON true
     WHERE p.status = 'active'
-    ORDER BY p.created_at
+    ORDER BY p.sort_index
   `);
 
   const projects = (result.rows as any[]).map(r => ({
@@ -253,7 +253,7 @@ router.get('/active-projects/list', async (req: Request, res: Response): Promise
     name: r.name,
     priority: r.priority,
     status: r.status,
-    createdAt: r.created_at,
+    sortIndex: r.sort_index,
     notes: r.notes ?? null,
     employeeId: r.employee_id,
     employeeName: r.employee_name,

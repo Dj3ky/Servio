@@ -684,7 +684,12 @@
       "invoicedPct": "% invoiced",
       "savedOk": "Project updated",
       "createdOk": "Project created",
-      "saveError": "Error saving"
+      "saveError": "Error saving",
+      "delete": "Delete project",
+      "deletedOk": "Project deleted",
+      "deleteError": "Error deleting project",
+      "deleteConfirmTitle": "Delete this project?",
+      "deleteConfirmDesc": "This will permanently delete the project and all its phases, tasks, documents, invoices, meeting entries and Kimai hours copied to Servio. Nothing is changed in Kimai. This cannot be undone."
     },
     "phases": {
       "tab": "Phases",

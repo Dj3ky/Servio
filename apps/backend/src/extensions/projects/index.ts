@@ -184,6 +184,21 @@ async function ensurePmTables() {
       )
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_kimai_timesheets_project_idx ON pm_kimai_timesheets(project_id)`);
+    // From migration 0020
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'pm_projects' AND column_name = 'sort_index'
+        ) THEN
+          ALTER TABLE pm_projects ADD COLUMN sort_index SERIAL;
+          UPDATE pm_projects p SET sort_index = o.position
+          FROM (SELECT id, row_number() OVER (ORDER BY created_at, id) AS position FROM pm_projects) o
+          WHERE p.id = o.id;
+        END IF;
+      END $$
+    `);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);

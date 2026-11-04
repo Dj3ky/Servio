@@ -7,6 +7,8 @@ import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, 
 import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import { usePermissionsStore } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -97,6 +99,9 @@ export default function ProjectsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const perms = usePermissionsStore(s => s.perms);
+  const canManage = !!user && (perms.projects?.manage ?? []).includes(user.role);
   const [archiveMode, setArchiveMode] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -196,6 +201,21 @@ export default function ProjectsPage() {
     onError: () => {
       toast.error(t('pm.projects.orderSaveError'));
       qc.invalidateQueries({ queryKey: ['pm-employee-order'] });
+    },
+  });
+
+  // Stays pending until the list has reloaded, so the next click swaps with the real neighbour
+  const moveProjectMutation = useMutation({
+    mutationFn: (body: { projectId: string; otherProjectId: string }) => api.put('/pm/projects/swap-order', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
+      qc.invalidateQueries({ queryKey: ['pm-active-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-meeting-detail'] });
+      return qc.invalidateQueries({ queryKey: ['pm-projects'] });
+    },
+    onError: () => {
+      toast.error(t('pm.projects.orderSaveError'));
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
     },
   });
 
@@ -410,24 +430,53 @@ export default function ProjectsPage() {
     </tr>
   );
 
-  function renderProjectRow(p: PmProject) {
+  function renderProjectRow(p: PmProject, idx: number, siblings: PmProject[]) {
     const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
     const isOverdue = p.status !== 'completed' && isPastDue(p.endDate);
+    const movable = canManage && groupByEmployee && !archiveMode;
+    const moveTo = (neighbour: PmProject) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      moveProjectMutation.mutate({ projectId: p.id, otherProjectId: neighbour.id });
+    };
     return (
       <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
         <td className="px-4 py-3">
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">{p.name}</span>
-            <ProjectNotesHint notes={p.notes} />
-            {p.openTaskCount > 0 && (
-              <Badge variant={p.overdueTaskCount > 0 ? 'destructive' : 'outline'} className="text-[10px] px-1.5 py-0 font-normal">
-                {p.overdueTaskCount > 0
-                  ? t('pm.tasks.overdueCount', { count: p.overdueTaskCount })
-                  : t('pm.tasks.openCount', { count: p.openTaskCount })}
-              </Badge>
+          <div className="flex items-center gap-2">
+            {movable && (
+              <div className="flex flex-col shrink-0 -my-1 -ml-2">
+                <button
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+                  disabled={idx === 0 || moveProjectMutation.isPending}
+                  onClick={moveTo(siblings[idx - 1])}
+                  title={t('pm.projects.moveUp')}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+                  disabled={idx === siblings.length - 1 || moveProjectMutation.isPending}
+                  onClick={moveTo(siblings[idx + 1])}
+                  title={t('pm.projects.moveDown')}
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium">{p.name}</span>
+                <ProjectNotesHint notes={p.notes} />
+                {p.openTaskCount > 0 && (
+                  <Badge variant={p.overdueTaskCount > 0 ? 'destructive' : 'outline'} className="text-[10px] px-1.5 py-0 font-normal">
+                    {p.overdueTaskCount > 0
+                      ? t('pm.tasks.overdueCount', { count: p.overdueTaskCount })
+                      : t('pm.tasks.openCount', { count: p.openTaskCount })}
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">{p.projectNumber}</div>
         </td>
         <td className="px-4 py-3 text-muted-foreground text-sm">{p.customerName ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground text-sm">{p.employeeName ?? '—'}</td>}

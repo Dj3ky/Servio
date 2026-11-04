@@ -76,7 +76,7 @@ router.get('/by-employee', async (req: Request, res: Response): Promise<void> =>
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(where)
-    .orderBy(users.name, pmProjects.projectNumber);
+    .orderBy(users.name, pmProjects.sortIndex);
 
   res.json(projects);
 });
@@ -147,7 +147,7 @@ router.get('/workload', async (req: Request, res: Response): Promise<void> => {
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(and(eq(pmProjects.status, 'active'), customerFilter(req)))
-    .orderBy(pmProjects.createdAt);
+    .orderBy(pmProjects.sortIndex);
 
   // Group by employee
   const grouped: Record<string, { employeeId: string | null; employeeName: string | null; projects: typeof projects }> = {};

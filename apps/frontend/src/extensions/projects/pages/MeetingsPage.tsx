@@ -30,13 +30,13 @@ type NewTaskDraft = TaskDraft & { key: string; projectId: string };
 interface MeetingEntry {
   id: string; projectId: string; projectNumber: string; projectName: string;
   projectPriority: string; entryStatus: string; notes: string | null;
-  projectCreatedAt: string | null;
+  projectSortIndex: number;
   employeeId: string | null; employeeName: string | null;
   lastEntryNotes?: string | null; lastMeetingDate?: string | null;
   projectNotes?: string | null;
 }
 interface ActiveProject {
-  id: string; projectNumber: string; name: string; priority: string; status: string; createdAt: string;
+  id: string; projectNumber: string; name: string; priority: string; status: string; sortIndex: number;
   notes: string | null;
   employeeId: string | null; employeeName: string | null;
   lastEntryStatus: string | null; lastEntryNotes: string | null; lastMeetingDate: string | null;
@@ -329,7 +329,7 @@ export default function MeetingsPage() {
         projectNumber: p.projectNumber,
         projectName: p.name,
         projectPriority: p.priority,
-        projectCreatedAt: p.createdAt,
+        projectSortIndex: p.sortIndex,
         entryStatus: 'active',
         notes: '',
         employeeId: p.employeeId,
@@ -339,8 +339,8 @@ export default function MeetingsPage() {
         projectNotes: p.notes,
       })),
     ];
-    // Oldest project first within each employee, like the backend and the Projects page
-    list.sort((a, b) => (a.projectCreatedAt ?? '').localeCompare(b.projectCreatedAt ?? ''));
+    // Manual project order within each employee, like the backend and the Projects page
+    list.sort((a, b) => a.projectSortIndex - b.projectSortIndex);
     setEditNotes(notes);
     setEditEntries(list);
     setEditSnapshot(editFormKey(notes, list));

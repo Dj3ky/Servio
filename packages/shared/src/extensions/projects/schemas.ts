@@ -104,6 +104,12 @@ export const updatePmEmployeeOrderSchema = z.object({
   userIds: z.array(z.string().uuid()),
 });
 
+// Swap the position of two projects (Projects page)
+export const swapPmProjectOrderSchema = z.object({
+  projectId: z.string().uuid(),
+  otherProjectId: z.string().uuid(),
+});
+
 // Extension config
 export const updateExtensionConfigSchema = z.object({
   extension: z.string().min(1),

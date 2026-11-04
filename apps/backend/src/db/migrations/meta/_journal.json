@@ -142,5 +142,12 @@
       "tag": "0019_pm_kimai_timesheets",
       "breakpoints": true
     }
+    ,{
+      "idx": 20,
+      "version": "7",
+      "when": 1781712000000,
+      "tag": "0020_pm_project_sort_index",
+      "breakpoints": true
+    }
   ]
 }

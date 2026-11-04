@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { eq, ne, ilike, sql, and, or, desc } from 'drizzle-orm';
-import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema, createPmTaskSchema, updatePmTaskSchema } from '@servio/shared';
+import { eq, ne, ilike, sql, and, or, desc, inArray } from 'drizzle-orm';
+import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema, swapPmProjectOrderSchema, createPmTaskSchema, updatePmTaskSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks } from '../schema';
 import { selectTasks } from '../tasks';
@@ -55,9 +55,13 @@ function projectFilters(query: Request['query']) {
   return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
+// Order shared by the project list and the CSV export: the archive by completion date, the rest in manual order
+function projectListOrder(query: Request['query']) {
+  return query.archived === 'true' ? desc(pmProjects.completedAt) : pmProjects.sortIndex;
+}
+
 // List projects
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const archived = req.query.archived as string | undefined;
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
   const offset = (page - 1) * limit;
@@ -92,7 +96,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       .from(pmProjects)
       .leftJoin(users, eq(pmProjects.employeeId, users.id))
       .where(where)
-      .orderBy(archived === 'true' ? desc(pmProjects.completedAt) : pmProjects.createdAt)
+      .orderBy(projectListOrder(req.query))
       .limit(limit)
       .offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(pmProjects).where(where),
@@ -121,6 +125,27 @@ router.put('/employee-order', requireRole('projects', 'manage'), async (req: Req
     }
   });
   res.json(userIds);
+});
+
+// Manual project order — swaps two projects, so projects hidden by filters keep their position
+router.put('/swap-order', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const parsed = swapPmProjectOrderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const swapped = await db.transaction(async (tx) => {
+    const rows = await tx.select({ id: pmProjects.id, sortIndex: pmProjects.sortIndex })
+      .from(pmProjects)
+      .where(inArray(pmProjects.id, [parsed.data.projectId, parsed.data.otherProjectId]))
+      .orderBy(pmProjects.id)
+      .for('update');
+    if (rows.length !== 2) return false;
+    await tx.update(pmProjects).set({ sortIndex: rows[1].sortIndex }).where(eq(pmProjects.id, rows[0].id));
+    await tx.update(pmProjects).set({ sortIndex: rows[0].sortIndex }).where(eq(pmProjects.id, rows[1].id));
+    return true;
+  });
+  if (!swapped) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  res.json({ success: true });
 });
 
 // Distinct customer / facility names already used on projects, for form autocomplete
@@ -162,7 +187,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(projectFilters(req.query))
-    .orderBy(pmProjects.projectNumber);
+    .orderBy(projectListOrder(req.query));
 
   const rows = data.map((p) => [
     p.projectNumber, p.name, p.customerName, p.facilityName, p.employeeName, p.employeeEmail,
@@ -386,8 +411,16 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
 
 // Delete project
 router.delete('/:id', requireRole('projects', 'delete'), async (req: Request, res: Response): Promise<void> => {
+  // The cascade removes the document rows, so read the filenames first to clean up the files
+  const documents = await db.select({ filename: pmProjectDocuments.filename })
+    .from(pmProjectDocuments)
+    .where(eq(pmProjectDocuments.projectId, req.params.id));
+
   const [deleted] = await db.delete(pmProjects).where(eq(pmProjects.id, req.params.id)).returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  await Promise.all(documents.map(doc => fs.unlink(path.join(UPLOADS_DIR, doc.filename)).catch(() => {})));
+
   res.json({ success: true });
 });
 

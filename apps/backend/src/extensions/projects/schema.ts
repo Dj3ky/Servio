@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, date, numeric, integer, unique, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, date, numeric, integer, serial, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from '../../db/schema/users';
 
 export const pmCustomers = pgTable('pm_customers', {
@@ -41,6 +41,8 @@ export const pmProjects = pgTable('pm_projects', {
   receivedAmount: numeric('received_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   notes: text('notes'),
   completedAt: timestamp('completed_at'),
+  // Manual order, set with the arrows on the Projects page; new projects go last
+  sortIndex: serial('sort_index').notNull(),
   // Linked Kimai project; the name is a copy so the link still shows when Kimai is down
   kimaiProjectId: integer('kimai_project_id'),
   kimaiProjectName: text('kimai_project_name'),

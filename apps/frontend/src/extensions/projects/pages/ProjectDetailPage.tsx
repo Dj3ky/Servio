@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import { usePermissionsStore } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -211,6 +213,9 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const perms = usePermissionsStore(s => s.perms);
+  const canDelete = !!user && (perms.projects?.delete ?? []).includes(user.role);
 
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [phaseName, setPhaseName] = useState('');
@@ -219,6 +224,7 @@ export default function ProjectDetailPage() {
   const [receivedForm, setReceivedForm] = useState<InvoiceForm>({ invoiceDate: '', amount: '', notes: '' });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
 
   const { data: project, isLoading } = useQuery<Project>({
@@ -264,6 +270,19 @@ export default function ProjectDetailPage() {
       setEditDialogOpen(false);
     },
     onError: () => toast.error(t('pm.projects.saveError')),
+  });
+
+  const deleteProject = useMutation({
+    mutationFn: () => api.delete(`/pm/projects/${id}`),
+    onSuccess: () => {
+      navigate('/pm/projects');
+      qc.removeQueries({ queryKey: ['pm-project', id] });
+      for (const key of ['pm-projects', 'pm-report', 'pm-name-suggestions', 'pm-active-projects', 'pm-meetings', 'pm-meeting-detail', 'pm-meeting-tasks', 'pm-my-tasks', 'pm-my-task-count']) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+      toast.success(t('pm.projects.deletedOk'));
+    },
+    onError: () => toast.error(t('pm.projects.deleteError')),
   });
 
   const quickStatusChange = useMutation({
@@ -694,10 +713,31 @@ export default function ProjectDetailPage() {
               <Textarea rows={3} value={editForm.notes ?? ''} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
             <DialogFooter>
+              {canDelete && (
+                <Button type="button" variant="destructive" className="sm:mr-auto" onClick={() => { setEditDialogOpen(false); setDeleteDialogOpen(true); }}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.delete')}
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateProject.isPending}>{updateProject.isPending ? t('common.loading') : t('common.save')}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete project confirm dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">{t('pm.projects.deleteConfirmTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('pm.projects.deleteConfirmDesc')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="destructive" disabled={deleteProject.isPending} onClick={() => deleteProject.mutate()}>
+              {deleteProject.isPending ? t('common.loading') : t('common.delete')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

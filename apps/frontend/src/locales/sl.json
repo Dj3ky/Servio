@@ -694,7 +694,12 @@
       "invoicedPct": "% fakturirano",
       "savedOk": "Projekt posodobljen",
       "createdOk": "Projekt ustvarjen",
-      "saveError": "Napaka pri shranjevanju"
+      "saveError": "Napaka pri shranjevanju",
+      "delete": "Izbriši projekt",
+      "deletedOk": "Projekt izbrisan",
+      "deleteError": "Napaka pri brisanju projekta",
+      "deleteConfirmTitle": "Izbriši ta projekt?",
+      "deleteConfirmDesc": "S tem boste trajno izbrisali projekt in vse njegove faze, naloge, dokumente, fakture, vnose sestankov ter ure, kopirane iz Kimaija v Servio. V Kimaiju se nič ne spremeni. Tega dejanja ni mogoče razveljaviti."
     },
     "phases": {
       "tab": "Faze",
