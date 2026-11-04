@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Link2, Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -538,6 +538,11 @@ export default function ProjectsPage() {
               <Archive className="h-3.5 w-3.5" />{t('pm.projects.archiveTab')}
             </button>
           </div>
+          {kimaiStatus?.configured && canManage && (
+            <Button variant="outline" onClick={() => navigate('/pm/projects/kimai-links')}>
+              <Link2 className="h-4 w-4 mr-2" />{t('pm.kimai.links.title')}
+            </Button>
+          )}
           <Button variant="outline" size="icon" onClick={printProjects} title={t('pm.projects.print')}><Printer className="h-4 w-4" /></Button>
           <input
             ref={csvInputRef}

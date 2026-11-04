@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
-import { kimaiSettingsSchema, kimaiCostModeSchema, kimaiLinkSchema, kimaiCreateSchema } from '@servio/shared';
+import { and, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
+import { kimaiSettingsSchema, kimaiCostModeSchema, kimaiLinkSchema, kimaiBulkLinkSchema, kimaiCreateSchema } from '@servio/shared';
 import { db } from '../../../db';
 import { pmKimaiConfig, pmKimaiTimesheets, pmProjects } from '../schema';
 import { requireRole } from '../../../middleware/role';
@@ -18,9 +18,11 @@ import {
   createKimaiProject,
   requireValidKimaiName,
   countKimaiTimesheetUsers,
+  sumKimaiProjectSeconds,
   KimaiConnection,
 } from '../kimai';
 import { refreshProjectHours } from '../kimaiHours';
+import { suggestKimaiProject } from '../kimaiLinks';
 
 const router = Router();
 
@@ -149,6 +151,108 @@ router.get('/projects', requireRole('projects', 'manage'), handle(async (_req, r
 router.get('/customers', requireRole('projects', 'manage'), handle(async (_req, res) => {
   const customers = await listKimaiCustomers(await requireKimaiConnection());
   res.json(customers.map((c) => ({ id: c.id, name: c.name })));
+}));
+
+// --- Linking page (completed projects are left out) ---
+
+function linkedKimaiIds() {
+  return db.select({ kimaiProjectId: pmProjects.kimaiProjectId }).from(pmProjects).where(isNotNull(pmProjects.kimaiProjectId));
+}
+
+// Refreshes after the response, so linking many projects doesn't wait for all their hours.
+// Stops if Kimai itself fails; the scheduled refresh picks up the rest.
+async function refreshLinkedInBackground(connection: KimaiConnection, links: { projectId: string; kimaiProjectId: number }[]) {
+  for (const link of links) {
+    try {
+      await refreshProjectHours(connection, link.projectId, link.kimaiProjectId);
+    } catch (err) {
+      if (err instanceof KimaiError && err.status === 404) continue;
+      console.error('[pm-kimai] Refresh after linking stopped:', err instanceof Error ? err.message : err);
+      return;
+    }
+  }
+}
+
+router.get('/links', requireRole('projects', 'manage'), handle(async (_req, res) => {
+  const connection = await requireKimaiConnection();
+  const notCompleted = ne(pmProjects.status, 'completed');
+  const [kimaiProjects, taken, unlinked, linked] = await Promise.all([
+    listKimaiProjects(connection),
+    linkedKimaiIds(),
+    db.select({
+      id: pmProjects.id,
+      projectNumber: pmProjects.projectNumber,
+      name: pmProjects.name,
+      customerName: pmProjects.customerName,
+      status: pmProjects.status,
+    }).from(pmProjects).where(and(isNull(pmProjects.kimaiProjectId), notCompleted)).orderBy(pmProjects.projectNumber),
+    db.select({
+      id: pmProjects.id,
+      projectNumber: pmProjects.projectNumber,
+      name: pmProjects.name,
+      customerName: pmProjects.customerName,
+      kimaiProjectName: pmProjects.kimaiProjectName,
+      syncError: pmProjects.kimaiSyncError,
+      seconds: sql<number>`coalesce(sum(${pmKimaiTimesheets.durationSeconds}), 0)::int`,
+    }).from(pmProjects)
+      .leftJoin(pmKimaiTimesheets, eq(pmKimaiTimesheets.projectId, pmProjects.id))
+      .where(and(isNotNull(pmProjects.kimaiProjectId), notCompleted))
+      .groupBy(pmProjects.id)
+      .orderBy(pmProjects.projectNumber),
+  ]);
+
+  const takenIds = new Set(taken.map((p) => p.kimaiProjectId));
+  const free = kimaiProjects.filter((k) => !takenIds.has(k.id));
+  res.json({
+    unlinked: unlinked.map((p) => ({ ...p, suggestion: suggestKimaiProject(p, free) })),
+    kimai: free.map((k) => ({ id: k.id, name: k.name, number: k.number ?? null, customerName: k.parentTitle ?? null, visible: k.visible ?? true })),
+    linked,
+  });
+}));
+
+// Separate from the list above because Kimai has to read every entry of these projects, which can be slow
+router.get('/links/hours', requireRole('projects', 'manage'), handle(async (_req, res) => {
+  const connection = await requireKimaiConnection();
+  const [kimaiProjects, taken] = await Promise.all([listKimaiProjects(connection), linkedKimaiIds()]);
+  const takenIds = new Set(taken.map((p) => p.kimaiProjectId));
+  const totals = await sumKimaiProjectSeconds(connection, kimaiProjects.filter((k) => !takenIds.has(k.id)).map((k) => k.id));
+  res.json(Object.fromEntries(totals));
+}));
+
+router.post('/links', requireRole('projects', 'manage'), handle(async (req, res) => {
+  const parsed = kimaiBulkLinkSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const connection = await requireKimaiConnection();
+  const [kimaiProjects, taken] = await Promise.all([listKimaiProjects(connection), linkedKimaiIds()]);
+  const kimaiById = new Map(kimaiProjects.map((k) => [k.id, k]));
+  const takenIds = new Set(taken.map((p) => p.kimaiProjectId));
+
+  const linked: { projectId: string; kimaiProjectId: number }[] = [];
+  const failed: { projectId: string; error: string }[] = [];
+  for (const { projectId, kimaiProjectId } of parsed.data.links) {
+    const kimaiProject = kimaiById.get(kimaiProjectId);
+    if (!kimaiProject) { failed.push({ projectId, error: 'errors.kimai_not_found' }); continue; }
+    if (takenIds.has(kimaiProjectId)) { failed.push({ projectId, error: 'errors.kimai_already_linked' }); continue; }
+
+    try {
+      // Only if still unlinked, so someone else's link made in the meantime is never overwritten
+      const [updated] = await db.update(pmProjects)
+        .set({ ...NO_LINK, kimaiProjectId, kimaiProjectName: kimaiProject.name, updatedAt: new Date() })
+        .where(and(eq(pmProjects.id, projectId), isNull(pmProjects.kimaiProjectId)))
+        .returning({ id: pmProjects.id });
+      if (!updated) { failed.push({ projectId, error: 'errors.kimai_project_has_link' }); continue; }
+      takenIds.add(kimaiProjectId);
+      linked.push({ projectId, kimaiProjectId });
+    } catch (err) {
+      // Linked elsewhere in the moment since the check above; the unique index refused it
+      if ((err as { code?: string }).code !== '23505') throw err;
+      failed.push({ projectId, error: 'errors.kimai_already_linked' });
+    }
+  }
+
+  res.json({ linked: linked.map((l) => l.projectId), failed });
+  void refreshLinkedInBackground(connection, linked);
 }));
 
 // --- Linking a Servio project ---

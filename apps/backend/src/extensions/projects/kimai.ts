@@ -6,6 +6,7 @@ import { pmKimaiConfig } from './schema';
 const TIMEOUT_MS = 20_000;
 const MAX_NUMBER_LENGTH = 10;
 const TIMESHEET_PAGE_SIZE = 500;
+const PROJECTS_PER_REQUEST = 50;
 const TLS_ERROR_CODES = new Set([
   'CERT_HAS_EXPIRED',
   'DEPTH_ZERO_SELF_SIGNED_CERT',
@@ -39,6 +40,7 @@ export interface KimaiTimesheet {
   internalRate?: number | null;
   user: number | { id: number; alias?: string | null; username?: string | null };
   activity?: number | { name?: string | null } | null;
+  project?: number | { id: number };
 }
 
 // Status is what Servio answers its own client. Never 401: the frontend treats that as an expired Servio session.
@@ -135,12 +137,12 @@ export function getKimaiProject(connection: KimaiConnection, id: number) {
   return kimaiRequest<KimaiProject>(connection, 'GET', `/projects/${id}`);
 }
 
-// Finished entries of one project from everyone; running timers count once they are stopped.
+// Finished entries from everyone; running timers count once they are stopped.
 // Sorted by ID so entries don't shift between pages while reading.
-export async function listKimaiTimesheets(connection: KimaiConnection, projectId: number): Promise<KimaiTimesheet[]> {
+async function readFinishedTimesheets(connection: KimaiConnection, filter: string): Promise<KimaiTimesheet[]> {
   const all: KimaiTimesheet[] = [];
   for (let page = 1; ; page++) {
-    const query = `project=${projectId}&user=all&active=0&full=1&orderBy=id&order=ASC&size=${TIMESHEET_PAGE_SIZE}&page=${page}`;
+    const query = `${filter}&user=all&active=0&orderBy=id&order=ASC&size=${TIMESHEET_PAGE_SIZE}&page=${page}`;
     let batch: KimaiTimesheet[];
     try {
       batch = await kimaiRequest<KimaiTimesheet[]>(connection, 'GET', `/timesheets?${query}`);
@@ -152,6 +154,23 @@ export async function listKimaiTimesheets(connection: KimaiConnection, projectId
     all.push(...batch);
     if (batch.length < TIMESHEET_PAGE_SIZE) return all;
   }
+}
+
+export function listKimaiTimesheets(connection: KimaiConnection, projectId: number) {
+  return readFinishedTimesheets(connection, `project=${projectId}&full=1`);
+}
+
+// Total seconds per project, asked for in groups so the URL stays a safe length.
+// Kimai has no totals route, so this reads every entry of these projects and can take a while.
+export async function sumKimaiProjectSeconds(connection: KimaiConnection, projectIds: number[]) {
+  const totals = new Map<number, number>(projectIds.map((id) => [id, 0]));
+  for (let i = 0; i < projectIds.length; i += PROJECTS_PER_REQUEST) {
+    const filter = projectIds.slice(i, i + PROJECTS_PER_REQUEST).map((id) => `projects%5B%5D=${id}`).join('&');
+    for (const entry of await readFinishedTimesheets(connection, filter)) {
+      if (typeof entry.project === 'number') totals.set(entry.project, (totals.get(entry.project) ?? 0) + (entry.duration ?? 0));
+    }
+  }
+  return totals;
 }
 
 // Without view_other_timesheet Kimai ignores user=all and silently returns only the token owner's entries,

@@ -18,6 +18,7 @@ const AuditLogPage = lazy(() => import('@/pages/AuditLogPage'));
 const ContractTimelinePage = lazy(() => import('@/pages/ContractTimelinePage'));
 const PmProjectsPage = lazy(() => import('@/extensions/projects/pages/ProjectsPage'));
 const PmProjectDetailPage = lazy(() => import('@/extensions/projects/pages/ProjectDetailPage'));
+const PmKimaiLinksPage = lazy(() => import('@/extensions/projects/pages/KimaiLinksPage'));
 const PmMeetingsPage = lazy(() => import('@/extensions/projects/pages/MeetingsPage'));
 const PmReportsPage = lazy(() => import('@/extensions/projects/pages/ProjectReportsPage'));
 const PmMyTasksPage = lazy(() => import('@/extensions/projects/pages/MyTasksPage'));
@@ -134,6 +135,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'pm/projects', element: withSuspense(<PmProjectsPage />) },
+      { path: 'pm/projects/kimai-links', element: withSuspense(<PmKimaiLinksPage />) },
       { path: 'pm/projects/:id', element: withSuspense(<PmProjectDetailPage />) },
       { path: 'pm/meetings', element: withSuspense(<PmMeetingsPage />) },
       { path: 'pm/reports', element: withSuspense(<PmReportsPage />) },

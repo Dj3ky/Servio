@@ -134,6 +134,14 @@ export const kimaiLinkSchema = z.object({
   moveExisting: z.boolean().optional(),
 });
 
+// Links from the linking page. Never takes over an existing link; that stays a deliberate step on the Hours tab.
+export const kimaiBulkLinkSchema = z.object({
+  links: z.array(z.object({
+    projectId: z.string().uuid(),
+    kimaiProjectId: z.number().int().positive(),
+  })).min(1).max(1000),
+});
+
 // Create a project in Kimai under an existing customer or a new one
 export const kimaiCreateSchema = z.union([
   z.object({ customerId: z.number().int().positive() }),
