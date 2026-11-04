@@ -30,12 +30,14 @@ export function localTimestamp(): string {
   return `${get('year')}-${get('month')}-${get('day')}_${get('hour')}-${get('minute')}-${get('second')}`;
 }
 
-// Keep the 30 most recent backups, plus one per calendar month for the 12 months before that.
-// Returns the file names that fall outside the policy.
-function selectExpiredBackups(files: string[]): string[] {
-  const KEEP_DAILY = 30;
-  const KEEP_MONTHLY = 12;
+interface BackupRetention {
+  keepRecent: number;
+  keepMonthly: number;
+}
 
+// Keep the N most recent backups, plus one per calendar month for the M months before that.
+// Returns the file names that fall outside the policy.
+function selectExpiredBackups(files: string[], { keepRecent, keepMonthly }: BackupRetention): string[] {
   const backups = files
     .filter(f => f.startsWith('backup_') && f.endsWith('.tar.gz'))
     .map(f => {
@@ -43,18 +45,18 @@ function selectExpiredBackups(files: string[]): string[] {
       return m ? { file: f, date: new Date(m[1]) } : null;
     })
     .filter((b): b is { file: string; date: Date } => b !== null && !isNaN(b.date.getTime()))
-    .sort((a, b) => b.date.getTime() - a.date.getTime()); // newest first
+    .sort((a, b) => b.file.localeCompare(a.file)); // newest first — the name's timestamp also orders backups within a day
 
   const keep = new Set<string>();
 
   // Always keep the N most recent
-  backups.slice(0, KEEP_DAILY).forEach(b => keep.add(b.file));
+  backups.slice(0, keepRecent).forEach(b => keep.add(b.file));
 
-  // For older ones keep one per calendar month (up to KEEP_MONTHLY months)
+  // For older ones keep one per calendar month (up to keepMonthly months)
   const seenMonths = new Set<string>();
-  for (const b of backups.slice(KEEP_DAILY)) {
+  for (const b of backups.slice(keepRecent)) {
     const month = `${b.date.getFullYear()}-${String(b.date.getMonth() + 1).padStart(2, '0')}`;
-    if (!seenMonths.has(month) && seenMonths.size < KEEP_MONTHLY) {
+    if (!seenMonths.has(month) && seenMonths.size < keepMonthly) {
       seenMonths.add(month);
       keep.add(b.file);
     }
@@ -63,17 +65,17 @@ function selectExpiredBackups(files: string[]): string[] {
   return backups.filter(b => !keep.has(b.file)).map(b => b.file);
 }
 
-async function applyRetentionPolicy(backupPath: string): Promise<void> {
+async function applyRetentionPolicy(backupPath: string, retention: BackupRetention): Promise<void> {
   const files = await fs.readdir(backupPath).catch(() => [] as string[]);
-  for (const file of selectExpiredBackups(files)) {
+  for (const file of selectExpiredBackups(files, retention)) {
     await fs.unlink(path.join(backupPath, file)).catch(() => {});
     console.log('[backup] Retention: deleted', file);
   }
 }
 
-async function applyNasRetentionPolicy(nasDir: string): Promise<void> {
+async function applyNasRetentionPolicy(nasDir: string, retention: BackupRetention): Promise<void> {
   const files = await listSmbFiles(nasDir, 'backup_*.tar.gz');
-  for (const file of selectExpiredBackups(files)) {
+  for (const file of selectExpiredBackups(files, retention)) {
     try {
       await deleteFromSmb(`${nasDir}/${file}`);
       console.log('[backup] NAS retention: deleted', file);
@@ -86,6 +88,7 @@ async function applyNasRetentionPolicy(nasDir: string): Promise<void> {
 export async function createBackup(): Promise<string> {
   const s = await db.query.settings.findFirst();
   const backupPath = path.resolve(s?.backupPath ?? './backups');
+  const retention: BackupRetention = { keepRecent: s?.backupKeepRecent ?? 30, keepMonthly: s?.backupKeepMonthly ?? 12 };
 
   await fs.mkdir(backupPath, { recursive: true });
 
@@ -157,13 +160,13 @@ export async function createBackup(): Promise<string> {
       );
     }
     try {
-      await applyNasRetentionPolicy(nasDir);
+      await applyNasRetentionPolicy(nasDir, retention);
     } catch (err) {
       console.error('[backup] NAS retention failed:', err);
     }
   }
 
-  await applyRetentionPolicy(backupPath);
+  await applyRetentionPolicy(backupPath, retention);
 
   return bundleFilePath;
 }

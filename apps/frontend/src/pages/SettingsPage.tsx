@@ -57,6 +57,8 @@ interface FullSettings {
   backupPath: string | null;
   backupToNas: boolean;
   backupNasPath: string | null;
+  backupKeepRecent: number;
+  backupKeepMonthly: number;
   auditLogRetentionMonths: number;
   accountingEmail: string | null;
   digestEnabled: boolean;
@@ -789,6 +791,8 @@ export default function SettingsPage() {
       backupPath: settings?.backupPath ?? './backups',
       backupToNas: settings?.backupToNas ?? false,
       backupNasPath: settings?.backupNasPath ?? '',
+      backupKeepRecent: settings?.backupKeepRecent ?? 30,
+      backupKeepMonthly: settings?.backupKeepMonthly ?? 12,
       auditLogRetentionMonths: settings?.auditLogRetentionMonths ?? 0,
     },
   });
@@ -1428,6 +1432,42 @@ export default function SettingsPage() {
                       )} />
                     )}
                   </div>
+
+                  <FormField control={backupForm.control} name="backupKeepRecent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.backupKeepRecent')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={365}
+                          className="w-32"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>{t('settings.backupKeepRecentHint')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={backupForm.control} name="backupKeepMonthly" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('settings.backupKeepMonthly')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={120}
+                          className="w-32"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>{t('settings.backupKeepMonthlyHint')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   <FormField control={backupForm.control} name="auditLogRetentionMonths" render={({ field }) => (
                     <FormItem>

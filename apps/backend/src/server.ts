@@ -69,6 +69,11 @@ async function ensureSettingsColumns() {
     ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS audit_log_retention_months integer NOT NULL DEFAULT 0
   `);
+  await db.execute(sql`
+    ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS backup_keep_recent  integer NOT NULL DEFAULT 30,
+      ADD COLUMN IF NOT EXISTS backup_keep_monthly integer NOT NULL DEFAULT 12
+  `);
   // All settings updates target id = 1 — without this row every save silently does nothing
   await db.execute(sql`INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
   // Invoices only exist once a review is completed — drop pending ones created earlier for open reviews
