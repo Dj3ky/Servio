@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ArrowLeft, Link2, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, Link2, RefreshCw, Search } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,8 +44,10 @@ interface LinkedProject {
 }
 interface LinksData { unlinked: UnlinkedProject[]; kimai: FreeKimaiProject[]; linked: LinkedProject[]; }
 interface LinkResult { linked: string[]; failed: { projectId: string; error: string }[]; }
+interface PickerOption { value: string; label: string; detail: string | null; }
+type PickerTarget = { kind: 'kimai'; projectId: string } | { kind: 'servio'; kimaiId: number };
 
-const NONE = '__none__';
+const MAX_PICKER_OPTIONS = 100;
 const MATCH_VARIANT: Record<LinkMatch, 'default' | 'secondary' | 'outline'> = { exact: 'default', same_name: 'secondary', similar: 'outline' };
 
 function kimaiLabel(p: FreeKimaiProject) {
@@ -54,16 +58,142 @@ function matchesSearch(term: string, values: (string | null)[]) {
   return !term || values.some(v => v?.toLowerCase().includes(term));
 }
 
+// One shared window with a search, opened from any row. With a dropdown per row,
+// every row would have to redraw the whole project list on every click.
+function PickerDialog({ title, options, clearLabel, onPick, onClear, onClose }: {
+  title: string;
+  options: PickerOption[];
+  clearLabel: string;
+  onPick: (value: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const term = query.trim().toLowerCase();
+  const matching = useMemo(() => options.filter(o => matchesSearch(term, [o.label, o.detail])), [options, term]);
+  const shown = matching.slice(0, MAX_PICKER_OPTIONS);
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" autoFocus placeholder={t('common.search')} value={query} onChange={e => setQuery(e.target.value)} />
+        </div>
+        <div className="max-h-[50vh] overflow-y-auto space-y-1">
+          <button type="button" onClick={onClear} className="w-full text-left p-2 rounded-md text-sm text-muted-foreground hover:bg-accent">
+            {clearLabel}
+          </button>
+          {shown.map(o => (
+            <button key={o.value} type="button" onClick={() => onPick(o.value)} className="w-full text-left p-2 rounded-md border bg-card hover:bg-accent">
+              <span className="block text-sm font-medium break-words">{o.label}</span>
+              {o.detail && <span className="block text-xs text-muted-foreground break-words">{o.detail}</span>}
+            </button>
+          ))}
+          {matching.length === 0 && <p className="p-2 text-sm text-muted-foreground">{t('common.noData')}</p>}
+        </div>
+        {matching.length > shown.length && (
+          <p className="text-xs text-muted-foreground">{t('pm.kimai.links.moreResults', { shown: shown.length, total: matching.length })}</p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PickerButton({ label, empty, ariaLabel, onClick }: { label: string | null; empty: string; ariaLabel: string; onClick: () => void }) {
+  return (
+    <Button type="button" variant="outline" aria-label={ariaLabel} onClick={onClick} className="w-full justify-between font-normal min-w-0">
+      <span className={`truncate ${label ? '' : 'text-muted-foreground'}`}>{label ?? empty}</span>
+      <ChevronDown className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+    </Button>
+  );
+}
+
+const UnlinkedRow = memo(function UnlinkedRow({ project, kimaiText, match, conflictWith, checked, disabled, onToggle, onOpen }: {
+  project: UnlinkedProject;
+  kimaiText: string | null;
+  match: LinkMatch | 'manual' | null;
+  conflictWith: string | null;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: (id: string, on: boolean) => void;
+  onOpen: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const name = `${project.projectNumber} ${project.name}`;
+  return (
+    <div className="grid gap-3 p-3 items-center md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.7fr)]">
+      <Checkbox aria-label={name} checked={checked} disabled={disabled} onCheckedChange={v => onToggle(project.id, v === true)} />
+      <div className="min-w-0">
+        <p className="text-sm font-medium break-words">{name}</p>
+        <p className="text-xs text-muted-foreground break-words">{project.customerName ?? '—'}</p>
+      </div>
+      <PickerButton
+        label={kimaiText}
+        empty={t('pm.kimai.links.selectKimai')}
+        ariaLabel={`${t('pm.kimai.links.selectKimai')}: ${name}`}
+        onClick={() => onOpen(project.id)}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        {match === null && <span className="text-xs text-muted-foreground">{t('pm.kimai.links.noMatch')}</span>}
+        {match === 'manual' && <Badge variant="outline" className="text-xs">{t('pm.kimai.links.manual')}</Badge>}
+        {match !== null && match !== 'manual' && (
+          <Badge variant={MATCH_VARIANT[match]} className="text-xs">{t(`pm.kimai.links.match.${match}`)}</Badge>
+        )}
+        {conflictWith && (
+          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {t('pm.kimai.links.alsoSuggested', { project: conflictWith })}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const KimaiRow = memo(function KimaiRow({ project, hoursText, assignedText, onOpen }: {
+  project: FreeKimaiProject;
+  hoursText: string;
+  assignedText: string | null;
+  onOpen: (id: number) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid gap-3 p-3 items-center md:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1.2fr)]">
+      <div className="min-w-0">
+        <p className="text-sm font-medium break-words">
+          {project.name}
+          {!project.visible && <Badge variant="outline" className="text-xs ml-2">{t('pm.kimai.hidden')}</Badge>}
+        </p>
+        <p className="text-xs text-muted-foreground break-words">{project.customerName ?? '—'}</p>
+      </div>
+      <p className="text-sm font-medium whitespace-nowrap md:text-right md:min-w-20">{hoursText}</p>
+      <PickerButton
+        label={assignedText}
+        empty={t('pm.kimai.links.selectServio')}
+        ariaLabel={`${t('pm.kimai.links.selectServio')}: ${project.name}`}
+        onClick={() => onOpen(project.id)}
+      />
+    </div>
+  );
+});
+
 export default function KimaiLinksPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState('unlinked');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 200);
   const [status, setStatus] = useState('all');
   // The user's choices; rows without one use the suggestion. A chosen Kimai project only links once its row is ticked.
   const [picks, setPicks] = useState<Record<string, number | null>>({});
   const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [result, setResult] = useState<LinkResult | null>(null);
 
   const { data, isLoading, error, isFetching, refetch } = useQuery<LinksData>({
@@ -80,71 +210,102 @@ export default function KimaiLinksPage() {
 
   const unlinked = useMemo(() => data?.unlinked ?? [], [data]);
   const kimaiProjects = useMemo(() => data?.kimai ?? [], [data]);
-
-  const availableKimaiIds = useMemo(() => new Set(kimaiProjects.map(k => k.id)), [kimaiProjects]);
+  const kimaiById = useMemo(() => new Map(kimaiProjects.map(k => [k.id, k])), [kimaiProjects]);
 
   // A choice stops counting once its Kimai project is linked elsewhere, for example by the previous save
-  const chosen = (p: UnlinkedProject) => {
-    const kimaiId = p.id in picks ? picks[p.id] : p.suggestion?.kimaiProjectId ?? null;
-    return kimaiId !== null && availableKimaiIds.has(kimaiId) ? kimaiId : null;
-  };
+  const chosenById = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const p of unlinked) {
+      const kimaiId = p.id in picks ? picks[p.id] : p.suggestion?.kimaiProjectId ?? null;
+      map.set(p.id, kimaiId !== null && kimaiById.has(kimaiId) ? kimaiId : null);
+    }
+    return map;
+  }, [unlinked, picks, kimaiById]);
+
+  // Rows per chosen Kimai project, which can only be linked once
+  const rowsByKimai = useMemo(() => {
+    const map = new Map<number, UnlinkedProject[]>();
+    for (const p of unlinked) {
+      const kimaiId = chosenById.get(p.id);
+      if (kimaiId == null) continue;
+      map.set(kimaiId, [...(map.get(kimaiId) ?? []), p]);
+    }
+    return map;
+  }, [unlinked, chosenById]);
+
   const tickedKimai = useMemo(() => {
     const map = new Map<number, string>();
     for (const p of unlinked) {
-      const kimaiId = chosen(p);
-      if (ticked.has(p.id) && kimaiId !== null) map.set(kimaiId, p.id);
+      const kimaiId = chosenById.get(p.id);
+      if (ticked.has(p.id) && kimaiId != null) map.set(kimaiId, p.id);
     }
     return map;
-  }, [unlinked, ticked, picks, availableKimaiIds]);
+  }, [unlinked, chosenById, ticked]);
 
-  const term = search.trim().toLowerCase();
-  const unlinkedRows = unlinked.filter(p =>
-    (status === 'all' || p.status === status) && matchesSearch(term, [p.projectNumber, p.name, p.customerName]));
-  const kimaiRows = kimaiProjects
+  const term = debouncedSearch.trim().toLowerCase();
+  const unlinkedRows = useMemo(() => unlinked.filter(p =>
+    (status === 'all' || p.status === status) && matchesSearch(term, [p.projectNumber, p.name, p.customerName])), [unlinked, status, term]);
+  const kimaiRows = useMemo(() => kimaiProjects
     .filter(k => matchesSearch(term, [k.name, k.number, k.customerName]))
-    .sort((a, b) => (hours.data?.[b.id] ?? 0) - (hours.data?.[a.id] ?? 0));
-  const linkedRows = (data?.linked ?? []).filter(p => matchesSearch(term, [p.projectNumber, p.name, p.customerName, p.kimaiProjectName]));
+    .sort((a, b) => (hours.data?.[b.id] ?? 0) - (hours.data?.[a.id] ?? 0)), [kimaiProjects, term, hours.data]);
+  const linkedRows = useMemo(() => (data?.linked ?? [])
+    .filter(p => matchesSearch(term, [p.projectNumber, p.name, p.customerName, p.kimaiProjectName])), [data, term]);
 
-  // Rows wanting the same Kimai project, which can only be linked once
-  function competitors(p: UnlinkedProject) {
-    const kimaiId = chosen(p);
-    return kimaiId === null ? [] : unlinked.filter(other => other.id !== p.id && chosen(other) === kimaiId);
-  }
+  const exactRows = useMemo(() => unlinkedRows.filter(p => {
+    const kimaiId = chosenById.get(p.id);
+    return !(p.id in picks) && p.suggestion?.match === 'exact' && kimaiId != null
+      && rowsByKimai.get(kimaiId)?.length === 1 && !ticked.has(p.id);
+  }), [unlinkedRows, chosenById, picks, rowsByKimai, ticked]);
 
-  const exactRows = unlinkedRows.filter(p =>
-    !(p.id in picks) && p.suggestion?.match === 'exact' && competitors(p).length === 0 && !ticked.has(p.id));
-
-  function setTick(id: string, on: boolean) {
+  const setTick = useCallback((id: string, on: boolean) => {
     setTicked(prev => {
       const next = new Set(prev);
       if (on) next.add(id); else next.delete(id);
       return next;
     });
+  }, []);
+  const openKimaiPicker = useCallback((projectId: string) => setPicker({ kind: 'kimai', projectId }), []);
+  const openServioPicker = useCallback((kimaiId: number) => setPicker({ kind: 'servio', kimaiId }), []);
+
+  function applyPick(value: string | null) {
+    if (picker?.kind === 'kimai') {
+      setPicks(prev => ({ ...prev, [picker.projectId]: value === null ? null : Number(value) }));
+      if (value === null) setTick(picker.projectId, false);
+    } else if (picker?.kind === 'servio') {
+      // Choosing a Servio project also ticks it, since that row isn't visible on this tab
+      const { kimaiId } = picker;
+      setTicked(prev => {
+        const next = new Set(prev);
+        const current = tickedKimai.get(kimaiId);
+        if (current) next.delete(current);
+        if (value !== null) next.add(value);
+        return next;
+      });
+      if (value !== null) setPicks(prev => ({ ...prev, [value]: kimaiId }));
+    }
+    setPicker(null);
   }
 
-  function pickKimai(p: UnlinkedProject, value: string) {
-    const kimaiId = value === NONE ? null : Number(value);
-    setPicks(prev => ({ ...prev, [p.id]: kimaiId }));
-    if (kimaiId === null) setTick(p.id, false);
-  }
-
-  // From the Kimai tab: choosing a Servio project also ticks it, since that row isn't visible there
-  function pickServio(kimaiId: number, value: string) {
-    setTicked(prev => {
-      const next = new Set(prev);
-      const current = tickedKimai.get(kimaiId);
-      if (current) next.delete(current);
-      if (value !== NONE) next.add(value);
-      return next;
-    });
-    if (value !== NONE) setPicks(prev => ({ ...prev, [value]: kimaiId }));
-  }
+  const pickerOptions = useMemo((): PickerOption[] => {
+    if (picker?.kind === 'kimai') {
+      return kimaiProjects
+        .filter(k => !tickedKimai.has(k.id) || tickedKimai.get(k.id) === picker.projectId)
+        .map(k => ({ value: String(k.id), label: k.name, detail: k.customerName }));
+    }
+    if (picker?.kind === 'servio') {
+      const assigned = tickedKimai.get(picker.kimaiId);
+      return unlinked
+        .filter(p => !ticked.has(p.id) || p.id === assigned)
+        .map(p => ({ value: p.id, label: `${p.projectNumber} ${p.name}`, detail: p.customerName }));
+    }
+    return [];
+  }, [picker, kimaiProjects, unlinked, ticked, tickedKimai]);
 
   const link = useMutation({
     mutationFn: () => api.post<LinkResult>('/pm/kimai/links', {
       links: unlinked
-        .filter(p => ticked.has(p.id) && chosen(p) !== null)
-        .map(p => ({ projectId: p.id, kimaiProjectId: chosen(p) })),
+        .filter(p => ticked.has(p.id) && chosenById.get(p.id) != null)
+        .map(p => ({ projectId: p.id, kimaiProjectId: chosenById.get(p.id) })),
     }),
     onSuccess: (res) => {
       setResult(res);
@@ -159,18 +320,16 @@ export default function KimaiLinksPage() {
     onError: (err) => toast.error(kimaiErrorMessage(err, t)),
   });
 
-  function matchBadge(p: UnlinkedProject) {
-    const kimaiId = chosen(p);
-    if (kimaiId === null) return <span className="text-xs text-muted-foreground">{t('pm.kimai.links.noMatch')}</span>;
-    if (kimaiId !== p.suggestion?.kimaiProjectId) return <Badge variant="outline" className="text-xs">{t('pm.kimai.links.manual')}</Badge>;
-    return <Badge variant={MATCH_VARIANT[p.suggestion.match]} className="text-xs">{t(`pm.kimai.links.match.${p.suggestion.match}`)}</Badge>;
+  function matchOf(p: UnlinkedProject, kimaiId: number | null): LinkMatch | 'manual' | null {
+    if (kimaiId === null) return null;
+    return kimaiId === p.suggestion?.kimaiProjectId ? p.suggestion.match : 'manual';
   }
 
-  const selectedCount = unlinked.filter(p => ticked.has(p.id) && chosen(p) !== null).length;
-  const failedLabel = (projectId: string) => {
-    const p = unlinked.find(row => row.id === projectId);
-    return p ? `${p.projectNumber} ${p.name}` : projectId;
-  };
+  const selectedCount = useMemo(() => unlinked.filter(p => ticked.has(p.id) && chosenById.get(p.id) != null).length, [unlinked, ticked, chosenById]);
+  const projectLabel = useCallback((id: string) => {
+    const p = unlinked.find(row => row.id === id);
+    return p ? `${p.projectNumber} ${p.name}` : null;
+  }, [unlinked]);
 
   return (
     <div className="p-4 md:p-6 space-y-4 pb-24">
@@ -193,7 +352,7 @@ export default function KimaiLinksPage() {
       {result && result.failed.length > 0 && (
         <div className="rounded-md border border-destructive/40 p-3 text-sm space-y-1">
           <p className="font-medium">{t('pm.kimai.links.resultSummary', { linked: result.linked.length, failed: result.failed.length })}</p>
-          {result.failed.map(f => <p key={f.projectId} className="text-destructive">{failedLabel(f.projectId)}: {t(f.error)}</p>)}
+          {result.failed.map(f => <p key={f.projectId} className="text-destructive">{projectLabel(f.projectId) ?? f.projectId}: {t(f.error)}</p>)}
         </div>
       )}
 
@@ -231,40 +390,23 @@ export default function KimaiLinksPage() {
             {unlinkedRows.length === 0 && <p className="text-sm text-muted-foreground">{t('pm.kimai.links.noneUnlinked')}</p>}
             <div className="divide-y rounded-md border">
               {unlinkedRows.map(p => {
-                const kimaiId = chosen(p);
-                const others = competitors(p);
-                const blocked = kimaiId === null || (tickedKimai.has(kimaiId) && tickedKimai.get(kimaiId) !== p.id);
+                const kimaiId = chosenById.get(p.id) ?? null;
+                const kimai = kimaiId === null ? undefined : kimaiById.get(kimaiId);
+                const conflict = kimaiId === null ? undefined : rowsByKimai.get(kimaiId)?.find(other => other.id !== p.id);
+                const holder = kimaiId === null ? undefined : tickedKimai.get(kimaiId);
+                const isTicked = ticked.has(p.id) && kimaiId !== null;
                 return (
-                  <div key={p.id} className="grid gap-3 p-3 items-center md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.7fr)]">
-                    <Checkbox
-                      aria-label={`${p.projectNumber} ${p.name}`}
-                      checked={ticked.has(p.id) && kimaiId !== null}
-                      disabled={kimaiId === null || (blocked && !ticked.has(p.id))}
-                      onCheckedChange={v => setTick(p.id, v === true)}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium break-words">{p.projectNumber} {p.name}</p>
-                      <p className="text-xs text-muted-foreground break-words">{p.customerName ?? '—'}</p>
-                    </div>
-                    <Select value={kimaiId === null ? NONE : String(kimaiId)} onValueChange={v => pickKimai(p, v)}>
-                      <SelectTrigger className="text-left"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>{t('pm.kimai.links.selectKimai')}</SelectItem>
-                        {kimaiProjects
-                          .filter(k => !tickedKimai.has(k.id) || tickedKimai.get(k.id) === p.id)
-                          .map(k => <SelectItem key={k.id} value={String(k.id)}>{kimaiLabel(k)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {matchBadge(p)}
-                      {others.length > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          {t('pm.kimai.links.alsoSuggested', { project: others[0].projectNumber })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <UnlinkedRow
+                    key={p.id}
+                    project={p}
+                    kimaiText={kimai ? kimaiLabel(kimai) : null}
+                    match={matchOf(p, kimaiId)}
+                    conflictWith={conflict?.projectNumber ?? null}
+                    checked={isTicked}
+                    disabled={kimaiId === null || (!isTicked && !!holder && holder !== p.id)}
+                    onToggle={setTick}
+                    onOpen={openKimaiPicker}
+                  />
                 );
               })}
             </div>
@@ -276,28 +418,17 @@ export default function KimaiLinksPage() {
             <div className="divide-y rounded-md border">
               {kimaiRows.map(k => {
                 const assigned = tickedKimai.get(k.id);
+                let hoursText = t('common.loading');
+                if (hours.data) hoursText = formatHours(hours.data[k.id] ?? 0);
+                else if (hours.isError) hoursText = '—';
                 return (
-                  <div key={k.id} className="grid gap-3 p-3 items-center md:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1.2fr)]">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium break-words">
-                        {k.name}
-                        {!k.visible && <Badge variant="outline" className="text-xs ml-2">{t('pm.kimai.hidden')}</Badge>}
-                      </p>
-                      <p className="text-xs text-muted-foreground break-words">{k.customerName ?? '—'}</p>
-                    </div>
-                    <p className="text-sm font-medium whitespace-nowrap md:text-right md:min-w-20">
-                      {hours.data ? formatHours(hours.data[k.id] ?? 0) : hours.isError ? '—' : t('common.loading')}
-                    </p>
-                    <Select value={assigned ?? NONE} onValueChange={v => pickServio(k.id, v)}>
-                      <SelectTrigger className="text-left"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>{t('pm.kimai.links.selectServio')}</SelectItem>
-                        {unlinked
-                          .filter(p => !ticked.has(p.id) || p.id === assigned)
-                          .map(p => <SelectItem key={p.id} value={p.id}>{p.projectNumber} {p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <KimaiRow
+                    key={k.id}
+                    project={k}
+                    hoursText={hoursText}
+                    assignedText={assigned ? projectLabel(assigned) : null}
+                    onOpen={openServioPicker}
+                  />
                 );
               })}
             </div>
@@ -337,6 +468,17 @@ export default function KimaiLinksPage() {
             {link.isPending ? t('common.loading') : t('pm.kimai.links.linkSelected', { count: selectedCount })}
           </Button>
         </div>
+      )}
+
+      {picker && (
+        <PickerDialog
+          title={t(picker.kind === 'kimai' ? 'pm.kimai.links.selectKimai' : 'pm.kimai.links.selectServio')}
+          options={pickerOptions}
+          clearLabel={t('pm.kimai.links.clearChoice')}
+          onPick={applyPick}
+          onClear={() => applyPick(null)}
+          onClose={() => setPicker(null)}
+        />
       )}
     </div>
   );

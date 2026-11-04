@@ -813,6 +813,8 @@
         "alsoSuggested": "Also suggested for {{project}}",
         "selectKimai": "Select a Kimai project",
         "selectServio": "Select a Servio project",
+        "clearChoice": "No selection",
+        "moreResults": "Showing the first {{shown}} of {{total}}. Use the search to find the rest.",
         "noneUnlinked": "No unlinked projects.",
         "noneKimai": "All Kimai projects are linked.",
         "noneLinked": "No linked projects.",

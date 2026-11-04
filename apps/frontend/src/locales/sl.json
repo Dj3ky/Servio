@@ -823,6 +823,8 @@
         "alsoSuggested": "Predlagano tudi za {{project}}",
         "selectKimai": "Izberite projekt v Kimai",
         "selectServio": "Izberite projekt v Servio",
+        "clearChoice": "Brez izbire",
+        "moreResults": "Prikazanih je prvih {{shown}} od {{total}}. Za ostale uporabite iskanje.",
         "noneUnlinked": "Ni nepovezanih projektov.",
         "noneKimai": "Vsi projekti v Kimai so povezani.",
         "noneLinked": "Ni povezanih projektov.",
