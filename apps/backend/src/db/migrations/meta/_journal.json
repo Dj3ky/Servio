@@ -135,5 +135,12 @@
       "tag": "0018_pm_kimai",
       "breakpoints": true
     }
+    ,{
+      "idx": 19,
+      "version": "7",
+      "when": 1781625600000,
+      "tag": "0019_pm_kimai_timesheets",
+      "breakpoints": true
+    }
   ]
 }

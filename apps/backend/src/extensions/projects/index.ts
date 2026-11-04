@@ -15,6 +15,7 @@ import pmReportsRoutes from './routes/pm-reports';
 import pmTasksRoutes from './routes/pm-tasks';
 import pmKimaiRoutes from './routes/pm-kimai';
 import { startTaskReminders } from './taskNotifications';
+import { startKimaiSync } from './kimaiHours';
 
 const FEATURE_KEY = 'projects_extension';
 
@@ -168,6 +169,21 @@ async function ensurePmTables() {
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    // From migration 0019
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS kimai_synced_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS kimai_sync_error TEXT`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_kimai_timesheets (
+        id INTEGER PRIMARY KEY,
+        project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+        entry_date DATE NOT NULL,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        user_name TEXT NOT NULL,
+        activity_name TEXT,
+        description TEXT
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_kimai_timesheets_project_idx ON pm_kimai_timesheets(project_id)`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
@@ -184,6 +200,7 @@ async function isEnabled(): Promise<boolean> {
 }
 
 startTaskReminders(isEnabled);
+startKimaiSync(isEnabled);
 
 async function requireExtension(req: Request, res: Response, next: NextFunction): Promise<void> {
   const enabled = await isEnabled();
@@ -226,6 +243,7 @@ router.patch('/config', requireAuth, requireRole('settings', 'manage'), async (r
 // This is irreversible. Admin only.
 router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'), async (_req: Request, res: Response): Promise<void> => {
   // Drop in child-first order
+  await db.execute(sql`DROP TABLE IF EXISTS pm_kimai_timesheets CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_kimai_config CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_employee_order CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_tasks CASCADE`);

@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Link2, Plus, Search, Unlink } from 'lucide-react';
+import { Link2, Plus, RefreshCw, Search, Unlink } from 'lucide-react';
 import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,12 +24,111 @@ interface HoursProject {
   kimaiProjectName: string | null;
 }
 
+interface HoursData {
+  syncedAt: string | null;
+  syncError: string | null;
+  totalSeconds: number;
+  entryCount: number;
+  byUser: { userName: string; seconds: number }[];
+  entries: { id: number; entryDate: string; seconds: number; userName: string; activityName: string | null; description: string | null }[];
+}
+
+function formatHours(seconds: number) {
+  return `${(seconds / 3600).toLocaleString('sl-SI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`;
+}
+
 function useInvalidateLink(projectId: string) {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['pm-project', projectId] });
     qc.invalidateQueries({ queryKey: ['pm-kimai-projects'] });
+    qc.invalidateQueries({ queryKey: ['pm-kimai-hours', projectId] });
   };
+}
+
+function HoursPanel({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery<HoursData>({
+    queryKey: ['pm-kimai-hours', projectId],
+    queryFn: () => api.get(`/pm/kimai/hours/${projectId}`),
+  });
+
+  const refresh = useMutation({
+    mutationFn: () => api.post(`/pm/kimai/hours/${projectId}/refresh`),
+    onSuccess: () => toast.success(t('pm.kimai.refreshedOk')),
+    onError: (err) => toast.error(kimaiErrorMessage(err, t)),
+    // A failed refresh still changes the saved error shown below
+    onSettled: () => qc.invalidateQueries({ queryKey: ['pm-kimai-hours', projectId] }),
+  });
+
+  if (isLoading || !data) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-2xl font-semibold">{formatHours(data.totalSeconds)}</p>
+          <p className="text-xs text-muted-foreground">
+            {data.syncedAt ? t('pm.kimai.syncedAt', { date: formatDateTime(data.syncedAt) }) : t('pm.kimai.neverSynced')}
+          </p>
+        </div>
+        <Button size="sm" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${refresh.isPending ? 'animate-spin' : ''}`} />{t('pm.kimai.refresh')}
+        </Button>
+      </div>
+
+      {data.syncError && (
+        <p className="text-sm text-destructive">{t('pm.kimai.syncFailed', { reason: t(data.syncError) })}</p>
+      )}
+
+      {data.entryCount === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('pm.kimai.noHours')}</p>
+      ) : (
+        <>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{t('pm.kimai.byUser')}</p>
+            {data.byUser.map(u => (
+              <div key={u.userName} className="flex justify-between gap-3 text-sm">
+                <span>{u.userName}</span>
+                <span className="font-medium whitespace-nowrap">{formatHours(u.seconds)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">{t('pm.kimai.date')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('pm.kimai.person')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('pm.kimai.activity')}</th>
+                  <th className="py-2 pr-3 font-medium">{t('pm.kimai.description')}</th>
+                  <th className="py-2 text-right font-medium">{t('pm.kimai.hours')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.entries.map(entry => (
+                  <tr key={entry.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3 whitespace-nowrap">{formatDate(entry.entryDate)}</td>
+                    <td className="py-2 pr-3">{entry.userName}</td>
+                    <td className="py-2 pr-3">{entry.activityName ?? '—'}</td>
+                    <td className="py-2 pr-3">{entry.description ?? '—'}</td>
+                    <td className="py-2 text-right whitespace-nowrap">{formatHours(entry.seconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {data.entryCount > data.entries.length && (
+            <p className="text-xs text-muted-foreground">
+              {t('pm.kimai.entriesLimited', { shown: data.entries.length, total: data.entryCount })}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function LinkDialog({ project, open, onClose }: { project: HoursProject; open: boolean; onClose: () => void }) {
@@ -192,7 +292,7 @@ export function ProjectHoursTab({ project }: { project: HoursProject }) {
   });
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-4">
       <Card>
         <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -217,6 +317,13 @@ export function ProjectHoursTab({ project }: { project: HoursProject }) {
           )}
         </CardContent>
       </Card>
+      {linked && (
+        <Card>
+          <CardContent className="p-4">
+            <HoursPanel projectId={project.id} />
+          </CardContent>
+        </Card>
+      )}
       <LinkDialog project={project} open={dialog === 'link'} onClose={() => setDialog(null)} />
       <CreateDialog project={project} open={dialog === 'create'} onClose={() => setDialog(null)} />
     </div>

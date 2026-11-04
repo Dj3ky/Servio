@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { and, eq, isNotNull, ne } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 import { kimaiSettingsSchema, kimaiLinkSchema, kimaiCreateSchema } from '@servio/shared';
 import { db } from '../../../db';
-import { pmKimaiConfig, pmProjects } from '../schema';
+import { pmKimaiConfig, pmKimaiTimesheets, pmProjects } from '../schema';
 import { requireRole } from '../../../middleware/role';
 import { encrypt } from '../../../utils/crypto';
 import { createAuditLog } from '../../../utils/audit';
@@ -17,9 +17,22 @@ import {
   createKimaiCustomer,
   createKimaiProject,
   requireValidKimaiName,
+  countKimaiTimesheetUsers,
+  KimaiConnection,
 } from '../kimai';
+import { refreshProjectHours } from '../kimaiHours';
 
 const router = Router();
+
+const MAX_LISTED_ENTRIES = 200;
+const NO_LINK = { kimaiProjectId: null, kimaiProjectName: null, kimaiSyncedAt: null, kimaiSyncError: null };
+
+// The link itself succeeded, so a failed first refresh only shows up on the Hours tab
+async function refreshAfterLink(connection: KimaiConnection, projectId: string, kimaiProjectId: number) {
+  await refreshProjectHours(connection, projectId, kimaiProjectId).catch((err) => {
+    if (!(err instanceof KimaiError)) console.error('[pm-kimai] Refresh after linking failed:', err);
+  });
+}
 
 function handle(fn: (req: Request, res: Response) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -82,15 +95,16 @@ router.put('/settings', requireRole('settings', 'manage'), handle(async (req, re
 router.post('/test', requireRole('settings', 'manage'), handle(async (req, res) => {
   const connection = await connectionFromBody(req.body);
   // One at a time, so a failure always names the first call that failed
-  const [version, projects, customers] = await (async () => [
+  const [version, projects, customers, timesheetUsers] = await (async () => [
     await getKimaiVersion(connection),
     await listKimaiProjects(connection),
     await listKimaiCustomers(connection),
+    await countKimaiTimesheetUsers(connection),
   ] as const)().catch((err) => {
     // These routes always exist in Kimai, so a 404 means the URL points somewhere else
-    throw err instanceof KimaiError && err.status === 404 ? new KimaiError('errors.kimai_invalid_response') : err;
+    throw err instanceof KimaiError && err.status === 404 ? new KimaiError('errors.kimai_invalid_response', 502, err.details) : err;
   });
-  res.json({ version: version.version, projectCount: projects.length, customerCount: customers.length });
+  res.json({ version: version.version, projectCount: projects.length, customerCount: customers.length, timesheetUsers });
 }));
 
 // --- Kimai lists for linking and creating ---
@@ -135,7 +149,7 @@ router.post('/link/:projectId', requireRole('projects', 'manage'), handle(async 
   const project = await findProject(req.params.projectId);
   if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
-  const [other] = await db.select({ projectNumber: pmProjects.projectNumber, name: pmProjects.name })
+  const [other] = await db.select({ id: pmProjects.id, projectNumber: pmProjects.projectNumber, name: pmProjects.name })
     .from(pmProjects)
     .where(and(eq(pmProjects.kimaiProjectId, kimaiProjectId), ne(pmProjects.id, project.id)))
     .limit(1);
@@ -144,27 +158,34 @@ router.post('/link/:projectId', requireRole('projects', 'manage'), handle(async 
     return;
   }
 
-  const kimaiProject = await getKimaiProject(await requireKimaiConnection(), kimaiProjectId);
+  const connection = await requireKimaiConnection();
+  const kimaiProject = await getKimaiProject(connection, kimaiProjectId);
 
   await db.transaction(async (tx) => {
     if (other) {
-      await tx.update(pmProjects)
-        .set({ kimaiProjectId: null, kimaiProjectName: null, updatedAt: new Date() })
-        .where(and(eq(pmProjects.kimaiProjectId, kimaiProjectId), ne(pmProjects.id, project.id)));
+      await tx.delete(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, other.id));
+      await tx.update(pmProjects).set({ ...NO_LINK, updatedAt: new Date() }).where(eq(pmProjects.id, other.id));
     }
+    // Hours copied from a previously linked Kimai project no longer belong here
+    await tx.delete(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, project.id));
     await tx.update(pmProjects)
-      .set({ kimaiProjectId, kimaiProjectName: kimaiProject.name, updatedAt: new Date() })
+      .set({ ...NO_LINK, kimaiProjectId, kimaiProjectName: kimaiProject.name, updatedAt: new Date() })
       .where(eq(pmProjects.id, project.id));
   });
+  await refreshAfterLink(connection, project.id, kimaiProjectId);
   res.json({ kimaiProjectId, kimaiProjectName: kimaiProject.name });
 }));
 
-// Only removes the link in Servio — nothing is changed in Kimai
+// Only removes the link and the copied hours in Servio — nothing is changed in Kimai
 router.delete('/link/:projectId', requireRole('projects', 'manage'), handle(async (req, res) => {
-  const [updated] = await db.update(pmProjects)
-    .set({ kimaiProjectId: null, kimaiProjectName: null, updatedAt: new Date() })
-    .where(eq(pmProjects.id, req.params.projectId))
-    .returning({ id: pmProjects.id });
+  const updated = await db.transaction(async (tx) => {
+    await tx.delete(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, req.params.projectId));
+    const [row] = await tx.update(pmProjects)
+      .set({ ...NO_LINK, updatedAt: new Date() })
+      .where(eq(pmProjects.id, req.params.projectId))
+      .returning({ id: pmProjects.id });
+    return row;
+  });
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
   res.json({ success: true });
 }));
@@ -189,7 +210,46 @@ router.post('/create/:projectId', requireRole('projects', 'manage'), handle(asyn
   await db.update(pmProjects)
     .set({ kimaiProjectId: kimaiProject.id, kimaiProjectName: kimaiProject.name, updatedAt: new Date() })
     .where(eq(pmProjects.id, project.id));
+  await refreshAfterLink(connection, project.id, kimaiProject.id);
   res.status(201).json({ kimaiProjectId: kimaiProject.id, kimaiProjectName: kimaiProject.name });
+}));
+
+// --- Hours (the copy in Servio, so this works while Kimai is down) ---
+
+router.get('/hours/:projectId', requireRole('projects', 'access'), handle(async (req, res) => {
+  const { projectId } = req.params;
+  const [project] = await db.select({ syncedAt: pmProjects.kimaiSyncedAt, syncError: pmProjects.kimaiSyncError })
+    .from(pmProjects).where(eq(pmProjects.id, projectId)).limit(1);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  const seconds = sql<number>`coalesce(sum(${pmKimaiTimesheets.durationSeconds}), 0)::int`;
+  const [totals, byUser, entries] = await Promise.all([
+    db.select({ totalSeconds: seconds, entryCount: sql<number>`count(*)::int` })
+      .from(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, projectId)),
+    db.select({ userName: pmKimaiTimesheets.userName, seconds })
+      .from(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, projectId))
+      .groupBy(pmKimaiTimesheets.userName).orderBy(desc(seconds)),
+    db.select({
+      id: pmKimaiTimesheets.id,
+      entryDate: pmKimaiTimesheets.entryDate,
+      seconds: pmKimaiTimesheets.durationSeconds,
+      userName: pmKimaiTimesheets.userName,
+      activityName: pmKimaiTimesheets.activityName,
+      description: pmKimaiTimesheets.description,
+    }).from(pmKimaiTimesheets).where(eq(pmKimaiTimesheets.projectId, projectId))
+      .orderBy(desc(pmKimaiTimesheets.entryDate), desc(pmKimaiTimesheets.id))
+      .limit(MAX_LISTED_ENTRIES),
+  ]);
+  res.json({ ...project, ...totals[0], byUser, entries });
+}));
+
+router.post('/hours/:projectId/refresh', requireRole('projects', 'access'), handle(async (req, res) => {
+  const project = await findProject(req.params.projectId);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (project.kimaiProjectId === null) { res.status(409).json({ error: 'errors.kimai_project_not_linked' }); return; }
+
+  await refreshProjectHours(await requireKimaiConnection(), project.id, project.kimaiProjectId);
+  res.json({ success: true });
 }));
 
 export default router;

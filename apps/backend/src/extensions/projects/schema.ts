@@ -44,6 +44,8 @@ export const pmProjects = pgTable('pm_projects', {
   // Linked Kimai project; the name is a copy so the link still shows when Kimai is down
   kimaiProjectId: integer('kimai_project_id'),
   kimaiProjectName: text('kimai_project_name'),
+  kimaiSyncedAt: timestamp('kimai_synced_at'),
+  kimaiSyncError: text('kimai_sync_error'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
@@ -134,6 +136,17 @@ export const pmKimaiConfig = pgTable('pm_kimai_config', {
   url: text('url').notNull(),
   tokenEncrypted: text('token_encrypted').notNull(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Copy of Kimai timesheets for linked projects; hours are only ever edited in Kimai. Holds no rates.
+export const pmKimaiTimesheets = pgTable('pm_kimai_timesheets', {
+  id: integer('id').primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
+  entryDate: date('entry_date').notNull(),
+  durationSeconds: integer('duration_seconds').notNull().default(0),
+  userName: text('user_name').notNull(),
+  activityName: text('activity_name'),
+  description: text('description'),
 });
 
 export type DbPmCustomer =typeof pmCustomers.$inferSelect;

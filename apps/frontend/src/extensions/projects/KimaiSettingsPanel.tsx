@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { kimaiErrorMessage } from './kimai';
 
 interface KimaiSettings { url: string; tokenSet: boolean; }
-interface KimaiTestResult { version: string; projectCount: number; customerCount: number; }
+interface KimaiTestResult { version: string; projectCount: number; customerCount: number; timesheetUsers: number; }
 
 export function KimaiSettingsPanel() {
   const { t } = useTranslation();
@@ -80,6 +80,9 @@ export function KimaiSettingsPanel() {
         <p className="text-xs text-green-600 dark:text-green-400">
           {t('pm.kimai.testOk', { version: test.data.version, projects: test.data.projectCount, customers: test.data.customerCount })}
         </p>
+      )}
+      {test.data?.timesheetUsers === 1 && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">{t('pm.kimai.testOnePerson')}</p>
       )}
       {test.error && <p className="text-xs text-destructive">{kimaiErrorMessage(test.error, t)}</p>}
     </div>
