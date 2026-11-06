@@ -20,6 +20,17 @@ export function formatCurrency(value: number | null | undefined, currency = 'EUR
   return new Intl.NumberFormat('sl-SI', { style: 'currency', currency }).format(value);
 }
 
+// Amount as typed or pasted -> "1234.56": accepts , or . as the decimal separator; the last one wins, earlier ones are thousands separators
+export function normalizeAmountInput(value: string): string {
+  const cleaned = value.replace(/[^\d.,-]/g, '');
+  const sign = cleaned.startsWith('-') ? '-' : '';
+  const digits = cleaned.replace(/-/g, '');
+  const separator = Math.max(digits.lastIndexOf(','), digits.lastIndexOf('.'));
+  if (separator < 0) return sign + digits;
+  const whole = digits.slice(0, separator).replace(/[.,]/g, '') || '0';
+  return `${sign}${whole}.${digits.slice(separator + 1, separator + 3)}`;
+}
+
 export function getMonthName(month: number, locale = 'sl-SI'): string {
   return new Date(2000, month - 1, 1).toLocaleDateString(locale, { month: 'long' });
 }

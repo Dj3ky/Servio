@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { Link2, Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDate, normalizeAmountInput } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { usePermissionsStore } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
@@ -746,7 +746,7 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-1 col-span-2">
                 <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>
-                <Input type="number" step="0.01" placeholder="0.00" value={form.contractValue} onChange={e => setForm(f => ({ ...f, contractValue: e.target.value }))} />
+                <Input inputMode="decimal" pattern="-?\d+\.?\d*" placeholder="0.00" value={form.contractValue} onChange={e => setForm(f => ({ ...f, contractValue: normalizeAmountInput(e.target.value) }))} />
               </div>
             </div>
             <div className="space-y-1">

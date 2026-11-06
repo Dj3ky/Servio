@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDate, normalizeAmountInput } from '@/lib/utils';
 import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -731,7 +731,7 @@ export default function ProjectDetailPage() {
               </div>
               <div className="space-y-1 col-span-2">
                 <label className="text-sm font-medium">{t('pm.fields.contractValue')}</label>
-                <Input type="number" step="0.01" placeholder="0.00" value={editForm.contractValue ?? ''} onChange={e => setEditForm(f => ({ ...f, contractValue: e.target.value }))} />
+                <Input inputMode="decimal" pattern="-?\d+\.?\d*" placeholder="0.00" value={editForm.contractValue ?? ''} onChange={e => setEditForm(f => ({ ...f, contractValue: normalizeAmountInput(e.target.value) }))} />
               </div>
             </div>
             <div className="space-y-1">
