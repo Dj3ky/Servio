@@ -47,14 +47,17 @@ export function useWebSocket() {
       };
     }
 
-    // Personal notifications: a Windows notification (with Windows' own sound) when the app is
-    // in the background, an in-app toast with a chime when the user is looking at it
+    // Personal notifications: a Windows notification when the app is in the background,
+    // an in-app toast when the user is looking at it. Both play the chime.
     function showPersonalNotification(payload: NotificationCreatedPayload) {
       const title = i18n.t(`notifications.${payload.type}` as any, payload.title) as string;
       const link = notificationLink(payload);
       const open = () => { if (link) navigateRef.current(link); };
       const inFocus = document.visibilityState === 'visible' && document.hasFocus();
-      if (!inFocus && showDesktopNotification({ title, body: payload.message, tag: payload.id, onClick: open })) return;
+      if (!inFocus && showDesktopNotification({ title, body: payload.message, tag: payload.id, onClick: open })) {
+        playNotificationSound();
+        return;
+      }
       toast(`${title}: ${payload.message}`, { icon: '🔔', duration: 6000 });
       playNotificationSound();
     }

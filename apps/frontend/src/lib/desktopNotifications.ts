@@ -1,4 +1,4 @@
-import { isSoundMuted } from './notificationSound';
+import { canPlayNotificationSound, isSoundMuted } from './notificationSound';
 
 // Windows / OS notifications through the browser Notification API.
 // Only available in secure contexts (HTTPS or localhost) and while the app is open (even minimized).
@@ -20,7 +20,10 @@ export async function requestDesktopNotifications(): Promise<NotificationPermiss
 export function showDesktopNotification(opts: { title: string; body: string; tag: string; onClick?: () => void }): boolean {
   if (desktopNotificationPermission() !== 'granted') return false;
   try {
-    const n = new Notification(opts.title, { body: opts.body, tag: opts.tag, icon: '/icons/icon-192.svg', silent: isSoundMuted() });
+    // Windows' own sound is unreliable, so our chime replaces it whenever the chime can play.
+    // Before the first click in the app it can't, so Windows' sound is left on as the fallback.
+    const silent = isSoundMuted() || canPlayNotificationSound();
+    const n = new Notification(opts.title, { body: opts.body, tag: opts.tag, icon: '/icons/icon-192.svg', silent });
     n.onclick = () => {
       window.focus();
       opts.onClick?.();

@@ -45,6 +45,11 @@ function tone(ctx: AudioContext, frequency: number, start: number) {
   oscillator.stop(start + 0.25);
 }
 
+// True once playNotificationSound can actually make a sound
+export function canPlayNotificationSound(): boolean {
+  return audio !== null && !isSoundMuted();
+}
+
 export function playNotificationSound(): void {
   const ctx = audio;
   if (!ctx || isSoundMuted()) return;
