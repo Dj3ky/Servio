@@ -7,6 +7,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { useInboxStore } from '@/stores/inboxStore';
 import { queryClient } from '@/lib/queryClient';
 import { showDesktopNotification, notificationLink } from '@/lib/desktopNotifications';
+import { playNotificationSound } from '@/lib/notificationSound';
 import { WsEvent, NotificationCreatedPayload } from '@servio/shared';
 
 export function useWebSocket() {
@@ -46,8 +47,8 @@ export function useWebSocket() {
       };
     }
 
-    // Personal notifications: a Windows notification when the app is in the background,
-    // an in-app toast when the user is looking at it
+    // Personal notifications: a Windows notification (with Windows' own sound) when the app is
+    // in the background, an in-app toast with a chime when the user is looking at it
     function showPersonalNotification(payload: NotificationCreatedPayload) {
       const title = i18n.t(`notifications.${payload.type}` as any, payload.title) as string;
       const link = notificationLink(payload);
@@ -55,6 +56,7 @@ export function useWebSocket() {
       const inFocus = document.visibilityState === 'visible' && document.hasFocus();
       if (!inFocus && showDesktopNotification({ title, body: payload.message, tag: payload.id, onClick: open })) return;
       toast(`${title}: ${payload.message}`, { icon: '🔔', duration: 6000 });
+      playNotificationSound();
     }
 
     function handleEvent(event: WsEvent) {
@@ -88,6 +90,8 @@ export function useWebSocket() {
               queryClient.invalidateQueries({ queryKey: ['pm-my-tasks'] });
               queryClient.invalidateQueries({ queryKey: ['pm-my-task-count'] });
             }
+          } else {
+            playNotificationSound();
           }
           break;
         }

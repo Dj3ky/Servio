@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Bell, MonitorSmartphone, X } from 'lucide-react';
+import { Bell, BellRing, MonitorSmartphone, Volume2, VolumeX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
 import { desktopNotificationPermission, requestDesktopNotifications, notificationLink } from '@/lib/desktopNotifications';
+import { isSoundMuted, setSoundMuted } from '@/lib/notificationSound';
 
 interface NotificationItem {
   id: string;
@@ -29,6 +31,7 @@ export function NotificationCenter() {
   const navigate = useNavigate();
   const { setNotifications, markRead, markAllRead, unreadCount } = useNotificationStore();
   const [desktopPermission, setDesktopPermission] = useState(desktopNotificationPermission);
+  const [muted, setMuted] = useState(isSoundMuted);
 
   const { data: licenseStatus } = useQuery<{ valid: boolean }>({
     queryKey: ['license-status'],
@@ -71,6 +74,12 @@ export function NotificationCenter() {
   const clearReadMutation = useMutation({
     mutationFn: () => api.delete('/notifications/read'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => api.post('/notifications/test'),
+    onSuccess: () => toast(t('notifications.testSent'), { duration: 5000 }),
+    onError: () => toast.error(t('notifications.testFailed')),
   });
 
   const notifications = data?.data ?? [];
@@ -154,6 +163,28 @@ export function NotificationCenter() {
             ))}
           </ScrollArea>
         )}
+        <DropdownMenuSeparator />
+        <div className="flex items-center justify-between px-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => { setSoundMuted(!muted); setMuted(!muted); }}
+          >
+            {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            {t(muted ? 'notifications.soundOff' : 'notifications.soundOn')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs"
+            disabled={testMutation.isPending}
+            onClick={() => testMutation.mutate()}
+          >
+            <BellRing className="h-3.5 w-3.5" />
+            {t('notifications.test')}
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

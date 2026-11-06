@@ -1,3 +1,5 @@
+import { isSoundMuted } from './notificationSound';
+
 // Windows / OS notifications through the browser Notification API.
 // Only available in secure contexts (HTTPS or localhost) and while the app is open (even minimized).
 
@@ -18,7 +20,7 @@ export async function requestDesktopNotifications(): Promise<NotificationPermiss
 export function showDesktopNotification(opts: { title: string; body: string; tag: string; onClick?: () => void }): boolean {
   if (desktopNotificationPermission() !== 'granted') return false;
   try {
-    const n = new Notification(opts.title, { body: opts.body, tag: opts.tag, icon: '/icons/icon-192.svg' });
+    const n = new Notification(opts.title, { body: opts.body, tag: opts.tag, icon: '/icons/icon-192.svg', silent: isSoundMuted() });
     n.onclick = () => {
       window.focus();
       opts.onClick?.();

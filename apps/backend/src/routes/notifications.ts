@@ -1,9 +1,13 @@
+import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { notifications } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { notificationsVisibleTo } from '../services/notify';
+import { sendToUser } from '../ws';
+
+const TEST_DELAY_MS = 5000;
 
 const router = Router();
 router.use(requireAuth);
@@ -37,6 +41,22 @@ router.post('/:id/read', async (req: Request, res: Response): Promise<void> => {
 router.post('/read-all', async (req: Request, res: Response): Promise<void> => {
   await db.update(notifications).set({ isRead: true })
     .where(and(eq(notifications.isRead, false), visibleTo(req)));
+  res.json({ success: true });
+});
+
+// Sends a live test notification to the caller only; nothing is saved. The delay gives them
+// time to minimize the app and check the Windows notification too.
+router.post('/test', (req: Request, res: Response): void => {
+  const userId = req.auth!.userId;
+  setTimeout(() => {
+    sendToUser(userId, 'notification_created', {
+      id: randomUUID(),
+      type: 'test',
+      title: 'Testno obvestilo',
+      message: 'Obvestila delujejo.',
+      personal: true,
+    });
+  }, TEST_DELAY_MS);
   res.json({ success: true });
 });
 
