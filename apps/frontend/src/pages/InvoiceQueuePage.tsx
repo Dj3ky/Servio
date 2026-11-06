@@ -23,7 +23,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 import { formatDate, formatScheduledMonth } from '@/lib/utils';
 import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
@@ -71,7 +71,7 @@ const columnHelper = createColumnHelper<InvoiceQueueItem>();
 
 export default function InvoiceQueuePage() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuthStore();
+  const can = useCan();
   const { getFilter, setFilter } = useFilterStore();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceQueueItem | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -298,7 +298,7 @@ export default function InvoiceQueuePage() {
         const inv = row.original;
         const hasPrimaryAction = inv.status === 'pending';
         const canSendAccounting = inv.review.contract.invoiceDelivery === 'e_invoice';
-        const canReset = user?.role === 'admin' && inv.status !== 'pending';
+        const canReset = can('invoices', 'reset') && inv.status !== 'pending';
 
         if (!hasPrimaryAction && !canSendAccounting && !canReset) return null;
 
@@ -347,7 +347,7 @@ export default function InvoiceQueuePage() {
       },
     }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [t, user]);
+  ], [t, can]);
 
   const table = useReactTable({
     data: filteredData,

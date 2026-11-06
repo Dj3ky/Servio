@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
-import { AuthPayload } from './auth';
+import { resolveAuth } from './auth';
 import { getPermissions } from '../services/permissionsService';
 
 export function requireRole(section: string, action: string) {
@@ -13,12 +11,12 @@ export function requireRole(section: string, action: string) {
         res.status(401).json({ error: 'errors.unauthorized' });
         return;
       }
-      try {
-        req.auth = jwt.verify(authHeader.slice(7), config.jwtSecret) as AuthPayload;
-      } catch {
+      const auth = resolveAuth(authHeader.slice(7));
+      if (!auth) {
         res.status(401).json({ error: 'errors.token_invalid' });
         return;
       }
+      req.auth = auth;
     }
     const perms = getPermissions() as Record<string, Record<string, string[]>>;
     const roles: string[] = perms[section]?.[action] ?? [];

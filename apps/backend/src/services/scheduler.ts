@@ -5,7 +5,8 @@ import { format, startOfMonth, subMonths } from 'date-fns';
 import { createAuditLog } from '../utils/audit';
 import { sendDigestEmail, sendEscalationAlerts } from './email';
 import { getInboxStatus, detectAndProcessBounces } from './imap';
-import { broadcast } from '../ws';
+import { broadcast, sendToRoles } from '../ws';
+import { getPermissions } from './permissionsService';
 import { archiveOldAuditLogs, purgeOldNotifications } from './retention';
 
 const BIANNUAL_MONTHS = [1, 7];
@@ -202,7 +203,7 @@ export function startScheduler(): void {
   cron.schedule('*/5 * * * *', async () => {
     try {
       const result = await getInboxStatus();
-      if (result) broadcast('inbox_count', { unreadCount: result.unreadCount });
+      if (result) sendToRoles(getPermissions().inbox.access, 'inbox_count', { unreadCount: result.unreadCount });
     } catch (err) {
       console.error('[scheduler] Inbox poll failed:', err);
     }
@@ -214,7 +215,7 @@ export function startScheduler(): void {
         console.log(`[scheduler] Marked ${bounced.length} review(s) as email bounced: ${bounced.join(', ')}`);
         // Re-fetch inbox count after NDRs are marked as read
         const updated = await getInboxStatus();
-        if (updated) broadcast('inbox_count', { unreadCount: updated.unreadCount });
+        if (updated) sendToRoles(getPermissions().inbox.access, 'inbox_count', { unreadCount: updated.unreadCount });
       }
     } catch (err) {
       console.error('[scheduler] Bounce detection failed:', err);

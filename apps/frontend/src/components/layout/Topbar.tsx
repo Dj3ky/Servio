@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { NotificationCenter } from './NotificationCenter';
 import { InboxCenter } from './InboxCenter';
 import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -24,6 +25,7 @@ function LicenseWarning() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const can = useCan();
 
   const { data: license } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
@@ -38,7 +40,7 @@ function LicenseWarning() {
 
   const notConfigured = !license.configured;
   const expired = !license.valid && license.configured;
-  const isAdmin = user.role === 'admin';
+  const canManageLicense = can('license', 'access');
 
   const label = notConfigured
     ? t('license.notFound')
@@ -53,11 +55,11 @@ function LicenseWarning() {
     isRed
       ? 'border-destructive/50 bg-destructive/10 text-destructive'
       : 'border-yellow-500/50 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-    isAdmin && (isRed ? 'hover:bg-destructive/20 cursor-pointer' : 'hover:bg-yellow-500/20 cursor-pointer'),
-    !isAdmin && 'cursor-default',
+    canManageLicense && (isRed ? 'hover:bg-destructive/20 cursor-pointer' : 'hover:bg-yellow-500/20 cursor-pointer'),
+    !canManageLicense && 'cursor-default',
   );
 
-  if (isAdmin) {
+  if (canManageLicense) {
     return (
       <button onClick={() => navigate('/settings?tab=license')} className={className}>
         <KeyRound className="h-3.5 w-3.5 shrink-0" />

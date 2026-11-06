@@ -28,6 +28,8 @@ import { encrypt, decrypt } from '../utils/crypto';
 import { testSmtpConnection } from '../services/email';
 import { createAuditLog } from '../utils/audit';
 import { getPermissions, loadPermissions } from '../services/permissionsService';
+import { loadUserAccess } from '../services/userAccessService';
+import { broadcast } from '../ws';
 
 const router = Router();
 
@@ -442,6 +444,10 @@ router.post('/backup/restore', requireRole('settings', 'backup'), sqlUpload.sing
 
     await execFileAsync('psql', [...psqlBase, '-f', sqlFilePath], { env });
 
+    // The restore replaced the tables behind these in-memory copies
+    await loadPermissions();
+    await loadUserAccess();
+
     await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
     res.json({ success: true });
   } catch (err) {
@@ -462,7 +468,8 @@ router.post('/backup/restart', requireRole('settings', 'backup'), async (req: Re
   }, 500);
 });
 
-router.get('/permissions', requireRole('settings', 'view'), (_req: Request, res: Response): void => {
+// Every role reads this — the frontend decides what to show from it
+router.get('/permissions', (_req: Request, res: Response): void => {
   res.json(getPermissions());
 });
 
@@ -475,6 +482,7 @@ router.patch('/permissions', requireRole('settings', 'manage'), async (req: Requ
   await db.update(settings).set({ permissionsConfig: config });
   await loadPermissions();
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: config, req });
+  broadcast('permissions_updated', {});
   res.json({ success: true });
 });
 
@@ -482,6 +490,7 @@ router.delete('/permissions', requireRole('settings', 'manage'), async (req: Req
   await db.update(settings).set({ permissionsConfig: null });
   await loadPermissions();
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: { reset: true }, req });
+  broadcast('permissions_updated', {});
   res.json({ success: true });
 });
 

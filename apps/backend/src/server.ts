@@ -11,6 +11,7 @@ import { startBackupScheduler } from './services/backup';
 import { checkForUpdates } from './services/update';
 import { setLicenseTokenFromDb } from './middleware/license';
 import { loadPermissions } from './services/permissionsService';
+import { loadUserAccess } from './services/userAccessService';
 
 const server = createServer(app);
 
@@ -105,6 +106,7 @@ async function start() {
   const s = await db.query.settings.findFirst();
   if (s?.licenseKey) setLicenseTokenFromDb(s.licenseKey);
   await loadPermissions();
+  await loadUserAccess();
 
   initWebSocket(server);
   startScheduler();

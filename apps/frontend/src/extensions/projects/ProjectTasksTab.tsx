@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { TaskLine, TaskForm, type PmTask, type TaskDraft } from './tasks';
@@ -15,6 +17,8 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const userId = useAuthStore(s => s.user?.id);
+  const canManage = useCan()('projects', 'manage');
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['pm-project-tasks', projectId] });
@@ -40,6 +44,14 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
     onError: () => toast.error(t('pm.tasks.error')),
   });
 
+  // Without 'manage', users can still tick their own tasks through the assignee route
+  const toggleOwnTask = useMutation({
+    mutationFn: ({ taskId, done }: { taskId: string; done: boolean }) =>
+      api.patch(`/pm/tasks/${taskId}/status`, { status: done ? 'done' : 'open' }),
+    onSuccess: invalidate,
+    onError: () => toast.error(t('pm.tasks.error')),
+  });
+
   const deleteTask = useMutation({
     mutationFn: (taskId: string) => api.delete(`/pm/projects/${projectId}/tasks/${taskId}`),
     onSuccess: () => { invalidate(); toast.success(t('pm.tasks.deletedOk')); },
@@ -50,6 +62,11 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   const done = tasks.filter(task => task.status === 'done');
 
   function renderTask(task: PmTask) {
+    const onToggle = canManage
+      ? (isDone: boolean) => updateTask.mutate({ taskId: task.id, body: { status: isDone ? 'done' : 'open' } })
+      : task.assigneeId === userId
+        ? (isDone: boolean) => toggleOwnTask.mutate({ taskId: task.id, done: isDone })
+        : undefined;
     if (editingId === task.id) {
       return (
         <div key={task.id} className="p-2 rounded-md border bg-card">
@@ -71,17 +88,21 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
           assigneeName={task.assigneeName}
           dueDate={task.dueDate}
           done={task.status === 'done'}
-          disabled={updateTask.isPending}
-          onToggle={isDone => updateTask.mutate({ taskId: task.id, body: { status: isDone ? 'done' : 'open' } })}
+          disabled={updateTask.isPending || toggleOwnTask.isPending}
+          onToggle={onToggle}
           meta={task.meetingDate && <span className="text-muted-foreground shrink-0">{t('pm.tasks.fromMeeting', { date: formatDate(task.meetingDate) })}</span>}
         >
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingId(task.id)} title={t('common.edit')}>
-            <Pencil className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" title={t('common.delete')}
-            onClick={() => { if (confirm(t('pm.tasks.deleteConfirm'))) deleteTask.mutate(task.id); }}>
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          {canManage && (
+            <>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingId(task.id)} title={t('common.edit')}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" title={t('common.delete')}
+                onClick={() => { if (confirm(t('pm.tasks.deleteConfirm'))) deleteTask.mutate(task.id); }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </>
+          )}
         </TaskLine>
       </div>
     );
@@ -89,11 +110,13 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
 
   return (
     <div className="space-y-4 mt-4">
-      <Card>
-        <CardContent className="p-4">
-          <TaskForm defaultAssigneeId={defaultAssigneeId} busy={addTask.isPending} onAdd={draft => addTask.mutate(draft)} />
-        </CardContent>
-      </Card>
+      {canManage && (
+        <Card>
+          <CardContent className="p-4">
+            <TaskForm defaultAssigneeId={defaultAssigneeId} busy={addTask.isPending} onAdd={draft => addTask.mutate(draft)} />
+          </CardContent>
+        </Card>
+      )}
 
       {tasks.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
 

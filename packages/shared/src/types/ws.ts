@@ -6,6 +6,8 @@ export const WsEventType = {
   notification_created: 'notification_created',
   dashboard_refresh: 'dashboard_refresh',
   inbox_count: 'inbox_count',
+  permissions_updated: 'permissions_updated',
+  user_updated: 'user_updated',
 } as const;
 export type WsEventType = (typeof WsEventType)[keyof typeof WsEventType];
 

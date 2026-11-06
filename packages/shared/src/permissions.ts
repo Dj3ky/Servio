@@ -15,8 +15,11 @@ export const permissions = {
   contractTimeline: {
     access: r('admin', 'manager', 'accountant', 'technician', 'project_manager'),
   },
+  inbox: {
+    access: r('admin', 'manager', 'accountant', 'technician', 'project_manager'),
+  },
   reviews: {
-    upload:   r('admin', 'manager', 'technician', 'project_manager'),
+    upload:  r('admin', 'manager', 'technician', 'project_manager'),
     backfill: r('admin'),
     skip:     r('admin', 'manager'),
   },

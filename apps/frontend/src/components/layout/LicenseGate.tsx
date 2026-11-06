@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 import { api } from '@/lib/api';
 
 interface LicenseStatus {
@@ -15,6 +16,7 @@ interface LicenseStatus {
 export function LicenseGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const can = useCan();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: license, isLoading, refetch } = useQuery<LicenseStatus>({
@@ -50,7 +52,6 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
   }
 
   // No valid license — show gate
-  const isAdmin = user.role === 'admin';
 
   return (
     <div className="flex h-full items-center justify-center">
@@ -62,7 +63,7 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
           <h2 className="text-xl font-semibold">{t('license.gateTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('license.gateDesc')}</p>
         </div>
-        {isAdmin ? (
+        {can('license', 'access') ? (
           <>
             <input
               ref={fileInputRef}

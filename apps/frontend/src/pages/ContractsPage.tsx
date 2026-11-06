@@ -23,7 +23,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
@@ -113,7 +113,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 export default function ContractsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const can = useCan();
   const { getFilter, setFilter } = useFilterStore();
   const [search, setSearch] = useState(() => getFilter('contracts', 'search') ?? '');
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -407,7 +407,7 @@ export default function ContractsPage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1 items-center" onClick={(e) => e.stopPropagation()}>
-          {(user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician' || user?.role === 'project_manager') && row.original.currentReview?.status === 'pending' && (
+          {can('reviews', 'upload') && row.original.currentReview?.status === 'pending' && (
             <Button size="sm" variant="outline" onClick={() => setUploadTarget(row.original)}>
               <Upload className="h-3 w-3 mr-1" />
               {t('reviews.uploadPdf')}
@@ -420,7 +420,7 @@ export default function ContractsPage() {
           >
             <Info className="h-4 w-4 text-blue-500 cursor-default" />
           </span>
-          {user?.role === 'admin' && (
+          {can('records', 'delete') && (
             <Button
               size="sm"
               variant="ghost"
@@ -447,7 +447,7 @@ export default function ContractsPage() {
     pageCount: data?.totalPages ?? 0,
   });
 
-  const canManage = user?.role === 'admin' || user?.role === 'manager';
+  const canManage = can('records', 'manage');
 
   const statusFilters: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: t('common.all') },

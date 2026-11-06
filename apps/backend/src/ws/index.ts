@@ -1,14 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage, Server } from 'http';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
 import { WsEvent, WsEventType } from '@servio/shared';
-import { AuthPayload } from '../middleware/auth';
+import { resolveAuth } from '../middleware/auth';
+import { getUserAccess } from '../services/userAccessService';
 
 let wss: WebSocketServer | null = null;
 
-// Connected sockets and the user each one belongs to
-const clients = new Map<WebSocket, { userId: string; role: string }>();
+// Connected sockets and the id of the user each one belongs to
+const clients = new Map<WebSocket, string>();
 
 export function initWebSocket(server: Server): void {
   wss = new WebSocketServer({ server, path: '/ws' });
@@ -22,15 +21,13 @@ export function initWebSocket(server: Server): void {
       return;
     }
 
-    let auth: AuthPayload;
-    try {
-      auth = jwt.verify(token, config.jwtSecret) as AuthPayload;
-    } catch {
+    const auth = resolveAuth(token);
+    if (!auth) {
       ws.close(4001, 'Invalid token');
       return;
     }
 
-    clients.set(ws, { userId: auth.userId, role: auth.role });
+    clients.set(ws, auth.userId);
 
     ws.on('close', () => {
       clients.delete(ws);
@@ -68,10 +65,12 @@ function send<T>(type: WsEventType, payload: T, toClient: (c: { userId: string; 
   const message = JSON.stringify(event);
   const dead: WebSocket[] = [];
 
-  for (const [client, info] of clients) {
+  for (const [client, userId] of clients) {
+    // Looked up per send so a role change applies to sockets that are already open
+    const access = getUserAccess(userId);
     if (client.readyState !== WebSocket.OPEN) {
       dead.push(client);
-    } else if (toClient(info)) {
+    } else if (toClient({ userId, role: access?.isActive ? access.role : '' })) {
       client.send(message);
     }
   }

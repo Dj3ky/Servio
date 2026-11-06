@@ -63,7 +63,7 @@ router.get('/pending', requireRole('reviews', 'upload'), async (_req: Request, r
   res.json(data);
 });
 
-router.get('/monthly-overview', async (req: Request, res: Response): Promise<void> => {
+router.get('/monthly-overview', requireRole('contractTimeline', 'access'), async (req: Request, res: Response): Promise<void> => {
   const monthsBack = Math.min(24, Math.max(1, parseInt(req.query.months as string ?? '12', 10)));
   const now = new Date();
   const startDate = format(subMonths(startOfMonth(now), monthsBack - 1), 'yyyy-MM-dd');

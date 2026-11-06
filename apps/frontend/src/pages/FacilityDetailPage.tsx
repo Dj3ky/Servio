@@ -20,8 +20,7 @@ import { SendAccountingDialog } from '@/components/SendAccountingDialog';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
 import { ReviewUploadDialog } from '@/components/ReviewUploadDialog';
 import { InvoiceEmailDialog } from '@/components/InvoiceEmailDialog';
-import { useAuthStore } from '@/stores/authStore';
-import { usePermissionsStore } from '@/stores/permissionsStore';
+import { useCan } from '@/stores/permissionsStore';
 import { Textarea } from '@/components/ui/textarea';
 
 interface Review {
@@ -119,8 +118,14 @@ export default function FacilityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const perms = usePermissionsStore((s) => s.perms);
+  const can = useCan();
+  const canUpload = can('reviews', 'upload');
+  const canResetReview = can('reviews', 'backfill');
+  const canSkip = can('reviews', 'skip');
+  const canManageInvoices = can('invoices', 'access');
+  const canResetInvoice = can('invoices', 'reset');
+  const canManageContracts = can('records', 'manage');
+  const canSeeAuditLog = can('auditLog', 'access');
 
   const [reviewsView, setReviewsView] = useState<'table' | 'timeline'>('timeline');
   const [invoiceDialog, setInvoiceDialog] = useState<Invoice | null>(null);
@@ -186,7 +191,7 @@ export default function FacilityDetailPage() {
   const { data: invoicesData, isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
     queryKey: ['invoices-facility', activeContract?.id],
     queryFn: () => api.get<{ data: Invoice[] }>(`/invoices?contractId=${activeContract!.id}&limit=50`),
-    enabled: !!activeContract?.id,
+    enabled: !!activeContract?.id && canManageInvoices,
   });
 
   // Audit log for this facility (filtered by entityId)
@@ -200,7 +205,7 @@ export default function FacilityDetailPage() {
     initialPageParam: 1,
     getNextPageParam: (lastPage, _allPages, lastPageParam) =>
       (lastPageParam as number) < lastPage.totalPages ? (lastPageParam as number) + 1 : undefined,
-    enabled: !!id,
+    enabled: !!id && canSeeAuditLog,
   });
 
   const auditLoadMoreRef = useCallback((node: HTMLDivElement | null) => {
@@ -347,11 +352,6 @@ export default function FacilityDetailPage() {
     setInvoiceNumber(invoice.invoiceNumber ?? '');
   }
 
-  const canUpload = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'technician' || user?.role === 'project_manager';
-  const canManageInvoices = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'accountant';
-  const canManageContracts = user?.role === 'admin' || user?.role === 'manager';
-  const canSkip = user ? (perms.reviews?.skip ?? []).includes(user.role) : false;
-
   if (facilityLoading) {
     return (
       <div className="space-y-4">
@@ -421,9 +421,9 @@ export default function FacilityDetailPage() {
       <Tabs defaultValue="reviews">
         <TabsList>
           <TabsTrigger value="reviews">{t('reviews.title')}</TabsTrigger>
-          <TabsTrigger value="invoices">{t('invoices.title')}</TabsTrigger>
+          {canManageInvoices && <TabsTrigger value="invoices">{t('invoices.title')}</TabsTrigger>}
           <TabsTrigger value="contract">{t('nav.contracts')}</TabsTrigger>
-          <TabsTrigger value="auditlog">{t('nav.auditLog')}</TabsTrigger>
+          {canSeeAuditLog && <TabsTrigger value="auditlog">{t('nav.auditLog')}</TabsTrigger>}
         </TabsList>
 
         {/* ── REVIEWS TAB ── */}
@@ -543,12 +543,12 @@ export default function FacilityDetailPage() {
                       <TableHead>{t('reviews.completedBy')}</TableHead>
                       <TableHead>{t('reviews.invoiceNo')}</TableHead>
                       <TableHead>{t('reviews.invoiceSent')}</TableHead>
-                      {(user?.role === 'admin' || canSkip) && <TableHead></TableHead>}
+                      {(canResetReview || canSkip) && <TableHead></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reviews.length === 0 ? (
-                      <TableRow><TableCell colSpan={user?.role === 'admin' || canSkip ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={canResetReview || canSkip ? 9 : 8} className="text-center text-muted-foreground">{t('common.noData')}</TableCell></TableRow>
                     ) : reviews.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{formatScheduledMonth(r.scheduledMonth, i18n.language)}</TableCell>
@@ -573,9 +573,9 @@ export default function FacilityDetailPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {invoiceByReviewId[r.id]?.completedAt ? formatDate(invoiceByReviewId[r.id].completedAt!) : '-'}
                         </TableCell>
-                        {(user?.role === 'admin' || canSkip) && (
+                        {(canResetReview || canSkip) && (
                           <TableCell className="text-right">
-                            {user?.role === 'admin' && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
+                            {canResetReview && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
                               <Button size="sm" variant="outline" onClick={() => setResetTarget(r.id)}>
                                 <RotateCcw className="h-3 w-3 mr-1" />
                                 {t('reviews.resetReview')}
@@ -627,7 +627,7 @@ export default function FacilityDetailPage() {
                                 {inv?.completedAt && <span>{t('reviews.invoiceSent')}: {formatDate(inv.completedAt)}</span>}
                               </div>
                             </div>
-                            {user?.role === 'admin' && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
+                            {canResetReview && r.status === 'completed' && r.scheduledMonth === currentMonthIso() && (
                               <Button size="sm" variant="outline" className="shrink-0" onClick={() => setResetTarget(r.id)}>
                                 <RotateCcw className="h-3 w-3 mr-1" />
                                 {t('reviews.resetReview')}
@@ -694,7 +694,7 @@ export default function FacilityDetailPage() {
                                   {t('invoices.sendToAccounting')}
                                 </Button>
                               )}
-                              {user?.role === 'admin' && inv.status !== 'pending' && (
+                              {canResetInvoice && inv.status !== 'pending' && (
                                 <Button size="sm" variant="outline" onClick={() => setResetInvoiceTarget(inv.id)}>
                                   <RotateCcw className="h-3 w-3 mr-1" />
                                   {t('invoices.resetInvoice')}

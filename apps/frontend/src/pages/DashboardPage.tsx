@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
+import { useCan } from '@/stores/permissionsStore';
 import { formatDateTime } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { FacilityFormDialog } from '@/components/FacilityFormDialog';
@@ -90,6 +91,7 @@ function formatRevenue(v: number) {
 export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const can = useCan();
 
   const [newFacilityOpen, setNewFacilityOpen] = useState(false);
 
@@ -139,24 +141,28 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2"
-          onClick={() => navigate('/invoices')}
-        >
-          <Inbox className="h-4 w-4" />
-          {t('dashboard.quickInvoiceQueue')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2"
-          onClick={() => setNewFacilityOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          {t('dashboard.quickNewFacility')}
-        </Button>
+        {can('invoices', 'access') && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate('/invoices')}
+          >
+            <Inbox className="h-4 w-4" />
+            {t('dashboard.quickInvoiceQueue')}
+          </Button>
+        )}
+        {can('records', 'manage') && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => setNewFacilityOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            {t('dashboard.quickNewFacility')}
+          </Button>
+        )}
       </div>
 
       {/* Charts row */}

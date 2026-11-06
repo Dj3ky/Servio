@@ -97,6 +97,13 @@ export function useWebSocket() {
           queryClient.invalidateQueries({ queryKey: ['reviews-timeline'] });
           queryClient.invalidateQueries({ queryKey: ['contracts'] });
           break;
+        case 'permissions_updated':
+          queryClient.invalidateQueries({ queryKey: ['permissions'] });
+          break;
+        case 'user_updated':
+          // Role changed: reload the current user and everything that depended on the old role
+          queryClient.invalidateQueries();
+          break;
         case 'inbox_count': {
           const payload = event.payload as { unreadCount: number };
           setUnreadCount(payload.unreadCount);

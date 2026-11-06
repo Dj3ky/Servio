@@ -11,6 +11,7 @@ import { config } from '../config';
 import { createAuditLog } from '../utils/audit';
 import { requireAuth } from '../middleware/auth';
 import { sendMail } from '../services/email';
+import { loadUserAccess } from '../services/userAccessService';
 
 const router = Router();
 
@@ -45,6 +46,8 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     res.status(401).json({ error: 'errors.invalid_credentials' });
     return;
   }
+
+  await loadUserAccess();
 
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role, name: user.name },

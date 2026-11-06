@@ -6,8 +6,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { useAuthStore } from '@/stores/authStore';
-import { usePermissionsStore } from '@/stores/permissionsStore';
+import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,7 +62,7 @@ function PhaseIcon({ status }: { status: string }) {
 }
 
 function InvoiceList({
-  invoices, form, onFormChange, onSubmit, onUpdate, onDelete, isPending, addLabel, totalLabel,
+  invoices, form, onFormChange, onSubmit, onUpdate, onDelete, isPending, addLabel, totalLabel, canManage,
 }: {
   invoices: Invoice[];
   form: InvoiceForm;
@@ -74,6 +73,7 @@ function InvoiceList({
   isPending: boolean;
   addLabel: string;
   totalLabel: string;
+  canManage: boolean;
 }) {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,6 +92,7 @@ function InvoiceList({
 
   return (
     <div className="space-y-4 mt-4">
+      {canManage && (
       <Card>
         <CardContent className="p-4">
           <p className="text-sm font-medium mb-3">{addLabel}</p>
@@ -132,6 +133,7 @@ function InvoiceList({
           </form>
         </CardContent>
       </Card>
+      )}
 
       {invoices.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
       <div className="space-y-2">
@@ -176,20 +178,24 @@ function InvoiceList({
             <span className="font-mono text-xs text-muted-foreground min-w-[100px]">{formatDate(inv.invoiceDate)}</span>
             <span className="font-mono font-medium text-green-600 min-w-[110px] text-right">{formatCurrency(inv.amount)}</span>
             <span className="flex-1 text-muted-foreground truncate">{inv.notes ?? ''}</span>
-            <Button
-              variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-              onClick={() => startEdit(inv)}
-              title={t('common.edit')}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
-              onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) onDelete(inv.id); }}
-              title={t('common.delete')}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {canManage && (
+              <>
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+                  onClick={() => startEdit(inv)}
+                  title={t('common.edit')}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
+                  onClick={() => { if (confirm(t('pm.invoices.deleteConfirm'))) onDelete(inv.id); }}
+                  title={t('common.delete')}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -213,9 +219,9 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const user = useAuthStore(s => s.user);
-  const perms = usePermissionsStore(s => s.perms);
-  const canDelete = !!user && (perms.projects?.delete ?? []).includes(user.role);
+  const can = useCan();
+  const canManage = can('projects', 'manage');
+  const canDelete = can('projects', 'delete');
 
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [phaseName, setPhaseName] = useState('');
@@ -432,7 +438,7 @@ export default function ProjectDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.name}</h1>
-            <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={quickStatusChange.isPending}>
+            <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={!canManage || quickStatusChange.isPending}>
               <SelectTrigger className="h-7 w-auto text-xs px-2 gap-1">
                 <SelectValue />
               </SelectTrigger>
@@ -447,9 +453,17 @@ export default function ProjectDetailPage() {
           </div>
           <p className="text-muted-foreground">{project.projectNumber}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={openEdit}>
-          <Pencil className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.edit')}
-        </Button>
+        {canManage && (
+          <Button variant="outline" size="sm" onClick={openEdit}>
+            <Pencil className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.edit')}
+          </Button>
+        )}
+        {/* Delete normally lives in the edit dialog, which needs 'manage' */}
+        {canDelete && !canManage && (
+          <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />{t('common.delete')}
+          </Button>
+        )}
       </div>
 
       {/* Info cards */}
@@ -523,18 +537,20 @@ export default function ProjectDetailPage() {
 
         {/* Phases */}
         <TabsContent value="phases" className="space-y-3 mt-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditPhase(null); setPhaseName(''); setPhaseDialogOpen(true); }}>
-              <Plus className="h-3.5 w-3.5 mr-1" />{t('pm.phases.add')}
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => { setEditPhase(null); setPhaseName(''); setPhaseDialogOpen(true); }}>
+                <Plus className="h-3.5 w-3.5 mr-1" />{t('pm.phases.add')}
+              </Button>
+            </div>
+          )}
           {project.phases.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
           <div className="space-y-2">
             {project.phases.map(phase => (
               <div key={phase.id} className="flex items-center gap-3 p-3 rounded-md border bg-card">
                 <PhaseIcon status={phase.status} />
                 <span className="flex-1 text-sm font-medium">{phase.name}</span>
-                <Select value={phase.status} onValueChange={v => updatePhaseStatus.mutate({ phaseId: phase.id, status: v })}>
+                <Select value={phase.status} disabled={!canManage} onValueChange={v => updatePhaseStatus.mutate({ phaseId: phase.id, status: v })}>
                   <SelectTrigger className="w-[130px] h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">{t('pm.phaseStatus.pending')}</SelectItem>
@@ -542,12 +558,16 @@ export default function ProjectDetailPage() {
                     <SelectItem value="completed">{t('pm.phaseStatus.completed')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditPhase(phase); setPhaseName(phase.name); setPhaseDialogOpen(true); }} title={t('common.edit')}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(t('pm.phases.deleteConfirm'))) deletePhase.mutate(phase.id); }} title={t('common.delete')}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canManage && (
+                  <>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditPhase(phase); setPhaseName(phase.name); setPhaseDialogOpen(true); }} title={t('common.edit')}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(t('pm.phases.deleteConfirm'))) deletePhase.mutate(phase.id); }} title={t('common.delete')}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -573,11 +593,13 @@ export default function ProjectDetailPage() {
 
         {/* Documents */}
         <TabsContent value="documents" className="space-y-3 mt-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setDocDialogOpen(true)}>
-              <Upload className="h-3.5 w-3.5 mr-1" />{t('pm.documents.upload')}
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setDocDialogOpen(true)}>
+                <Upload className="h-3.5 w-3.5 mr-1" />{t('pm.documents.upload')}
+              </Button>
+            </div>
+          )}
           {project.documents.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
           <div className="space-y-2">
             {project.documents.map(doc => (
@@ -597,9 +619,11 @@ export default function ProjectDetailPage() {
                     <Download className="h-3.5 w-3.5" />
                   </a>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }} title={t('common.delete')}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canManage && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => { if (confirm(t('pm.documents.deleteConfirm'))) deleteDocument.mutate(doc.id); }} title={t('common.delete')}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -617,6 +641,7 @@ export default function ProjectDetailPage() {
             isPending={addInvoice.isPending}
             addLabel={t('pm.invoices.addIssued')}
             totalLabel={t('pm.invoices.totalIssued')}
+            canManage={canManage}
           />
         </TabsContent>
 
@@ -632,6 +657,7 @@ export default function ProjectDetailPage() {
             isPending={addInvoice.isPending}
             addLabel={t('pm.invoices.addReceived')}
             totalLabel={t('pm.invoices.totalReceived')}
+            canManage={canManage}
           />
         </TabsContent>
       </Tabs>

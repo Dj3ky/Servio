@@ -32,6 +32,7 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
+import { useCan } from '@/stores/permissionsStore';
 
 interface UserRow {
   id: string;
@@ -67,6 +68,9 @@ const ROLE_COLORS: Record<string, string> = {
 export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
+  const can = useCan();
+  const canManage = can('users', 'manage');
+  const canResetPassword = can('users', 'resetPassword');
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState<UserRow | null>(null);
   const [resetOpen, setResetOpen] = useState<UserRow | null>(null);
@@ -201,7 +205,7 @@ export default function UsersPage() {
       cell: ({ row }) => (
         <TooltipProvider>
           <div className="flex gap-1 justify-end">
-            <Tooltip>
+            {canManage && <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
@@ -221,16 +225,16 @@ export default function UsersPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{t('users.editUser')}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
+            </Tooltip>}
+            {canResetPassword && <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setResetOpen(row.original)}>
                   <Key className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{t('users.resetPassword')}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
+            </Tooltip>}
+            {canManage && <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
@@ -242,8 +246,8 @@ export default function UsersPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{row.original.isActive ? t('users.deactivate') : t('users.activate')}</TooltipContent>
-            </Tooltip>
-            {row.original.id !== currentUser?.id && (
+            </Tooltip>}
+            {canManage && row.original.id !== currentUser?.id && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -263,7 +267,7 @@ export default function UsersPage() {
       ),
     }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [t]);
+  ], [t, canManage, canResetPassword]);
 
   const table = useReactTable({
     data: data ?? [],
@@ -292,10 +296,12 @@ export default function UsersPage() {
             </p>
           )}
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('users.addUser')}
-        </Button>
+        {canManage && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('users.addUser')}
+          </Button>
+        )}
       </div>
 
       {/* Toolbar */}

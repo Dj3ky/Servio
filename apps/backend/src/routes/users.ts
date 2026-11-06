@@ -7,6 +7,8 @@ import { users, auditLogs } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { createAuditLog } from '../utils/audit';
+import { loadUserAccess } from '../services/userAccessService';
+import { sendToUser } from '../ws';
 
 const router = Router();
 
@@ -67,6 +69,7 @@ router.post('/', requireRole('users', 'manage'), async (req: Request, res: Respo
     .insert(users)
     .values({ email: email.toLowerCase(), name, passwordHash, role, languagePreference })
     .returning();
+  await loadUserAccess();
 
   await createAuditLog({
     userId: req.auth!.userId,
@@ -113,6 +116,8 @@ router.patch('/:id', requireRole('users', 'manage'), async (req: Request, res: R
     res.status(404).json({ error: 'errors.not_found' });
     return;
   }
+  await loadUserAccess();
+  sendToUser(id, 'user_updated', {});
 
   await createAuditLog({
     userId: req.auth!.userId,
@@ -143,6 +148,8 @@ router.delete('/:id', requireRole('users', 'manage'), async (req: Request, res: 
 
   await db.update(auditLogs).set({ userId: null }).where(eq(auditLogs.userId, id));
   await db.delete(users).where(eq(users.id, id));
+  await loadUserAccess();
+  sendToUser(id, 'user_updated', {});
 
   await createAuditLog({
     userId: req.auth!.userId,

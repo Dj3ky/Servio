@@ -552,8 +552,8 @@ export default function ProjectsPage() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvImport(f); e.target.value = ''; }}
           />
           <Button variant="outline" size="icon" disabled={exporting} onClick={handleExportCsv} title={t('contracts.exportCsv')}><FileDown className="h-4 w-4" /></Button>
-          <Button variant="outline" size="icon" disabled={importing} onClick={() => csvInputRef.current?.click()} title={t('contracts.importCsv')}><FileUp className="h-4 w-4" /></Button>
-          {!archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
+          {canManage && <Button variant="outline" size="icon" disabled={importing} onClick={() => csvInputRef.current?.click()} title={t('contracts.importCsv')}><FileUp className="h-4 w-4" /></Button>}
+          {canManage && !archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
         </div>
       </div>
 

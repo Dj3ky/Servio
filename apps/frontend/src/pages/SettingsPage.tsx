@@ -33,6 +33,7 @@ import {
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { fetchPermissions, useCan } from '@/stores/permissionsStore';
 import { formatDateTime, cn } from '@/lib/utils';
 import { KimaiSettingsPanel } from '@/extensions/projects/KimaiSettingsPanel';
 
@@ -681,6 +682,9 @@ function SectionHeader({ icon: Icon, title, description }: { icon: React.Compone
 
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const can = useCan();
+  const canManageSettings = can('settings', 'manage');
+  const canBackup = can('settings', 'backup');
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -862,6 +866,7 @@ export default function SettingsPage() {
   const { data: backupFiles = [], refetch: refetchBackups } = useQuery({
     queryKey: ['backup-list'],
     queryFn: () => api.get<BackupFile[]>('/settings/backup/list'),
+    enabled: canBackup,
   });
 
   const createBackupMutation = useMutation({
@@ -934,21 +939,25 @@ export default function SettingsPage() {
   const backupToNas = backupForm.watch('backupToNas');
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') ?? 'general';
   const setActiveTab = (tab: string) => setSearchParams({ tab }, { replace: true });
 
   const navItems = [
-    { value: 'general', icon: Settings2, label: t('settings.general') },
-    { value: 'smtp', icon: Mail, label: t('settings.smtp') },
-    { value: 'smb', icon: Server, label: t('settings.smb') },
-    { value: 'templates', icon: MailOpen, label: t('settings.templates') },
-    { value: 'backup', icon: Archive, label: t('settings.backup') },
-    { value: 'alerts', icon: Bell, label: t('settings.alerts') },
-    { value: 'updates', icon: RefreshCw, label: t('settings.updates') },
-    { value: 'license', icon: KeyRound, label: t('license.tab') },
-    { value: 'roles', icon: ShieldCheck, label: t('settings.roles') },
-    { value: 'extensions', icon: Puzzle, label: t('extensions.tab') },
-  ];
+    { value: 'general', icon: Settings2, label: t('settings.general'), show: true },
+    { value: 'smtp', icon: Mail, label: t('settings.smtp'), show: true },
+    { value: 'smb', icon: Server, label: t('settings.smb'), show: true },
+    { value: 'templates', icon: MailOpen, label: t('settings.templates'), show: true },
+    { value: 'backup', icon: Archive, label: t('settings.backup'), show: canBackup || canManageSettings },
+    { value: 'alerts', icon: Bell, label: t('settings.alerts'), show: true },
+    { value: 'updates', icon: RefreshCw, label: t('settings.updates'), show: can('update', 'access') },
+    { value: 'license', icon: KeyRound, label: t('license.tab'), show: can('license', 'access') },
+    { value: 'roles', icon: ShieldCheck, label: t('settings.roles'), show: true },
+    { value: 'extensions', icon: Puzzle, label: t('extensions.tab'), show: true },
+  ].filter(item => item.show);
+
+  const requestedTab = searchParams.get('tab') ?? 'general';
+  const activeTab = navItems.some(item => item.value === requestedTab) ? requestedTab : 'general';
+  // These tabs only edit configuration, so they are read-only without 'manage'
+  const readOnly = !canManageSettings && ['general', 'smtp', 'alerts', 'roles', 'extensions'].includes(activeTab);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -980,7 +989,7 @@ export default function SettingsPage() {
         </nav>
 
         {/* Content area */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <fieldset disabled={readOnly} className="flex-1 min-w-0 space-y-4">
 
         {activeTab === 'general' && (<>
           <Card>
@@ -1230,6 +1239,7 @@ export default function SettingsPage() {
             <CardContent>
               <Form {...smbForm}>
                 <form onSubmit={smbForm.handleSubmit((d) => saveSmb.mutate(d))} className="space-y-5">
+                  <fieldset disabled={!canManageSettings} className="space-y-5">
                   {/* Server */}
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.smbServer')}</p>
                   <div className="grid grid-cols-2 gap-4">
@@ -1298,12 +1308,16 @@ export default function SettingsPage() {
                     )} />
                   </div>
 
+                  </fieldset>
+
                   <div className="flex gap-2 pt-1">
-                    <Button type="submit" disabled={saveSmb.isPending}>{t('common.save')}</Button>
-                    <Button type="button" variant="outline" disabled={testSmb.isPending} onClick={() => testSmb.mutate()}>
-                      <HardDrive className="h-4 w-4 mr-2" />
-                      {testSmb.isPending ? t('common.loading') : t('settings.testSmb')}
-                    </Button>
+                    {canManageSettings && <Button type="submit" disabled={saveSmb.isPending}>{t('common.save')}</Button>}
+                    {can('smb', 'access') && (
+                      <Button type="button" variant="outline" disabled={testSmb.isPending} onClick={() => testSmb.mutate()}>
+                        <HardDrive className="h-4 w-4 mr-2" />
+                        {testSmb.isPending ? t('common.loading') : t('settings.testSmb')}
+                      </Button>
+                    )}
                   </div>
                 </form>
               </Form>
@@ -1319,10 +1333,12 @@ export default function SettingsPage() {
                   <MailOpen className="h-4 w-4 text-muted-foreground" />
                   <CardTitle className="text-base">{t('settings.templates')}</CardTitle>
                 </div>
-                <Button size="sm" onClick={openCreateTemplate}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  {t('common.create')}
-                </Button>
+                {can('settings', 'manageTemplates') && (
+                  <Button size="sm" onClick={openCreateTemplate}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    {t('common.create')}
+                  </Button>
+                )}
               </div>
               <CardDescription>{t('settings.templatesDesc')}</CardDescription>
             </CardHeader>
@@ -1351,12 +1367,16 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground/60 mt-0.5">{t('common.edit')} {formatDateTime(tpl.updatedAt)}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)} title={t('common.edit')}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)} title={t('common.delete')}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {can('settings', 'manageTemplates') && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTemplate(tpl)} title={t('common.edit')}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {can('settings', 'deleteTemplates') && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)} title={t('common.delete')}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1384,6 +1404,7 @@ export default function SettingsPage() {
             <CardContent>
               <Form {...backupForm}>
                 <form onSubmit={backupForm.handleSubmit((d) => saveBackup.mutate(d))} className="space-y-5">
+                  <fieldset disabled={!canManageSettings} className="space-y-5">
                   <FormField control={backupForm.control} name="backupEnabled" render={({ field }) => (
                     <FormItem className="flex items-center justify-between rounded-lg border p-3.5">
                       <div>
@@ -1489,23 +1510,28 @@ export default function SettingsPage() {
                     </FormItem>
                   )} />
 
+                  </fieldset>
+
                   <div className="flex gap-2 pt-1">
-                    <Button type="submit" disabled={saveBackup.isPending}>{t('common.save')}</Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={createBackupMutation.isPending}
-                      onClick={() => createBackupMutation.mutate()}
-                    >
-                      <HardDrive className="h-4 w-4 mr-2" />
-                      {createBackupMutation.isPending ? t('common.loading') : t('settings.createBackup')}
-                    </Button>
+                    {canManageSettings && <Button type="submit" disabled={saveBackup.isPending}>{t('common.save')}</Button>}
+                    {canBackup && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={createBackupMutation.isPending}
+                        onClick={() => createBackupMutation.mutate()}
+                      >
+                        <HardDrive className="h-4 w-4 mr-2" />
+                        {createBackupMutation.isPending ? t('common.loading') : t('settings.createBackup')}
+                      </Button>
+                    )}
                   </div>
                 </form>
               </Form>
             </CardContent>
           </Card>
 
+          {canBackup && (<>
           {/* Backup file list */}
           <Card>
             <CardHeader className="pb-3">
@@ -1597,6 +1623,7 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+          </>)}
         </>)}
 
         {activeTab === 'alerts' && (<>
@@ -1702,7 +1729,7 @@ export default function SettingsPage() {
         {activeTab === 'roles' && <PermissionsTab />}
         {activeTab === 'extensions' && <ExtensionsTab />}
 
-        </div>
+        </fieldset>
       </div>
 
       {/* Template dialog */}
@@ -1865,7 +1892,7 @@ function PermissionsTab() {
 
   const { data: serverPerms, isLoading, refetch } = useQuery<PermMap>({
     queryKey: ['permissions'],
-    queryFn: () => api.get<PermMap>('/settings/permissions'),
+    queryFn: fetchPermissions,
   });
 
   const [local, setLocal] = useState<PermMap | null>(null);
@@ -1910,6 +1937,7 @@ function PermissionsTab() {
       { section: 'records', action: 'manage', label: t('settings.perm.recordsManage') },
       { section: 'records', action: 'delete', label: t('settings.perm.recordsDelete') },
       { section: 'contractTimeline', action: 'access', label: t('settings.perm.contractTimelineAccess') },
+      { section: 'inbox', action: 'access', label: t('settings.perm.inboxAccess') },
     ]},
     { label: t('settings.perm.projects'), rows: [
       { section: 'projects', action: 'access', label: t('settings.perm.projectsAccess') },

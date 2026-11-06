@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInboxStore } from '@/stores/inboxStore';
+import { useCan } from '@/stores/permissionsStore';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { formatDateTime } from '@/lib/utils';
@@ -29,6 +30,7 @@ export function InboxCenter() {
   const { t } = useTranslation();
   const { enabled, unreadCount, messages, setInbox, markSeen } = useInboxStore();
   const [openUid, setOpenUid] = useState<number | null>(null);
+  const canAccess = useCan()('inbox', 'access');
 
   const { data: licenseStatus } = useQuery<{ valid: boolean }>({
     queryKey: ['license-status'],
@@ -44,7 +46,7 @@ export function InboxCenter() {
       return result;
     },
     refetchInterval: 5 * 60 * 1000,
-    enabled: licenseStatus?.valid === true,
+    enabled: licenseStatus?.valid === true && canAccess,
   });
 
   const { data: messageDetail, isLoading: messageLoading, isError: messageError } = useQuery({
@@ -67,7 +69,7 @@ export function InboxCenter() {
     if (!seen) markReadMutation.mutate(uid);
   }
 
-  if (!enabled) return null;
+  if (!enabled || !canAccess) return null;
 
   return (
     <>

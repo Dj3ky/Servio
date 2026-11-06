@@ -5,7 +5,7 @@ import {
   FolderKanban, CalendarCheck, PieChart, History, ListTodo,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { usePermissionsStore } from '@/stores/permissionsStore';
+import { useCan, usePermissionsStore } from '@/stores/permissionsStore';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -54,14 +54,14 @@ const systemItems: NavItem[] = [
 ];
 
 const pmItems: NavItem[] = [
-  { labelKey: 'nav.pmProjects', icon: FolderKanban, path: '/pm/projects' },
+  { labelKey: 'nav.pmProjects', icon: FolderKanban, path: '/pm/projects', permKey: 'projects.access' },
   { labelKey: 'nav.pmMyTasks', icon: ListTodo, path: '/pm/tasks', permKey: 'projects.access' },
-  { labelKey: 'nav.pmMeetings', icon: CalendarCheck, path: '/pm/meetings' },
-  { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports' },
+  { labelKey: 'nav.pmMeetings', icon: CalendarCheck, path: '/pm/meetings', permKey: 'projects.access' },
+  { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports', permKey: 'projects.access' },
 ];
 
 const changelogItems: NavItem[] = [
-  { labelKey: 'nav.changelogProjects', icon: History, path: '/changelog/projects' },
+  { labelKey: 'nav.changelogProjects', icon: History, path: '/changelog/projects', permKey: 'changelog.access' },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
@@ -69,6 +69,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuthStore();
   const { settings } = useSettingsStore();
   const perms = usePermissionsStore(s => s.perms);
+  const can = useCan();
+  const canSeeLicense = can('license', 'access');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -78,7 +80,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { data: license } = useQuery<LicenseStatus>({
     queryKey: ['license-status'],
     queryFn: () => api.get<LicenseStatus>('/license/status'),
-    enabled: user?.role === 'admin',
+    enabled: canSeeLicense,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -176,7 +178,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </nav>
         </ScrollArea>
 
-        {user?.role === 'admin' && license && (
+        {canSeeLicense && license && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

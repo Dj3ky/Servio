@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { requireRole } from '../middleware/role';
 import { getInboxStatus, markMessageSeen, fetchMessageBody } from '../services/imap';
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireRole('inbox', 'access'));
 
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   const result = await getInboxStatus();

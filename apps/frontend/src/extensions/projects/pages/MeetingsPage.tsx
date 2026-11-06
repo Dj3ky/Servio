@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useCan } from '@/stores/permissionsStore';
 import { TaskLine, TaskForm, usePmEmployees, type PmTask, type TaskDraft } from '../tasks';
 
 interface Meeting {
@@ -105,6 +106,7 @@ export default function MeetingsPage() {
   const [taskToggles, setTaskToggles] = useState<Record<string, boolean>>({}); // taskId -> done
   const [addingTaskFor, setAddingTaskFor] = useState<string | null>(null);
   const employees = usePmEmployees();
+  const can = useCan();
 
   const { data, isLoading } = useQuery<{ data: Meeting[] }>({
     queryKey: ['pm-meetings', yearFilter],
@@ -543,7 +545,7 @@ export default function MeetingsPage() {
               {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>
+          {can('projects', 'manage') && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>}
         </div>
       </div>
 
@@ -850,8 +852,8 @@ export default function MeetingsPage() {
             {!editMode ? (
               <>
                 <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
-                <Button variant="outline" onClick={openEditMode} disabled={!detail || !activeProjects}>{t('common.edit')}</Button>
-                {detail && (
+                {can('projects', 'manage') && <Button variant="outline" onClick={openEditMode} disabled={!detail || !activeProjects}>{t('common.edit')}</Button>}
+                {detail && can('projects', 'delete') && (
                   <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
                     {t('common.delete')}
                   </Button>
