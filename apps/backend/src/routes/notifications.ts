@@ -40,4 +40,17 @@ router.post('/read-all', async (req: Request, res: Response): Promise<void> => {
   res.json({ success: true });
 });
 
+// Registered before /:id so "read" isn't taken for an id
+router.delete('/read', async (req: Request, res: Response): Promise<void> => {
+  await db.delete(notifications)
+    .where(and(eq(notifications.isRead, true), visibleTo(req)));
+  res.json({ success: true });
+});
+
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+  await db.delete(notifications)
+    .where(and(eq(notifications.id, req.params.id), visibleTo(req)));
+  res.json({ success: true });
+});
+
 export default router;

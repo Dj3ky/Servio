@@ -455,6 +455,7 @@
   "notifications": {
     "title": "Obvestila",
     "markAllRead": "Označi vse kot prebrano",
+    "clearRead": "Počisti prebrana",
     "noNotifications": "Ni obvestil",
     "unread": "Neprebrano",
     "smb_failed": "Napaka SMB",

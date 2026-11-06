@@ -4,7 +4,7 @@ import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, upda
 import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks } from '../schema';
 import { selectTasks } from '../tasks';
-import { notifyTasksAssigned } from '../taskNotifications';
+import { notifyTasksAssigned, markTaskNotificationsRead } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
@@ -613,6 +613,7 @@ router.patch('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (req
   if (updated.assigneeId && updated.assigneeId !== before.assigneeId) {
     await notifyTasksAssigned([updated.id], req.auth!.userId);
   }
+  if (status === 'done') await markTaskNotificationsRead([updated.id]);
   res.json(updated);
 });
 
@@ -621,6 +622,7 @@ router.delete('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (re
     .where(and(eq(pmProjectTasks.id, req.params.taskId), eq(pmProjectTasks.projectId, req.params.id)))
     .returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  await markTaskNotificationsRead([deleted.id]);
   res.json({ success: true });
 });
 

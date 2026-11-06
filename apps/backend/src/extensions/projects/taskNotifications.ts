@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db';
+import { notifications } from '../../db/schema';
 import { users } from '../../db/schema/users';
 import { notifyUser } from '../../services/notify';
 import { pmProjects, pmProjectTasks } from './schema';
@@ -34,6 +35,13 @@ function message(task: TaskInfo, extra = '') {
   return `${task.title} — ${task.projectNumber} ${task.projectName}${formatDue(task.dueDate)}${extra}`;
 }
 
+// A finished or deleted task needs no more attention, so its notifications stop counting as unread
+export async function markTaskNotificationsRead(taskIds: string[], executor: Pick<typeof db, 'update'> = db): Promise<void> {
+  if (taskIds.length === 0) return;
+  await executor.update(notifications).set({ isRead: true })
+    .where(and(inArray(notifications.taskId, taskIds), eq(notifications.isRead, false)));
+}
+
 // "New task" for the assignee — skipped when people assign tasks to themselves
 export async function notifyTasksAssigned(taskIds: string[], actorId: string): Promise<void> {
   if (taskIds.length === 0) return;
@@ -47,6 +55,7 @@ export async function notifyTasksAssigned(taskIds: string[], actorId: string): P
         message: message(task),
         entityType: 'pm_project',
         entityId: task.projectId,
+        taskId: task.id,
       });
     }
   } catch (err) {
@@ -72,6 +81,7 @@ export async function runTaskReminders(): Promise<void> {
       message: message(task),
       entityType: 'pm_project',
       entityId: task.projectId,
+      taskId: task.id,
     });
     await db.update(pmProjectTasks).set({ dueNotifiedAt: new Date() }).where(eq(pmProjectTasks.id, task.id));
   }
@@ -92,6 +102,7 @@ export async function runTaskReminders(): Promise<void> {
         message: message(task, owner),
         entityType: 'pm_project',
         entityId: task.projectId,
+        taskId: task.id,
       });
     }
     await db.update(pmProjectTasks).set({ overdueNotifiedAt: new Date() }).where(eq(pmProjectTasks.id, task.id));

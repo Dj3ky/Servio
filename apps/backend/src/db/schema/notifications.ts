@@ -22,10 +22,13 @@ export const notifications = pgTable('notifications', {
   isRead: boolean('is_read').notNull().default(false),
   entityType: text('entity_type'),
   entityId: uuid('entity_id'),
+  // The PM task this is about, so it can be marked read when the task closes. No foreign key: PM tables can be removed.
+  taskId: uuid('task_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   createdAtIdx: index('notifications_created_at_idx').on(t.createdAt),
   userIdx: index('notifications_user_id_idx').on(t.userId),
+  taskIdx: index('notifications_task_id_idx').on(t.taskId),
 }));
 
 export type DbNotification = typeof notifications.$inferSelect;

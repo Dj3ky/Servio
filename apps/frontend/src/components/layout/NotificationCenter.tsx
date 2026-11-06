@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, MonitorSmartphone } from 'lucide-react';
+import { Bell, MonitorSmartphone, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -63,7 +63,18 @@ export function NotificationCenter() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/notifications/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const clearReadMutation = useMutation({
+    mutationFn: () => api.delete('/notifications/read'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
   const notifications = data?.data ?? [];
+  const hasRead = notifications.some(n => n.isRead);
 
   return (
     <DropdownMenu>
@@ -80,11 +91,18 @@ export function NotificationCenter() {
       <DropdownMenuContent align="end" className="w-80">
         <div className="flex items-center justify-between px-2 py-1">
           <DropdownMenuLabel className="p-0">{t('notifications.title')}</DropdownMenuLabel>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-auto py-0 text-xs" onClick={() => markAllReadMutation.mutate()}>
-              {t('notifications.markAllRead')}
-            </Button>
-          )}
+          <div className="flex flex-wrap justify-end">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="h-auto py-0 text-xs" onClick={() => markAllReadMutation.mutate()}>
+                {t('notifications.markAllRead')}
+              </Button>
+            )}
+            {hasRead && (
+              <Button variant="ghost" size="sm" className="h-auto py-0 text-xs" disabled={clearReadMutation.isPending} onClick={() => clearReadMutation.mutate()}>
+                {t('notifications.clearRead')}
+              </Button>
+            )}
+          </div>
         </div>
         <DropdownMenuSeparator />
         {desktopPermission === 'default' && (
@@ -113,9 +131,22 @@ export function NotificationCenter() {
                   if (link) navigate(link);
                 }}
               >
-                <div className="flex w-full items-center justify-between">
+                <div className="flex w-full items-center justify-between gap-2">
                   <span className="text-xs font-semibold">{t(`notifications.${n.type}` as any, n.title)}</span>
-                  {!n.isRead && <Badge variant="info" className="text-[10px]">{t('notifications.unread')}</Badge>}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!n.isRead && <Badge variant="info" className="text-[10px]">{t('notifications.unread')}</Badge>}
+                    {/* stopPropagation keeps the menu open and doesn't follow the notification's link */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      title={t('common.delete')}
+                      disabled={deleteMutation.isPending}
+                      onClick={e => { e.stopPropagation(); deleteMutation.mutate(n.id); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
                 <span className="text-[10px] text-muted-foreground">{formatDateTime(n.createdAt)}</span>

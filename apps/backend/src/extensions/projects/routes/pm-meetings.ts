@@ -4,7 +4,7 @@ import { createPmMeetingSchema, updatePmMeetingSchema, type CreatePmMeeting } fr
 import { db } from '../../../db';
 import { pmWeeklyMeetings, pmMeetingEntries, pmProjects, pmProjectTasks } from '../schema';
 import { selectTasks } from '../tasks';
-import { notifyTasksAssigned } from '../taskNotifications';
+import { notifyTasksAssigned, markTaskNotificationsRead } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 
@@ -122,6 +122,7 @@ async function applyTaskChanges(tx: Tx, meetingId: string, userId: string, chang
     await tx.update(pmProjectTasks)
       .set({ status: 'done', completedAt: new Date(), completedMeetingId: meetingId, updatedAt: new Date() })
       .where(and(inArray(pmProjectTasks.id, changes.complete), eq(pmProjectTasks.status, 'open')));
+    await markTaskNotificationsRead(changes.complete, tx);
   }
   if (changes.reopen.length > 0) {
     await tx.update(pmProjectTasks)

@@ -6,6 +6,7 @@ import { pmProjectTasks } from '../schema';
 import { requireRole } from '../../../middleware/role';
 import { getPermissions } from '../../../services/permissionsService';
 import { selectTasks } from '../tasks';
+import { markTaskNotificationsRead } from '../taskNotifications';
 
 const router = Router();
 router.use(requireRole('projects', 'access'));
@@ -65,6 +66,7 @@ router.patch('/:taskId/status', async (req: Request, res: Response): Promise<voi
     })
     .where(eq(pmProjectTasks.id, req.params.taskId))
     .returning();
+  if (done) await markTaskNotificationsRead([req.params.taskId]);
   res.json(updated);
 });
 

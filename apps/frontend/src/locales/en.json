@@ -455,6 +455,7 @@
   "notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all as read",
+    "clearRead": "Clear read",
     "noNotifications": "No notifications",
     "unread": "Unread",
     "smb_failed": "SMB Error",

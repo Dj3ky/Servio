@@ -88,6 +88,9 @@ async function ensureSettingsColumns() {
   // Personal notifications (migration 0016)
   await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE CASCADE`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications (user_id)`);
+  // Notification's PM task (migration 0023)
+  await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS task_id uuid`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS notifications_task_id_idx ON notifications (task_id)`);
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_assigned'`);
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_due'`);
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_overdue'`);
