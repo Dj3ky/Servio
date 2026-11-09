@@ -5,7 +5,7 @@ import { db } from '../../../db';
 import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks, pmProjectNotes } from '../schema';
 import { getPermissions } from '../../../services/permissionsService';
 import { selectTasks } from '../tasks';
-import { notifyTasksAssigned, markTaskNotificationsRead } from '../taskNotifications';
+import { notifyTasksAssigned, markTaskNotificationsRead, notifyTaskCompleted } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
@@ -617,6 +617,7 @@ router.patch('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (req
     await notifyTasksAssigned([updated.id], req.auth!.userId);
   }
   if (status === 'done') await markTaskNotificationsRead([updated.id]);
+  if (status === 'done' && before.status !== 'done') await notifyTaskCompleted(updated.id, req.auth!.userId);
   res.json(updated);
 });
 

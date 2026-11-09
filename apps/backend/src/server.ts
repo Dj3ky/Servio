@@ -94,6 +94,7 @@ async function ensureSettingsColumns() {
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_assigned'`);
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_due'`);
   await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_overdue'`);
+  await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'pm_task_done'`);
 }
 
 async function start() {

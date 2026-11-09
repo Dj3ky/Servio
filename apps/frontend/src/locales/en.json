@@ -471,6 +471,7 @@
     "pm_task_assigned": "New task",
     "pm_task_due": "Task due tomorrow",
     "pm_task_overdue": "Task overdue",
+    "pm_task_done": "Task completed",
     "enableDesktop": "Enable Windows notifications"
   },
   "auditLog": {

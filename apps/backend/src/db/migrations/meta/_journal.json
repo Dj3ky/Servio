@@ -177,5 +177,12 @@
       "tag": "0024_pm_project_notes",
       "breakpoints": true
     }
+    ,{
+      "idx": 25,
+      "version": "7",
+      "when": 1782144000000,
+      "tag": "0025_notification_pm_task_done",
+      "breakpoints": true
+    }
   ]
 }

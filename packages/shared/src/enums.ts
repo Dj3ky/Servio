@@ -41,6 +41,7 @@ export const NotificationType = {
   pm_task_assigned: 'pm_task_assigned',
   pm_task_due: 'pm_task_due',
   pm_task_overdue: 'pm_task_overdue',
+  pm_task_done: 'pm_task_done',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 

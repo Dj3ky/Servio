@@ -9,6 +9,7 @@ export const notificationTypeSchema = z.enum([
   'pm_task_assigned',
   'pm_task_due',
   'pm_task_overdue',
+  'pm_task_done',
 ]);
 
 export const notificationSchema = z.object({

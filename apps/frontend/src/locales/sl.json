@@ -471,6 +471,7 @@
     "pm_task_assigned": "Nova naloga",
     "pm_task_due": "Naloga zapade jutri",
     "pm_task_overdue": "Naloga zamuja",
+    "pm_task_done": "Naloga zaključena",
     "enableDesktop": "Vklopi obvestila v sistemu Windows"
   },
   "auditLog": {

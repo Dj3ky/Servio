@@ -6,7 +6,7 @@ import { pmProjectTasks } from '../schema';
 import { requireRole } from '../../../middleware/role';
 import { getPermissions } from '../../../services/permissionsService';
 import { selectTasks } from '../tasks';
-import { markTaskNotificationsRead } from '../taskNotifications';
+import { markTaskNotificationsRead, notifyTaskCompleted } from '../taskNotifications';
 
 const router = Router();
 router.use(requireRole('projects', 'access'));
@@ -49,7 +49,7 @@ router.patch('/:taskId/status', async (req: Request, res: Response): Promise<voi
   const parsed = z.object({ status: z.enum(['open', 'done']) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation' }); return; }
 
-  const [task] = await db.select({ assigneeId: pmProjectTasks.assigneeId }).from(pmProjectTasks)
+  const [task] = await db.select({ assigneeId: pmProjectTasks.assigneeId, status: pmProjectTasks.status }).from(pmProjectTasks)
     .where(eq(pmProjectTasks.id, req.params.taskId)).limit(1);
   if (!task) { res.status(404).json({ error: 'errors.not_found' }); return; }
   if (!canManage(req.auth!.role) && task.assigneeId !== req.auth!.userId) { res.status(403).json({ error: 'errors.forbidden' }); return; }
@@ -67,6 +67,7 @@ router.patch('/:taskId/status', async (req: Request, res: Response): Promise<voi
     .where(eq(pmProjectTasks.id, req.params.taskId))
     .returning();
   if (done) await markTaskNotificationsRead([req.params.taskId]);
+  if (done && task.status !== 'done') await notifyTaskCompleted(req.params.taskId, req.auth!.userId);
   res.json(updated);
 });
 

@@ -17,6 +17,7 @@ function taskQuery() {
     projectNumber: pmProjects.projectNumber,
     projectName: pmProjects.name,
     projectManagerId: pmProjects.employeeId,
+    createdById: pmProjectTasks.createdById,
   })
     .from(pmProjectTasks)
     .innerJoin(pmProjects, eq(pmProjectTasks.projectId, pmProjects.id))
@@ -60,6 +61,28 @@ export async function notifyTasksAssigned(taskIds: string[], actorId: string): P
     }
   } catch (err) {
     console.error('[pm-tasks] Failed to send assignment notifications:', err);
+  }
+}
+
+// "Task done" for whoever assigned the task and the project manager — skipped for the person who closed it.
+// Call after markTaskNotificationsRead, or that would mark this notification read straight away.
+export async function notifyTaskCompleted(taskId: string, actorId: string): Promise<void> {
+  try {
+    const [task] = await taskQuery().where(eq(pmProjectTasks.id, taskId)).limit(1);
+    if (!task) return;
+    const recipients = new Set([task.createdById, task.projectManagerId].filter((id): id is string => !!id && id !== actorId));
+    for (const userId of recipients) {
+      await notifyUser(userId, {
+        type: 'pm_task_done',
+        title: 'Naloga zaključena',
+        message: message(task, ` · ${task.assigneeName ?? '—'}`),
+        entityType: 'pm_project',
+        entityId: task.projectId,
+        taskId: task.id,
+      });
+    }
+  } catch (err) {
+    console.error('[pm-tasks] Failed to send completion notifications:', err);
   }
 }
 

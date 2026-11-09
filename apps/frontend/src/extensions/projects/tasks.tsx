@@ -51,7 +51,7 @@ export function TaskLine({
       <span className={`flex-1 min-w-0 break-words ${done ? 'line-through text-muted-foreground' : ''}`}>{title}</span>
       {meta}
       {assigneeName !== undefined && <span className="text-muted-foreground shrink-0">{assigneeName ?? '—'}</span>}
-      <span className={`font-mono shrink-0 w-[78px] text-right ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}
+      <span className={`font-mono shrink-0 whitespace-nowrap w-[92px] text-right ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}
         title={overdue ? t('pm.tasks.overdue') : undefined}>
         {dueDate ? formatDate(dueDate) : ''}
       </span>
