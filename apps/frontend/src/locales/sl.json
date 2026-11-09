@@ -750,6 +750,19 @@
       "showDone": "Prikaži zaključene",
       "noneOpen": "Ni odprtih nalog."
     },
+    "notes": {
+      "tab": "Zapiski",
+      "add": "Dodaj zapisek",
+      "placeholder": "Napišite zapisek… (Ctrl+Enter za shranjevanje)",
+      "latest": "Zadnji zapisek",
+      "edited": "urejeno",
+      "unknownAuthor": "Neznan uporabnik",
+      "deleteConfirm": "Izbriši zapisek?",
+      "addedOk": "Zapisek dodan",
+      "updatedOk": "Zapisek posodobljen",
+      "deletedOk": "Zapisek izbrisan",
+      "error": "Napaka pri shranjevanju zapiska"
+    },
     "documents": {
       "tab": "Dokumenti",
       "upload": "Naloži dokument",

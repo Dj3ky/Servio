@@ -60,6 +60,11 @@ export const updatePmTaskSchema = createPmTaskSchema.partial().extend({
   status: z.enum(['open', 'done']).optional(),
 });
 
+// PM Project Notes (create and edit)
+export const pmProjectNoteSchema = z.object({
+  body: z.string().trim().min(1).max(10000),
+});
+
 // Task changes made inside a meeting form, applied together with the meeting save
 const pmMeetingTaskChangesSchema = z.object({
   create: z.array(createPmTaskSchema.extend({ projectId: z.string().uuid() })).default([]),

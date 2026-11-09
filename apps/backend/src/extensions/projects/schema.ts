@@ -126,6 +126,16 @@ export const pmProjectTasks = pgTable('pm_project_tasks', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// Dated notes on a project; the author edits their own, anyone who manages projects can delete
+export const pmProjectNotes = pgTable('pm_project_notes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => pmProjects.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Manual display order of employee groups on the Projects page
 export const pmEmployeeOrder = pgTable('pm_employee_order', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
@@ -165,3 +175,4 @@ export type DbPmMeetingEntry = typeof pmMeetingEntries.$inferSelect;
 export type DbPmProjectDocument = typeof pmProjectDocuments.$inferSelect;
 export type DbPmProjectInvoice = typeof pmProjectInvoices.$inferSelect;
 export type DbPmProjectTask = typeof pmProjectTasks.$inferSelect;
+export type DbPmProjectNote = typeof pmProjectNotes.$inferSelect;

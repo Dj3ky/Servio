@@ -740,6 +740,19 @@
       "showDone": "Show done",
       "noneOpen": "No open tasks."
     },
+    "notes": {
+      "tab": "Notes",
+      "add": "Add note",
+      "placeholder": "Write a note… (Ctrl+Enter to save)",
+      "latest": "Latest note",
+      "edited": "edited",
+      "unknownAuthor": "Unknown user",
+      "deleteConfirm": "Delete note?",
+      "addedOk": "Note added",
+      "updatedOk": "Note updated",
+      "deletedOk": "Note deleted",
+      "error": "Error saving note"
+    },
     "documents": {
       "tab": "Documents",
       "upload": "Upload document",

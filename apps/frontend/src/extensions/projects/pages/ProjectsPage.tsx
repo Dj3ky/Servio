@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
+import { ProjectNoteCount } from '../ProjectNotesTab';
 import { NameSuggestionLists } from '../nameSuggestions';
 import { isPastDue } from '../dates';
 import { KimaiCustomerField, kimaiErrorMessage, useKimaiCustomerChoice, useKimaiStatus } from '../kimai';
@@ -45,6 +46,8 @@ interface PmProject {
   updatedAt: string;
   openTaskCount: number;
   overdueTaskCount: number;
+  noteCount: number;
+  latestNote: string | null;
 }
 
 interface User { id: string; name: string; }
@@ -107,10 +110,18 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [groupByEmployee, setGroupByEmployee] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Groups the user has clicked; each click flips the group away from its default state
+  const [toggledGroups, setToggledGroups] = useState<Set<string>>(new Set());
+  const seesAllGroups = user?.role === 'admin' || user?.role === 'manager';
+
+  // Admins and managers start with every group open; everyone else only with their own
+  function isGroupCollapsed(key: string) {
+    const collapsedByDefault = !seesAllGroups && key !== user?.id;
+    return collapsedByDefault !== toggledGroups.has(key);
+  }
 
   function toggleGroup(key: string) {
-    setCollapsedGroups(prev => {
+    setToggledGroups(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
@@ -466,6 +477,7 @@ export default function ProjectsPage() {
               <div className="flex items-center gap-1.5">
                 <span className="font-medium">{p.name}</span>
                 <ProjectNotesHint notes={p.notes} />
+                <ProjectNoteCount count={p.noteCount} latest={p.latestNote} />
                 {p.openTaskCount > 0 && (
                   <Badge variant={p.overdueTaskCount > 0 ? 'destructive' : 'outline'} className="text-[10px] px-1.5 py-0 font-normal">
                     {p.overdueTaskCount > 0
@@ -621,7 +633,7 @@ export default function ProjectsPage() {
         <div className="space-y-4">
           {grouped.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>}
           {grouped.map((group, idx) => {
-            const collapsed = collapsedGroups.has(group.key);
+            const collapsed = isGroupCollapsed(group.key);
             const movable = group.key !== '__none__';
             const isFirst = idx === 0;
             const isLastMovable = !grouped[idx + 1] || grouped[idx + 1].key === '__none__';

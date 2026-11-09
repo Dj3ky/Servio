@@ -204,6 +204,18 @@ async function ensurePmTables() {
     await db.execute(sql`ALTER TABLE pm_kimai_timesheets ADD COLUMN IF NOT EXISTS cost_unreliable BOOLEAN NOT NULL DEFAULT false`);
     // From migration 0022
     await db.execute(sql`ALTER TABLE pm_kimai_config ADD COLUMN IF NOT EXISTS rates_are_costs BOOLEAN NOT NULL DEFAULT false`);
+    // From migration 0024
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS pm_project_notes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+        author_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_project_notes_project_idx ON pm_project_notes(project_id)`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
@@ -266,6 +278,7 @@ router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'),
   await db.execute(sql`DROP TABLE IF EXISTS pm_kimai_timesheets CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_kimai_config CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_employee_order CASCADE`);
+  await db.execute(sql`DROP TABLE IF EXISTS pm_project_notes CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_tasks CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_invoices CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_documents CASCADE`);

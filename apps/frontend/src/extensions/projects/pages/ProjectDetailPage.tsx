@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectDocumentUploadDialog } from '../ProjectDocumentUploadDialog';
 import { ProjectTasksTab } from '../ProjectTasksTab';
 import { ProjectHoursTab } from '../ProjectHoursTab';
+import { ProjectNotesTab, type PmNote } from '../ProjectNotesTab';
 import { useKimaiStatus } from '../kimai';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
@@ -254,6 +255,12 @@ export default function ProjectDetailPage() {
   const { data: tasks } = useQuery<PmTask[]>({
     queryKey: ['pm-project-tasks', id],
     queryFn: () => api.get(`/pm/projects/${id}/tasks`),
+    enabled: !!id,
+  });
+
+  const { data: notes } = useQuery<PmNote[]>({
+    queryKey: ['pm-project-notes', id],
+    queryFn: () => api.get(`/pm/projects/${id}/notes`),
     enabled: !!id,
   });
 
@@ -516,6 +523,7 @@ export default function ProjectDetailPage() {
         <TabsList>
           <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="tasks">{t('pm.tasks.tab')} ({(tasks ?? []).filter(task => task.status === 'open').length})</TabsTrigger>
+          <TabsTrigger value="notes">{t('pm.notes.tab')} ({notes?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
           <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
           <TabsTrigger value="invoicesIssued">{t('pm.invoices.tabIssued')} ({issuedInvoices.length})</TabsTrigger>
@@ -533,6 +541,11 @@ export default function ProjectDetailPage() {
         {/* Tasks */}
         <TabsContent value="tasks">
           <ProjectTasksTab projectId={project.id} tasks={tasks ?? []} defaultAssigneeId={project.employeeId} />
+        </TabsContent>
+
+        {/* Notes */}
+        <TabsContent value="notes">
+          <ProjectNotesTab projectId={project.id} notes={notes ?? []} assigneeId={project.employeeId} />
         </TabsContent>
 
         {/* Phases */}

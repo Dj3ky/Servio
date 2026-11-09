@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { eq, ne, ilike, sql, and, or, desc, inArray } from 'drizzle-orm';
-import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema, swapPmProjectOrderSchema, createPmTaskSchema, updatePmTaskSchema } from '@servio/shared';
+import { createPmProjectSchema, updatePmProjectSchema, createPmPhaseSchema, updatePmPhaseSchema, createPmInvoiceSchema, updatePmInvoiceSchema, updatePmEmployeeOrderSchema, swapPmProjectOrderSchema, createPmTaskSchema, updatePmTaskSchema, pmProjectNoteSchema } from '@servio/shared';
 import { db } from '../../../db';
-import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks } from '../schema';
+import { pmProjects, pmProjectPhases, pmProjectDocuments, pmProjectInvoices, pmEmployeeOrder, pmProjectTasks, pmProjectNotes } from '../schema';
+import { getPermissions } from '../../../services/permissionsService';
 import { selectTasks } from '../tasks';
 import { notifyTasksAssigned, markTaskNotificationsRead } from '../taskNotifications';
 import { users } from '../../../db/schema/users';
@@ -89,6 +90,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     facilityName: pmProjects.facilityName,
     openTaskCount: sql<number>`(select count(*)::int from pm_project_tasks t where t.project_id = ${pmProjects.id} and t.status = 'open')`,
     overdueTaskCount: sql<number>`(select count(*)::int from pm_project_tasks t where t.project_id = ${pmProjects.id} and t.status = 'open' and t.due_date < current_date)`,
+    noteCount: sql<number>`(select count(*)::int from pm_project_notes n where n.project_id = ${pmProjects.id})`,
+    latestNote: sql<string | null>`(select n.body from pm_project_notes n where n.project_id = ${pmProjects.id} order by n.created_at desc limit 1)`,
   };
 
   const [data, [{ count }]] = await Promise.all([
@@ -623,6 +626,78 @@ router.delete('/:id/tasks/:taskId', requireRole('projects', 'manage'), async (re
     .returning();
   if (!deleted) { res.status(404).json({ error: 'errors.not_found' }); return; }
   await markTaskNotificationsRead([deleted.id]);
+  res.json({ success: true });
+});
+
+// --- Notes ---
+
+function canManageProjects(role: string) {
+  const perms = getPermissions() as Record<string, Record<string, string[]>>;
+  return (perms.projects?.manage ?? []).includes(role);
+}
+
+router.get('/:id/notes', async (req: Request, res: Response): Promise<void> => {
+  const notes = await db.select({
+    id: pmProjectNotes.id,
+    projectId: pmProjectNotes.projectId,
+    authorId: pmProjectNotes.authorId,
+    authorName: users.name,
+    body: pmProjectNotes.body,
+    createdAt: pmProjectNotes.createdAt,
+    updatedAt: pmProjectNotes.updatedAt,
+  })
+    .from(pmProjectNotes)
+    .leftJoin(users, eq(pmProjectNotes.authorId, users.id))
+    .where(eq(pmProjectNotes.projectId, req.params.id))
+    .orderBy(desc(pmProjectNotes.createdAt));
+  res.json(notes);
+});
+
+// The assigned employee can write notes without 'manage'
+router.post('/:id/notes', async (req: Request, res: Response): Promise<void> => {
+  const parsed = pmProjectNoteSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const [project] = await db.select({ employeeId: pmProjects.employeeId }).from(pmProjects).where(eq(pmProjects.id, req.params.id)).limit(1);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  const { userId, role } = req.auth!;
+  if (project.employeeId !== userId && !canManageProjects(role)) { res.status(403).json({ error: 'errors.forbidden' }); return; }
+
+  const [note] = await db.insert(pmProjectNotes).values({
+    projectId: req.params.id,
+    authorId: userId,
+    body: parsed.data.body,
+  }).returning();
+
+  res.status(201).json(note);
+});
+
+// Only the author edits a note
+router.patch('/:id/notes/:noteId', async (req: Request, res: Response): Promise<void> => {
+  const parsed = pmProjectNoteSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+
+  const where = and(eq(pmProjectNotes.id, req.params.noteId), eq(pmProjectNotes.projectId, req.params.id));
+  const [note] = await db.select({ authorId: pmProjectNotes.authorId }).from(pmProjectNotes).where(where).limit(1);
+  if (!note) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (note.authorId !== req.auth!.userId) { res.status(403).json({ error: 'errors.forbidden' }); return; }
+
+  const [updated] = await db.update(pmProjectNotes)
+    .set({ body: parsed.data.body, updatedAt: new Date() })
+    .where(where)
+    .returning();
+  res.json(updated);
+});
+
+// The author or anyone who manages projects can delete
+router.delete('/:id/notes/:noteId', async (req: Request, res: Response): Promise<void> => {
+  const where = and(eq(pmProjectNotes.id, req.params.noteId), eq(pmProjectNotes.projectId, req.params.id));
+  const [note] = await db.select({ authorId: pmProjectNotes.authorId }).from(pmProjectNotes).where(where).limit(1);
+  if (!note) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  const { userId, role } = req.auth!;
+  if (note.authorId !== userId && !canManageProjects(role)) { res.status(403).json({ error: 'errors.forbidden' }); return; }
+
+  await db.delete(pmProjectNotes).where(where);
   res.json({ success: true });
 });
 
