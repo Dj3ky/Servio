@@ -114,6 +114,7 @@ router.get('/overdue', async (req: Request, res: Response): Promise<void> => {
     endDate: pmProjects.endDate,
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
+    employeeId: pmProjects.employeeId,
     employeeName: users.name,
     customerName: pmProjects.customerName,
   })
@@ -129,7 +130,8 @@ router.get('/overdue', async (req: Request, res: Response): Promise<void> => {
   res.json(projects);
 });
 
-// Workload view — all active projects grouped by employee
+// Workload view — all open (not completed) projects grouped by employee,
+// the same projects the summary totals count
 router.get('/workload', async (req: Request, res: Response): Promise<void> => {
   const projects = await db.select({
     id: pmProjects.id,
@@ -146,7 +148,7 @@ router.get('/workload', async (req: Request, res: Response): Promise<void> => {
   })
     .from(pmProjects)
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
-    .where(and(eq(pmProjects.status, 'active'), customerFilter(req)))
+    .where(and(ne(pmProjects.status, 'completed'), customerFilter(req)))
     .orderBy(pmProjects.sortIndex);
 
   // Group by employee
@@ -179,42 +181,80 @@ router.get('/project/:projectId/meetings', async (req: Request, res: Response): 
   res.json(entries);
 });
 
-// Monthly revenue from invoices for a given year
+function parseYear(req: Request) {
+  const year = parseInt(String(req.query.year ?? ''), 10);
+  return Number.isFinite(year) ? year : new Date().getFullYear();
+}
+
+// Monthly revenue from issued invoices for a given year, with the year before for comparison.
+// `month` is 1–12; the frontend shows month names in the user's language.
 router.get('/revenue-trend', async (req: Request, res: Response): Promise<void> => {
-  const year = parseInt(req.query.year as string ?? String(new Date().getFullYear()), 10);
+  const year = parseYear(req);
+  const monthKey = sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`;
 
   const rows = await db.select({
-    month: sql<string>`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`,
+    month: sql<string>`${monthKey}`,
     revenue: sql<string>`coalesce(sum(${pmProjectInvoices.amount}), 0)`,
-    invoiceCount: sql<number>`count(*)`,
+    invoiceCount: sql<number>`count(*)::int`,
   })
     .from(pmProjectInvoices)
     .innerJoin(pmProjects, eq(pmProjectInvoices.projectId, pmProjects.id))
     .where(and(
       eq(pmProjectInvoices.direction, 'issued'),
-      sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`,
+      sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) in (${year}, ${year - 1})`,
       customerFilter(req),
     ))
-    .groupBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`)
-    .orderBy(sql`to_char(${pmProjectInvoices.invoiceDate}::date, 'YYYY-MM')`);
+    .groupBy(monthKey);
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const filled = MONTHS.map((name, i) => {
-    const key = `${year}-${String(i + 1).padStart(2, '0')}`;
-    const found = rows.find(r => r.month === key);
-    return { month: name, revenue: parseFloat(found?.revenue ?? '0'), invoiceCount: Number(found?.invoiceCount ?? 0) };
+  const byKey = new Map(rows.map(r => [r.month, r]));
+  const filled = Array.from({ length: 12 }, (_, i) => {
+    const mm = String(i + 1).padStart(2, '0');
+    const cur = byKey.get(`${year}-${mm}`);
+    const prev = byKey.get(`${year - 1}-${mm}`);
+    return {
+      month: i + 1,
+      revenue: parseFloat(cur?.revenue ?? '0'),
+      invoiceCount: Number(cur?.invoiceCount ?? 0),
+      prevRevenue: parseFloat(prev?.revenue ?? '0'),
+    };
   });
 
   res.json(filled);
 });
 
+// Remaining value of open projects, grouped by when their deadline falls
+router.get('/pipeline', async (req: Request, res: Response): Promise<void> => {
+  const bucket = sql<string>`case
+    when ${pmProjects.endDate} is null then 'none'
+    when ${pmProjects.endDate} < current_date then 'overdue'
+    when ${pmProjects.endDate} < date_trunc('month', current_date) + interval '1 month' then 'thisMonth'
+    when ${pmProjects.endDate} < date_trunc('month', current_date) + interval '2 months' then 'nextMonth'
+    when ${pmProjects.endDate} < date_trunc('month', current_date) + interval '5 months' then 'next3Months'
+    else 'later' end`;
+
+  const rows = await db.select({
+    bucket,
+    count: sql<number>`count(*)::int`,
+    remaining: sql<string>`coalesce(sum(greatest(coalesce(${pmProjects.contractValue}, 0) - ${pmProjects.invoicedAmount}, 0)), 0)`,
+  })
+    .from(pmProjects)
+    .where(and(ne(pmProjects.status, 'completed'), customerFilter(req)))
+    .groupBy(bucket);
+
+  const ORDER = ['overdue', 'thisMonth', 'nextMonth', 'next3Months', 'later', 'none'];
+  res.json(ORDER.map(key => {
+    const found = rows.find(r => r.bucket === key);
+    return { bucket: key, count: Number(found?.count ?? 0), remaining: parseFloat(found?.remaining ?? '0') };
+  }));
+});
+
 // Projects completed per month for a given year
 router.get('/completions', async (req: Request, res: Response): Promise<void> => {
-  const year = parseInt(req.query.year as string ?? String(new Date().getFullYear()), 10);
+  const year = parseYear(req);
 
   const rows = await db.select({
     month: sql<string>`to_char(${pmProjects.completedAt}, 'YYYY-MM')`,
-    count: sql<number>`count(*)`,
+    count: sql<number>`count(*)::int`,
   })
     .from(pmProjects)
     .where(and(
@@ -226,11 +266,10 @@ router.get('/completions', async (req: Request, res: Response): Promise<void> =>
     .groupBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`)
     .orderBy(sql`to_char(${pmProjects.completedAt}, 'YYYY-MM')`);
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const filled = MONTHS.map((name, i) => {
+  const filled = Array.from({ length: 12 }, (_, i) => {
     const key = `${year}-${String(i + 1).padStart(2, '0')}`;
     const found = rows.find(r => r.month === key);
-    return { month: name, count: Number(found?.count ?? 0) };
+    return { month: i + 1, count: Number(found?.count ?? 0) };
   });
 
   res.json(filled);
@@ -243,6 +282,7 @@ router.get('/outstanding', async (req: Request, res: Response): Promise<void> =>
     projectNumber: pmProjects.projectNumber,
     name: pmProjects.name,
     customerName: pmProjects.customerName,
+    employeeId: pmProjects.employeeId,
     employeeName: users.name,
     contractValue: pmProjects.contractValue,
     invoicedAmount: pmProjects.invoicedAmount,
