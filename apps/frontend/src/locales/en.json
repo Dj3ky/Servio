@@ -1015,6 +1015,22 @@
       "noCustomer": "No customer",
       "variants": "{{count}} spellings",
       "variantsHint": "This customer's name is written in more than one way on projects (capitals or spaces)."
+    },
+    "quickView": {
+      "timeline": "Timeline",
+      "noDates": "No start or end date set.",
+      "notStarted": "Not started yet",
+      "endsToday": "Due today",
+      "daysLeft_one": "{{count}} day left",
+      "daysLeft_other": "{{count}} days left",
+      "overdueBy_one": "{{count}} day overdue",
+      "overdueBy_other": "{{count}} days overdue",
+      "finances": "Finances",
+      "received": "Received",
+      "recentMeetings": "Recent meetings",
+      "noMeetings": "Not discussed at a meeting yet.",
+      "documents_one": "{{count}} document",
+      "documents_other": "{{count}} documents"
     }
   },
   "changelog": {

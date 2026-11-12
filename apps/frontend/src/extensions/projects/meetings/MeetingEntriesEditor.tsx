@@ -32,8 +32,9 @@ function focusNextNote(e: KeyboardEvent<HTMLTextAreaElement>) {
 }
 
 export function MeetingEntriesEditor({
-  entries, onEntryChange, isReviewed, tasks, onQuickView,
+  entries, onEntryChange, isReviewed, tasks, onQuickView, highlightProjectId,
 }: {
+  highlightProjectId?: string | null; // row whose project panel is open
   entries: FormEntry[];
   onEntryChange: (projectId: string, patch: { entryStatus?: EntryStatus; notes?: string }) => void;
   isReviewed: (entry: FormEntry) => boolean;
@@ -116,7 +117,12 @@ export function MeetingEntriesEditor({
   function renderRow(entry: FormEntry) {
     const reviewed = isReviewed(entry);
     return (
-      <div key={entry.projectId} className={cn('px-4 py-3 transition-colors', reviewed ? 'bg-transparent' : 'bg-amber-500/[0.03]')}>
+      <div key={entry.projectId} className={cn(
+        'px-4 py-3 transition-colors',
+        highlightProjectId === entry.projectId
+          ? 'bg-primary/[0.06] shadow-[inset_3px_0_0_hsl(var(--primary))]'
+          : reviewed ? 'bg-transparent' : 'bg-amber-500/[0.03]',
+      )}>
         <div className={cn('space-y-2 xl:space-y-0', ROW_GRID)}>
           {/* Project */}
           <div className="flex items-start gap-2 min-w-0">

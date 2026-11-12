@@ -47,10 +47,3 @@ export interface FormEntry {
 }
 
 export type NewTaskDraft = TaskDraft & { key: string; projectId: string };
-
-export interface QuickViewProject {
-  id: string; projectNumber: string; name: string;
-  priority: string; status: string; startDate: string | null; endDate: string | null;
-  contractValue: string | null; invoicedAmount: string | null; notes: string | null;
-  employeeName: string | null; customerName: string | null; facilityName: string | null;
-}

@@ -12,7 +12,8 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { localToday } from '../dates';
 import type { PmTask } from '../tasks';
 import { MeetingEntriesEditor } from '../meetings/MeetingEntriesEditor';
-import { AutoTextarea, ConfirmDialog, ProgressBar, ProjectQuickView } from '../meetings/components';
+import { AutoTextarea, ConfirmDialog, ProgressBar } from '../meetings/components';
+import { ProjectQuickView } from '../meetings/ProjectQuickView';
 import { groupTasksByProject, safeStorage } from '../meetings/utils';
 import type { ActiveProject, EntryStatus, FormEntry, MeetingDetail, MeetingListItem, NewTaskDraft } from '../meetings/types';
 
@@ -310,6 +311,7 @@ export default function MeetingFormPage() {
             onEntryChange={updateEntry}
             isReviewed={isReviewed}
             onQuickView={setQuickViewId}
+            highlightProjectId={quickViewId}
             tasks={{ tasksByProject, newTasks, setNewTasks, taskToggles, toggleTask }}
           />
         </div>

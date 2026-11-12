@@ -63,10 +63,14 @@ const config: Config = {
       keyframes: {
         'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
         'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
+        'sheet-in-right': { from: { transform: 'translateX(100%)' }, to: { transform: 'translateX(0)' } },
+        'sheet-out-right': { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(100%)' } },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'sheet-in-right': 'sheet-in-right 0.25s cubic-bezier(0.32, 0.72, 0, 1)',
+        'sheet-out-right': 'sheet-out-right 0.18s ease-in',
       },
     },
   },

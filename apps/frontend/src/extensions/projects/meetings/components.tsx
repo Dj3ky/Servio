@@ -1,13 +1,10 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, type TextareaHTMLAttributes, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { ExternalLink } from 'lucide-react';
-import { api } from '@/lib/api';
-import { cn, formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ENTRY_STATUSES, type EntryStatus, type QuickViewProject } from './types';
+import { ENTRY_STATUSES, type EntryStatus } from './types';
 
 const STATUS_ACTIVE_CLASS: Record<EntryStatus, string> = {
   active: 'bg-background text-foreground shadow-sm',
@@ -101,63 +98,6 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={onCancel}>{cancelLabel}</Button>
           <Button variant={destructive ? 'destructive' : 'default'} onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Read-only project summary, opened from a project name in the meeting form
-export function ProjectQuickView({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
-  const { t } = useTranslation();
-  const { data: project } = useQuery<QuickViewProject>({
-    queryKey: ['pm-project-quickview', projectId],
-    queryFn: () => api.get(`/pm/projects/${projectId}`),
-    enabled: !!projectId,
-  });
-  const money = (v: string | null) => v ? `${Number(v).toLocaleString('sl-SI')} €` : '—';
-
-  return (
-    <Dialog open={!!projectId} onOpenChange={o => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{project ? `${project.name} (${project.projectNumber})` : '…'}</DialogTitle>
-        </DialogHeader>
-        {project && (
-          <div className="space-y-3 text-sm">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-              <div className="text-muted-foreground">{t('pm.projects.fieldCustomer')}</div>
-              <div>{project.customerName || '—'}</div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldFacility')}</div>
-              <div>{project.facilityName || '—'}</div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldEmployee')}</div>
-              <div>{project.employeeName || '—'}</div>
-              <div className="text-muted-foreground">{t('common.status')}</div>
-              <div><Badge variant="outline">{t(`pm.status.${project.status}`)}</Badge></div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldPriority')}</div>
-              <div><Badge variant="secondary">{t(`pm.priority.${project.priority}`)}</Badge></div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldStartDate')}</div>
-              <div>{project.startDate ? formatDate(project.startDate) : '—'}</div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldEndDate')}</div>
-              <div>{project.endDate ? formatDate(project.endDate) : '—'}</div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldContractValue')}</div>
-              <div>{money(project.contractValue)}</div>
-              <div className="text-muted-foreground">{t('pm.projects.fieldInvoiced')}</div>
-              <div>{money(project.invoicedAmount)}</div>
-            </div>
-            {project.notes && (
-              <div className="pt-1 border-t">
-                <p className="text-muted-foreground mb-1">{t('pm.projects.fieldNotes')}</p>
-                <p className="whitespace-pre-wrap">{project.notes}</p>
-              </div>
-            )}
-            <div className="pt-2 border-t flex justify-end">
-              {/* New tab so unsaved meeting edits underneath aren't lost */}
-              <Button variant="outline" size="sm" onClick={() => window.open(`/pm/projects/${project.id}`, '_blank', 'noopener')}>
-                {t('pm.meetings.openProject')} <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

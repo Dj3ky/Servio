@@ -1039,6 +1039,28 @@
       "noCustomer": "Brez naročnika",
       "variants": "Različnih zapisov: {{count}}",
       "variantsHint": "Ime naročnika je na projektih zapisano na več načinov (velike/male črke ali presledki)."
+    },
+    "quickView": {
+      "timeline": "Časovnica",
+      "noDates": "Začetni in končni datum nista določena.",
+      "notStarted": "Še ni začet",
+      "endsToday": "Rok je danes",
+      "daysLeft_one": "Še {{count}} dan",
+      "daysLeft_two": "Še {{count}} dneva",
+      "daysLeft_few": "Še {{count}} dni",
+      "daysLeft_other": "Še {{count}} dni",
+      "overdueBy_one": "Zamuda {{count}} dan",
+      "overdueBy_two": "Zamuda {{count}} dneva",
+      "overdueBy_few": "Zamuda {{count}} dni",
+      "overdueBy_other": "Zamuda {{count}} dni",
+      "finances": "Finance",
+      "received": "Plačano",
+      "recentMeetings": "Zadnji sestanki",
+      "noMeetings": "Še ni bil obravnavan na sestanku.",
+      "documents_one": "{{count}} dokument",
+      "documents_two": "{{count}} dokumenta",
+      "documents_few": "{{count}} dokumenti",
+      "documents_other": "{{count}} dokumentov"
     }
   },
   "changelog": {
