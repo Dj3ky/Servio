@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Building2, CalendarRange, Check, ExternalLink, ListChecks, MessagesSquare, StickyNote, Wallet, X } from 'lucide-react';
+import { Building2, CalendarRange, Check, ListChecks, Loader2, Maximize2, MessagesSquare, StickyNote, Wallet, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { cn, formatDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,9 @@ import { TaskLine, type PmTask } from '../tasks';
 import { useEmployeeOrder } from '../employeeOrder';
 import { ProgressBar, StatusBadge } from './components';
 import { daysSince, employeeAccent, initials } from './utils';
+
+// Loaded only when someone opens the full project from the panel
+const ProjectDetailView = lazy(() => import('../pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailView })));
 
 interface QuickProject {
   id: string; projectNumber: string; name: string; orderDate: string | null;
@@ -92,7 +96,8 @@ export function ProjectQuickView({ projectId, onClose }: { projectId: string | n
   const { t } = useTranslation();
   const employeeOrder = useEmployeeOrder();
   const [notesExpanded, setNotesExpanded] = useState(false);
-  useEffect(() => setNotesExpanded(false), [projectId]);
+  const [fullOpen, setFullOpen] = useState(false);
+  useEffect(() => { setNotesExpanded(false); setFullOpen(false); }, [projectId]);
 
   const { data: project, isLoading } = useQuery<QuickProject>({
     queryKey: ['pm-project', projectId],
@@ -276,16 +281,27 @@ export function ProjectQuickView({ projectId, onClose }: { projectId: string | n
                 <span className="text-xs text-muted-foreground mr-auto">{t('pm.quickView.documents', { count: project.documents.length })}</span>
               )}
               {/* New tab so unsaved meeting edits underneath aren't lost */}
-              {/* A real link (not window.open with a features string), so browsers open a normal tab, not a popup window */}
-              <Button className="ml-auto" asChild>
-                <a href={`/pm/projects/${project.id}`} target="_blank" rel="noopener noreferrer">
-                  {t('pm.meetings.openProject')}<ExternalLink className="ml-2 h-4 w-4" />
-                </a>
+              {/* Full project in a popup over the meeting: no new window (PWA) and no leaving the unsaved form */}
+              <Button className="ml-auto" onClick={() => setFullOpen(true)}>
+                {t('pm.meetings.openProject')}<Maximize2 className="ml-2 h-4 w-4" />
               </Button>
             </div>
           )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
+
+      {/* The whole project page, over the meeting. The side panel stays open underneath and
+          shows any changes when this closes (same cached queries). */}
+      <Dialog open={fullOpen && !!projectId} onOpenChange={setFullOpen}>
+        <DialogContent className="block w-[96vw] max-w-[1400px] h-[94vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">{project?.name ?? t('pm.meetings.openProject')}</DialogTitle>
+          <div className="px-6 pb-6 pt-10">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-muted-foreground"><Loader2 className="h-5 w-5 mr-2 animate-spin" />{t('common.loading')}</div>}>
+              <ProjectDetailView projectId={projectId ?? undefined} embedded onDeleted={() => { setFullOpen(false); onClose(); }} />
+            </Suspense>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DialogPrimitive.Root>
   );
 }

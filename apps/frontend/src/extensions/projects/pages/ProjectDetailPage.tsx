@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { ChevronRight, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate, normalizeAmountInput } from '@/lib/utils';
+import { cn, formatDate, normalizeAmountInput } from '@/lib/utils';
 import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -221,6 +221,16 @@ function InvoiceList({
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  return <ProjectDetailView projectId={id} />;
+}
+
+// The whole project view. On its route it keeps the open tab in the URL; `embedded` (e.g. the
+// popup over a meeting) keeps the tab in local state and never navigates away from the host page.
+export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }: {
+  projectId: string | undefined;
+  embedded?: boolean;
+  onDeleted?: () => void;
+}) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -231,9 +241,11 @@ export default function ProjectDetailPage() {
   // Open tab lives in the URL (?tab=tasks): coming back lands on the same tab, and links can point at one.
   // replace: switching tabs doesn't fill the browser history.
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab');
+  const [embeddedTab, setEmbeddedTab] = useState('meetings');
+  const tabParam = embedded ? embeddedTab : searchParams.get('tab');
   const requestedTab = (DETAIL_TABS as readonly string[]).includes(tabParam ?? '') ? tabParam! : 'meetings';
   function selectTab(tab: string) {
+    if (embedded) { setEmbeddedTab(tab); return; }
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (tab === 'meetings') next.delete('tab'); else next.set('tab', tab);
@@ -305,7 +317,7 @@ export default function ProjectDetailPage() {
   const deleteProject = useMutation({
     mutationFn: () => api.delete(`/pm/projects/${id}`),
     onSuccess: () => {
-      navigate('/pm/projects');
+      if (onDeleted) onDeleted(); else navigate('/pm/projects');
       qc.removeQueries({ queryKey: ['pm-project', id] });
       for (const key of ['pm-projects', 'pm-report', 'pm-name-suggestions', 'pm-active-projects', 'pm-meetings', 'pm-meeting-detail', 'pm-meeting-tasks', 'pm-my-tasks', 'pm-my-task-count']) {
         qc.invalidateQueries({ queryKey: [key] });
@@ -441,8 +453,9 @@ export default function ProjectDetailPage() {
     onError: () => toast.error(t('pm.documents.error')),
   });
 
-  if (isLoading) return <div className="p-6 text-muted-foreground">{t('common.loading')}</div>;
-  if (!project) return <div className="p-6 text-destructive">{t('pm.projects.notFound')}</div>;
+  const pad = embedded ? '' : 'p-6';
+  if (isLoading) return <div className={cn(pad, 'text-muted-foreground')}>{t('common.loading')}</div>;
+  if (!project) return <div className={cn(pad, 'text-destructive')}>{t('pm.projects.notFound')}</div>;
 
   const contractVal = parseFloat(project.contractValue ?? '0');
   const invoiced = parseFloat(project.invoicedAmount ?? '0');
@@ -455,11 +468,14 @@ export default function ProjectDetailPage() {
   const receivedInvoices = (invoices ?? []).filter(inv => inv.direction === 'received');
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={cn(pad, 'space-y-6')}>
       {/* Header */}
       <div className="flex items-end gap-4">
         <div className="flex-1 min-w-0 space-y-1">
-          {/* Breadcrumb: back to the list the project is in (archive for completed ones) */}
+          {/* Breadcrumb: back to the list the project is in (archive for completed ones); embedded shows only the number */}
+          {embedded ? (
+            <div className="text-sm font-mono text-muted-foreground">{project.projectNumber}</div>
+          ) : (
           <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
             <Link
               to={project.status === 'completed' ? '/pm/projects?view=archive' : '/pm/projects'}
@@ -470,6 +486,7 @@ export default function ProjectDetailPage() {
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate text-foreground font-medium" aria-current="page">{project.projectNumber}</span>
           </nav>
+          )}
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.name}</h1>
             <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={!canManage || quickStatusChange.isPending}>
@@ -632,9 +649,13 @@ export default function ProjectDetailPage() {
           <div className="space-y-3">
             {(meetingHistory ?? []).map(entry => (
               <div key={entry.id} className="flex gap-4 p-3 rounded-md border bg-card text-sm">
-                <Link to={`/pm/meetings/${entry.meetingId}`} className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5 hover:text-foreground hover:underline underline-offset-2">
-                  {formatDate(entry.meetingDate)}
-                </Link>
+                {embedded ? (
+                  <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{formatDate(entry.meetingDate)}</div>
+                ) : (
+                  <Link to={`/pm/meetings/${entry.meetingId}`} className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5 hover:text-foreground hover:underline underline-offset-2">
+                    {formatDate(entry.meetingDate)}
+                  </Link>
+                )}
                 <div className="flex-1">
                   <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
                     {t(`pm.status.${entry.entryStatus}`)}
