@@ -632,7 +632,9 @@ export default function ProjectDetailPage() {
           <div className="space-y-3">
             {(meetingHistory ?? []).map(entry => (
               <div key={entry.id} className="flex gap-4 p-3 rounded-md border bg-card text-sm">
-                <div className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5">{formatDate(entry.meetingDate)}</div>
+                <Link to={`/pm/meetings/${entry.meetingId}`} className="min-w-[90px] text-muted-foreground font-mono text-xs pt-0.5 hover:text-foreground hover:underline underline-offset-2">
+                  {formatDate(entry.meetingDate)}
+                </Link>
                 <div className="flex-1">
                   <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
                     {t(`pm.status.${entry.entryStatus}`)}

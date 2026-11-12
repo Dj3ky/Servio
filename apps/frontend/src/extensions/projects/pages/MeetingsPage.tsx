@@ -1,439 +1,103 @@
-import { useState, useMemo, Fragment, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import { Plus, ChevronRight, Users, ChevronDown, ChevronUp, ExternalLink, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  CalendarDays, CheckCheck, ChevronDown, ChevronRight, CircleCheck, FolderKanban, History, ListChecks,
+  MessageSquareText, Pause, Plus, Search, TriangleAlert, X,
+} from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { DateInput } from '@/components/ui/date-input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
-import { ProjectNotesHint } from '../ProjectNotesHint';
-import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useCan } from '@/stores/permissionsStore';
-import { TaskLine, TaskForm, usePmEmployees, type PmTask, type TaskDraft } from '../tasks';
-
-interface Meeting {
-  id: string; meetingDate: string; notes: string | null;
-  createdByName: string | null; createdAt: string;
-}
-interface MeetingDetail extends Meeting {
-  entries: MeetingEntry[];
-  tasks: PmTask[];
-}
-type NewTaskDraft = TaskDraft & { key: string; projectId: string };
-interface MeetingEntry {
-  id: string; projectId: string; projectNumber: string; projectName: string;
-  projectPriority: string; entryStatus: string; notes: string | null;
-  projectSortIndex: number;
-  employeeId: string | null; employeeName: string | null;
-  lastEntryNotes?: string | null; lastMeetingDate?: string | null;
-  projectNotes?: string | null;
-}
-interface ActiveProject {
-  id: string; projectNumber: string; name: string; priority: string; status: string; sortIndex: number;
-  notes: string | null;
-  employeeId: string | null; employeeName: string | null;
-  lastEntryStatus: string | null; lastEntryNotes: string | null; lastMeetingDate: string | null;
-}
-interface EntryDraft {
-  projectId: string; projectNumber: string; projectName: string; priority: string;
-  entryStatus: string; notes: string;
-  employeeId: string | null; employeeName: string | null;
-  lastMeetingDate: string | null; lastEntryNotes: string | null;
-  projectNotes: string | null;
-}
-
-interface QuickViewProject {
-  id: string; projectNumber: string; name: string; orderDate: string | null;
-  priority: string; status: string; startDate: string | null; endDate: string | null;
-  contractValue: string | null; invoicedAmount: string | null; notes: string | null;
-  employeeName: string | null; customerName: string | null; facilityName: string | null;
-}
-
-const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
-
-const GROUP_COLORS = [
-  'bg-blue-500/10 border-l-4 border-l-blue-500',
-  'bg-emerald-500/10 border-l-4 border-l-emerald-500',
-  'bg-violet-500/10 border-l-4 border-l-violet-500',
-  'bg-amber-500/10 border-l-4 border-l-amber-500',
-  'bg-rose-500/10 border-l-4 border-l-rose-500',
-  'bg-cyan-500/10 border-l-4 border-l-cyan-500',
-  'bg-orange-500/10 border-l-4 border-l-orange-500',
-  'bg-teal-500/10 border-l-4 border-l-teal-500',
-];
-
-function groupTasksByProject(tasks: PmTask[]) {
-  const map = new Map<string, PmTask[]>();
-  for (const task of tasks) map.set(task.projectId, [...(map.get(task.projectId) ?? []), task]);
-  return map;
-}
+import { localToday } from '../dates';
+import { capitalize, daysSince, parseLocalDate, safeStorage } from '../meetings/utils';
+import type { MeetingListItem, MeetingSummary } from '../meetings/types';
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
+function SummaryTile({ icon, label, value, hint, tone, to }: {
+  icon: ReactNode; label: string; value: ReactNode; hint?: ReactNode; tone?: string; to?: string;
+}) {
+  const body = (
+    <>
+      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground', tone)}>{icon}</div>
+      <div className="min-w-0">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-lg font-semibold leading-tight tabular-nums truncate">{value}</div>
+        {hint && <div className="text-xs text-muted-foreground truncate">{hint}</div>}
+      </div>
+    </>
+  );
+  const className = 'flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm';
+  return to
+    ? <Link to={to} className={cn(className, 'hover:border-primary/40 transition-colors')}>{body}</Link>
+    : <div className={className}>{body}</div>;
+}
+
+function Chip({ icon, children, className }: { icon: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground', className)}>
+      {icon}{children}
+    </span>
+  );
+}
+
 export default function MeetingsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  const [newOpen, setNewOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [meetingNotes, setMeetingNotes] = useState('');
-  const [entries, setEntries] = useState<EntryDraft[]>([]);
+  const can = useCan();
   const [yearFilter, setYearFilter] = useState(currentYear);
-  const [collapsedDialogGroups, setCollapsedDialogGroups] = useState<Set<string>>(new Set());
-  const [collapsedDetailGroups, setCollapsedDetailGroups] = useState<Set<string>>(new Set());
-  const [editMode, setEditMode] = useState(false);
-  const [editNotes, setEditNotes] = useState('');
-  const [editEntries, setEditEntries] = useState<MeetingEntry[]>([]);
-  const [quickViewId, setQuickViewId] = useState<string | null>(null);
-  // Snapshot of the edit form when edit mode was opened, to detect unsaved changes
-  const [editSnapshot, setEditSnapshot] = useState('');
-  // Which close action is waiting for the "discard changes?" confirmation
-  const [discardTarget, setDiscardTarget] = useState<'new' | 'edit-cancel' | 'edit-close' | null>(null);
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   // null = default state (only the most recent month expanded)
   const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
-  // Task changes in the open meeting form, sent together with the meeting save
-  const [newTasks, setNewTasks] = useState<NewTaskDraft[]>([]);
-  const [taskToggles, setTaskToggles] = useState<Record<string, boolean>>({}); // taskId -> done
-  const [addingTaskFor, setAddingTaskFor] = useState<string | null>(null);
-  const employees = usePmEmployees();
-  const can = useCan();
+  const today = localToday();
 
-  const { data, isLoading } = useQuery<{ data: Meeting[] }>({
-    queryKey: ['pm-meetings', yearFilter],
-    queryFn: () => api.get(`/pm/meetings?limit=100&year=${yearFilter}`),
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data, isLoading } = useQuery<{ data: MeetingListItem[] }>({
+    queryKey: ['pm-meetings', yearFilter, query],
+    queryFn: () => api.get(`/pm/meetings?limit=100&year=${yearFilter}${query ? `&q=${encodeURIComponent(query)}` : ''}`),
   });
 
-  const employeeOrder = useEmployeeOrder();
-
-  const { data: quickViewProject } = useQuery<QuickViewProject>({
-    queryKey: ['pm-project-quickview', quickViewId],
-    queryFn: () => api.get(`/pm/projects/${quickViewId}`),
-    enabled: !!quickViewId,
+  const { data: summary } = useQuery<MeetingSummary>({
+    queryKey: ['pm-meetings-summary', today],
+    queryFn: () => api.get(`/pm/meetings/stats/summary?today=${today}`),
   });
 
-  const { data: detail } = useQuery<MeetingDetail>({
-    queryKey: ['pm-meeting-detail', detailId],
-    queryFn: () => api.get(`/pm/meetings/${detailId}`),
-    enabled: !!detailId,
-  });
-
-  // When editing a meeting, "last meeting" must be the one before it, not the meeting itself
-  const lastBefore = detailId ? detail?.meetingDate?.slice(0, 10) : undefined;
-  const { data: activeProjects } = useQuery<ActiveProject[]>({
-    queryKey: ['pm-active-projects', lastBefore ?? null],
-    queryFn: () => api.get(`/pm/meetings/active-projects/list${lastBefore ? `?before=${lastBefore}` : ''}`),
-    enabled: newOpen || !!lastBefore,
-  });
-
-  // Open tasks to carry over; when editing, also the tasks created or closed in that meeting
-  const tasksMeetingId = editMode ? detailId : null;
-  const { data: formTasks } = useQuery<PmTask[]>({
-    queryKey: ['pm-meeting-tasks', tasksMeetingId],
-    queryFn: () => api.get(`/pm/meetings/tasks/list${tasksMeetingId ? `?meetingId=${tasksMeetingId}` : ''}`),
-    enabled: newOpen || editMode,
-  });
-  const tasksByProject = useMemo(() => groupTasksByProject(formTasks ?? []), [formTasks]);
-  const detailTasksByProject = useMemo(() => groupTasksByProject(detail?.tasks ?? []), [detail]);
-
-  function resetTaskChanges() {
-    setNewTasks([]);
-    setTaskToggles({});
-    setAddingTaskFor(null);
-  }
-
-  function toggleTask(task: PmTask, done: boolean) {
-    setTaskToggles(prev => {
-      const next = { ...prev };
-      if (done === (task.status === 'done')) delete next[task.id]; else next[task.id] = done;
-      return next;
-    });
-  }
-
-  function taskChangesPayload() {
-    const toggled = Object.entries(taskToggles);
-    return {
-      create: newTasks.map(({ key: _key, ...draft }) => draft),
-      complete: toggled.filter(([, done]) => done).map(([id]) => id),
-      reopen: toggled.filter(([, done]) => !done).map(([id]) => id),
-    };
-  }
-
-  const taskDirty = newTasks.length > 0 || Object.keys(taskToggles).length > 0;
-
-  function openNew() {
-    setMeetingDate(new Date().toISOString().split('T')[0]);
-    setMeetingNotes('');
-    setEntries([]);
-    resetTaskChanges();
-    setNewOpen(true);
-  }
-
-  function initEntries(projects: ActiveProject[]) {
-    setEntries(projects.map(p => ({
-      projectId: p.id,
-      projectNumber: p.projectNumber,
-      projectName: p.name,
-      priority: p.priority,
-      entryStatus: 'active',
-      notes: '',
-      employeeId: p.employeeId,
-      employeeName: p.employeeName,
-      lastMeetingDate: p.lastMeetingDate,
-      lastEntryNotes: p.lastEntryNotes,
-      projectNotes: p.notes,
-    })));
-    setCollapsedDialogGroups(new Set());
-  }
-
-  function toggleDialogGroup(key: string) {
-    setCollapsedDialogGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  function toggleDetailGroup(key: string) {
-    setCollapsedDetailGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  // Group new-meeting entries by employee
-  const entriesByEmployee = useMemo(() => {
-    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: EntryDraft[] }[] = [];
-    const seen = new Map<string, number>();
-    for (const e of entries) {
-      const key = e.employeeId ?? '__none__';
-      if (!seen.has(key)) {
-        seen.set(key, groups.length);
-        groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] });
-      }
-      groups[seen.get(key)!].entries.push(e);
-    }
-    return sortByEmployeeOrder(groups, employeeOrder);
-  }, [entries, employeeOrder]);
-
-  // Group detail entries by employee
-  const detailByEmployee = useMemo(() => {
-    if (!detail) return [];
-    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: MeetingEntry[] }[] = [];
-    const seen = new Map<string, number>();
-    for (const e of detail.entries) {
-      const key = e.employeeId ?? '__none__';
-      if (!seen.has(key)) {
-        seen.set(key, groups.length);
-        groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] });
-      }
-      groups[seen.get(key)!].entries.push(e);
-    }
-    return sortByEmployeeOrder(groups, employeeOrder);
-  }, [detail, employeeOrder]);
-
-  if (newOpen && activeProjects && entries.length === 0 && activeProjects.length > 0) {
-    initEntries(activeProjects);
-  }
-
-  // Enter in a project note jumps to the next visible project note in the same dialog
-  function focusNextNote(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-    e.preventDefault();
-    const inputs = Array.from(e.currentTarget.closest('[role="dialog"]')?.querySelectorAll<HTMLInputElement>('input[data-meeting-note]') ?? []);
-    inputs[inputs.indexOf(e.currentTarget) + 1]?.focus();
-  }
-
-  function updateEntry(projectId: string, field: 'entryStatus' | 'notes', value: string) {
-    setEntries(prev => prev.map(e => e.projectId === projectId ? { ...e, [field]: value } : e));
-  }
-
-
-
-  const createMeeting = useMutation({
-    mutationFn: () => api.post('/pm/meetings', {
-      meetingDate,
-      notes: meetingNotes || null,
-      entries: entries.map(e => ({ projectId: e.projectId, entryStatus: e.entryStatus, notes: e.notes || null })),
-      tasks: taskChangesPayload(),
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pm-meetings'] });
-      qc.invalidateQueries({ queryKey: ['pm-active-projects'] });
-      invalidateTasks();
-      qc.invalidateQueries({ queryKey: ['pm-projects'] });
-      qc.invalidateQueries({ queryKey: ['pm-report'] });
-      toast.success(t('pm.meetings.savedOk'));
-      setNewOpen(false);
-    },
-    onError: () => toast.error(t('pm.meetings.saveError')),
-  });
-
-  function invalidateTasks() {
-    qc.invalidateQueries({ queryKey: ['pm-meeting-tasks'] });
-    qc.invalidateQueries({ queryKey: ['pm-project-tasks'] });
-    qc.invalidateQueries({ queryKey: ['pm-my-tasks'] });
-    qc.invalidateQueries({ queryKey: ['pm-my-task-count'] });
-    qc.invalidateQueries({ queryKey: ['notifications'] });
-    qc.invalidateQueries({ queryKey: ['pm-projects'] });
-  }
-
-  const deleteMeeting = useMutation({
-    mutationFn: (id: string) => api.delete(`/pm/meetings/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pm-meetings'] });
-      toast.success(t('pm.meetings.deletedOk'));
-    },
-    onError: () => toast.error(t('pm.meetings.error')),
-  });
-
-  const updateMeeting = useMutation({
-    mutationFn: (id: string) => api.patch(`/pm/meetings/${id}`, {
-      notes: editNotes || null,
-      entries: editEntries.map(e => ({ projectId: e.projectId, entryStatus: e.entryStatus, notes: e.notes || null })),
-      tasks: taskChangesPayload(),
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pm-meetings'] });
-      invalidateTasks();
-      qc.invalidateQueries({ queryKey: ['pm-meeting-detail', detailId] });
-      qc.invalidateQueries({ queryKey: ['pm-projects'] });
-      qc.invalidateQueries({ queryKey: ['pm-report'] });
-      toast.success(t('pm.meetings.savedOk'));
-      setEditMode(false);
-    },
-    onError: () => toast.error(t('pm.meetings.saveError')),
-  });
-
-  function openEditMode() {
-    if (!detail || !activeProjects) return;
-    const notes = detail.notes ?? '';
-    const activeById = new Map(activeProjects.map(p => [p.id, p]));
-    const existingIds = new Set(detail.entries.map(e => e.projectId));
-    // Keep every saved entry (even if the project is no longer active), then add active projects not yet in the meeting
-    const list: MeetingEntry[] = [
-      ...detail.entries.map(e => {
-        const p = activeById.get(e.projectId);
-        return { ...e, notes: e.notes ?? '', lastEntryNotes: p?.lastEntryNotes ?? null, lastMeetingDate: p?.lastMeetingDate ?? null, projectNotes: p?.notes ?? null };
-      }),
-      ...activeProjects.filter(p => !existingIds.has(p.id)).map(p => ({
-        id: '',
-        projectId: p.id,
-        projectNumber: p.projectNumber,
-        projectName: p.name,
-        projectPriority: p.priority,
-        projectSortIndex: p.sortIndex,
-        entryStatus: 'active',
-        notes: '',
-        employeeId: p.employeeId,
-        employeeName: p.employeeName,
-        lastEntryNotes: p.lastEntryNotes,
-        lastMeetingDate: p.lastMeetingDate,
-        projectNotes: p.notes,
-      })),
-    ];
-    // Manual project order within each employee, like the backend and the Projects page
-    list.sort((a, b) => a.projectSortIndex - b.projectSortIndex);
-    setEditNotes(notes);
-    setEditEntries(list);
-    setEditSnapshot(editFormKey(notes, list));
-    resetTaskChanges();
-    setCollapsedDetailGroups(new Set());
-    setEditMode(true);
-  }
-
-  function editFormKey(notes: string, list: MeetingEntry[]) {
-    return JSON.stringify([notes, list.map(e => [e.projectId, e.entryStatus, e.notes ?? ''])]);
-  }
-
-  const newDirty = !!meetingNotes.trim() || entries.some(e => e.notes.trim() || e.entryStatus !== 'active') || taskDirty;
-  const editDirty = editMode && (editFormKey(editNotes, editEntries) !== editSnapshot || taskDirty);
-  const navBlocker = useUnsavedChangesGuard((newOpen && newDirty) || editDirty);
-
-  function closeEdit() {
-    setEditMode(false);
-    setEditSnapshot('');
-  }
-
-  function requestCloseNew() {
-    if (newDirty) setDiscardTarget('new'); else setNewOpen(false);
-  }
-
-  function requestCancelEdit() {
-    if (editDirty) setDiscardTarget('edit-cancel'); else closeEdit();
-  }
-
-  function requestCloseDetail() {
-    if (editDirty) { setDiscardTarget('edit-close'); return; }
-    setDetailId(null);
-    closeEdit();
-  }
-
-  function cancelDiscard() {
-    if (navBlocker.state === 'blocked') navBlocker.reset();
-    setDiscardTarget(null);
-  }
-
-  function confirmDiscard() {
-    if (navBlocker.state === 'blocked') {
-      setNewOpen(false);
-      setDetailId(null);
-      closeEdit();
-      navBlocker.proceed();
-      return;
-    }
-    if (discardTarget === 'new') setNewOpen(false);
-    if (discardTarget === 'edit-cancel') closeEdit();
-    if (discardTarget === 'edit-close') { setDetailId(null); closeEdit(); }
-    setDiscardTarget(null);
-  }
-
-  function updateEditEntry(projectId: string, field: 'entryStatus' | 'notes', value: string) {
-    setEditEntries(prev => prev.map(e => e.projectId === projectId ? { ...e, [field]: value } : e));
-  }
-
-  // Group edit entries by employee
-  const editEntriesByEmployee = useMemo(() => {
-    const groups: { key: string; employeeId: string | null; employeeName: string | null; entries: MeetingEntry[] }[] = [];
-    const seen = new Map<string, number>();
-    for (const e of editEntries) {
-      const key = e.employeeId ?? '__none__';
-      if (!seen.has(key)) { seen.set(key, groups.length); groups.push({ key, employeeId: e.employeeId, employeeName: e.employeeName, entries: [] }); }
-      groups[seen.get(key)!].entries.push(e);
-    }
-    return sortByEmployeeOrder(groups, employeeOrder);
-  }, [editEntries, employeeOrder]);
+  // An unsaved new meeting left in this browser
+  const [hasDraft] = useState(() => !!safeStorage.get('pm-meeting-draft:new'));
 
   const meetings = data?.data ?? [];
+  const rtf = useMemo(() => new Intl.RelativeTimeFormat(i18n.language, { numeric: 'auto' }), [i18n.language]);
 
   // Group meetings by month (YYYY-MM), preserving API order
   const meetingsByMonth = useMemo(() => {
-    const groups: { key: string; label: string; meetings: Meeting[] }[] = [];
+    const groups: { key: string; label: string; meetings: MeetingListItem[] }[] = [];
     const seen = new Map<string, number>();
     for (const m of meetings) {
       const key = m.meetingDate.slice(0, 7);
       if (!seen.has(key)) {
-        const [y, mo] = key.split('-').map(Number);
-        const label = new Date(y, mo - 1, 1).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
+        const label = parseLocalDate(`${key}-01`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
         seen.set(key, groups.length);
-        groups.push({ key, label: label.charAt(0).toUpperCase() + label.slice(1), meetings: [] });
+        groups.push({ key, label: capitalize(label), meetings: [] });
       }
       groups[seen.get(key)!].meetings.push(m);
     }
     return groups;
   }, [meetings, i18n.language]);
 
-  const openMonths = expandedMonths ?? new Set(meetingsByMonth.slice(0, 1).map(g => g.key));
+  // While searching every month with a hit is open
+  const openMonths = query
+    ? new Set(meetingsByMonth.map(g => g.key))
+    : expandedMonths ?? new Set(meetingsByMonth.slice(0, 1).map(g => g.key));
 
   function toggleMonth(key: string) {
     const next = new Set(openMonths);
@@ -441,497 +105,153 @@ export default function MeetingsPage() {
     setExpandedMonths(next);
   }
 
-  const tableHead = (
-    <tr className="border-b bg-muted/50 text-muted-foreground">
-      <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colDate')}</th>
-      <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colNotes')}</th>
-      <th className="text-left px-4 py-3 font-medium">{t('pm.meetings.colCreatedBy')}</th>
-      <th className="px-4 py-3" />
-    </tr>
-  );
+  const lastDays = summary?.lastMeetingDate ? daysSince(summary.lastMeetingDate, today) : null;
 
-  function renderRow(m: Meeting) {
+  function renderCard(m: MeetingListItem) {
+    const date = parseLocalDate(m.meetingDate);
+    const weekday = date.toLocaleDateString(i18n.language, { weekday: 'short' }).replace('.', '');
+    const month = date.toLocaleDateString(i18n.language, { month: 'short' }).replace('.', '');
+    const isToday = m.meetingDate.slice(0, 10) === today;
     return (
-      <tr key={m.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => { setCollapsedDetailGroups(new Set()); setEditMode(false); setDetailId(m.id); }}>
-        <td className="px-4 py-3 font-mono">{formatDate(m.meetingDate)}</td>
-        <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">{m.notes ?? '—'}</td>
-        <td className="px-4 py-3 text-muted-foreground">{m.createdByName ?? '—'}</td>
-        <td className="px-4 py-3 text-right">
-          <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
-        </td>
-      </tr>
-    );
-  }
-
-  // Shared column widths so the dialog's per-manager tables line up with each other
-  const entryColGroup = (
-    <colgroup>
-      <col style={{ width: '28%' }} />
-      <col style={{ width: '16%' }} />
-      <col style={{ width: '34%' }} />
-      <col style={{ width: '22%' }} />
-    </colgroup>
-  );
-
-  // "+ Task" button shown next to the project name in the meeting forms
-  function addTaskButton(projectId: string) {
-    return (
-      <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground ml-auto shrink-0"
-        onClick={() => setAddingTaskFor(addingTaskFor === projectId ? null : projectId)}>
-        <Plus className="h-3 w-3 mr-0.5" />{t('pm.tasks.add')}
-      </Button>
-    );
-  }
-
-  // Sub-row under a project in the meeting forms: existing tasks (tickable), new drafts, and the add form
-  function renderTaskRow(projectId: string, defaultAssigneeId: string | null) {
-    const existing = tasksByProject.get(projectId) ?? [];
-    const drafts = newTasks.filter(d => d.projectId === projectId);
-    const adding = addingTaskFor === projectId;
-    if (existing.length === 0 && drafts.length === 0 && !adding) return null;
-    return (
-      <tr className="border-b bg-muted/20">
-        <td colSpan={4} className="px-3 py-1.5 pl-8 space-y-1">
-          {existing.map(task => (
-            <TaskLine
-              key={task.id}
-              title={task.title}
-              assigneeName={task.assigneeName}
-              dueDate={task.dueDate}
-              completedAt={task.completedAt}
-              done={taskToggles[task.id] ?? task.status === 'done'}
-              onToggle={done => toggleTask(task, done)}
-              meta={task.meetingDate && <span className="text-muted-foreground shrink-0">{t('pm.tasks.fromMeeting', { date: formatDate(task.meetingDate) })}</span>}
-            />
-          ))}
-          {drafts.map(d => (
-            <TaskLine
-              key={d.key}
-              title={d.title}
-              assigneeName={employees.find(u => u.id === d.assigneeId)?.name ?? null}
-              dueDate={d.dueDate}
-              done={false}
-              meta={<Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">{t('pm.tasks.createdHere')}</Badge>}
-            >
-              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" title={t('common.delete')}
-                onClick={() => setNewTasks(prev => prev.filter(x => x.key !== d.key))}>
-                <X className="h-3 w-3" />
-              </Button>
-            </TaskLine>
-          ))}
-          {adding && (
-            <TaskForm
-              autoFocus
-              defaultAssigneeId={defaultAssigneeId}
-              onAdd={draft => setNewTasks(prev => [...prev, { ...draft, projectId, key: crypto.randomUUID() }])}
-              onCancel={() => setAddingTaskFor(null)}
-            />
-          )}
-        </td>
-      </tr>
+      <Link
+        key={m.id}
+        to={`/pm/meetings/${m.id}`}
+        className="group flex gap-4 rounded-lg border bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
+      >
+        <div className={cn(
+          'flex w-14 shrink-0 flex-col items-center justify-center rounded-md border py-1.5 leading-none',
+          isToday ? 'border-primary bg-primary text-primary-foreground' : 'bg-muted/40',
+        )}>
+          <span className={cn('text-[10px] font-semibold uppercase tracking-wide', isToday ? 'opacity-90' : 'text-muted-foreground')}>{weekday}</span>
+          <span className="text-2xl font-bold tabular-nums my-0.5">{date.getDate()}</span>
+          <span className={cn('text-[10px] uppercase tracking-wide', isToday ? 'opacity-90' : 'text-muted-foreground')}>{month}</span>
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-semibold">
+              {capitalize(date.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' }))}
+            </span>
+            {m.createdByName && <span className="text-xs text-muted-foreground">· {m.createdByName}</span>}
+          </div>
+          {m.notes
+            ? <p className="text-sm text-muted-foreground line-clamp-2 whitespace-pre-line">{m.notes}</p>
+            : <p className="text-sm text-muted-foreground/60 italic">{t('pm.meetings.noGeneralNotes')}</p>}
+          <div className="flex flex-wrap gap-1.5">
+            <Chip icon={<FolderKanban className="h-3 w-3" />}>{t('pm.meetings.chipProjects', { count: m.projectCount })}</Chip>
+            {m.notedCount > 0 && <Chip icon={<MessageSquareText className="h-3 w-3" />}>{t('pm.meetings.chipNotes', { count: m.notedCount })}</Chip>}
+            {m.completedCount > 0 && (
+              <Chip icon={<CircleCheck className="h-3 w-3" />} className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                {t('pm.meetings.chipCompleted', { count: m.completedCount })}
+              </Chip>
+            )}
+            {m.onHoldCount > 0 && (
+              <Chip icon={<Pause className="h-3 w-3" />} className="bg-amber-500/10 text-amber-800 dark:text-amber-300">
+                {t('pm.meetings.chipOnHold', { count: m.onHoldCount })}
+              </Chip>
+            )}
+            {m.tasksCreated > 0 && <Chip icon={<Plus className="h-3 w-3" />}>{t('pm.meetings.chipTasksCreated', { count: m.tasksCreated })}</Chip>}
+            {m.tasksClosed > 0 && <Chip icon={<CheckCheck className="h-3 w-3" />}>{t('pm.meetings.chipTasksClosed', { count: m.tasksClosed })}</Chip>}
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 self-center shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+      </Link>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">{t('pm.meetings.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('pm.meetings.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Year filter */}
-          <Select value={String(yearFilter)} onValueChange={v => { setYearFilter(Number(v)); setExpandedMonths(null); }}>
-            <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {can('projects', 'manage') && <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>}
+        {can('projects', 'manage') && (
+          <Button onClick={() => navigate('/pm/meetings/new')}><Plus className="h-4 w-4 mr-2" />{t('pm.meetings.new')}</Button>
+        )}
+      </div>
+
+      {/* At a glance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <SummaryTile
+          icon={<CalendarDays className="h-4 w-4" />}
+          label={t('pm.meetings.lastMeeting')}
+          value={lastDays === null ? '—' : capitalize(rtf.format(-lastDays, 'day'))}
+          hint={summary?.lastMeetingDate ? capitalize(parseLocalDate(summary.lastMeetingDate).toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })) : undefined}
+          tone={lastDays !== null && lastDays > 10 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : undefined}
+        />
+        <SummaryTile icon={<FolderKanban className="h-4 w-4" />} label={t('pm.meetings.activeProjects')} value={summary?.activeProjects ?? '—'} to="/pm/projects" />
+        <SummaryTile icon={<ListChecks className="h-4 w-4" />} label={t('pm.meetings.openTasks')} value={summary?.openTasks ?? '—'} to="/pm/tasks" />
+        <SummaryTile
+          icon={<TriangleAlert className="h-4 w-4" />}
+          label={t('pm.meetings.overdueTasks')}
+          value={summary?.overdueTasks ?? '—'}
+          tone={summary?.overdueTasks ? 'bg-red-500/15 text-red-600 dark:text-red-400' : undefined}
+          to="/pm/tasks"
+        />
+      </div>
+
+      {hasDraft && can('projects', 'manage') && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 text-sm">
+          <History className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+          <span className="flex-1">{t('pm.meetings.draftPending')}</span>
+          <Button size="sm" onClick={() => navigate('/pm/meetings/new')}>{t('pm.meetings.draftContinue')}</Button>
         </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9 pr-9" placeholder={t('pm.meetings.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} />
+          {search && (
+            <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearch('')} title={t('common.reset')}>
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Select value={String(yearFilter)} onValueChange={v => { setYearFilter(Number(v)); setExpandedMonths(null); }}>
+          <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {data && <span className="text-sm text-muted-foreground">{t('pm.meetings.meetingCount', { count: meetings.length })}</span>}
       </div>
 
-      <div className="rounded-md border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>{tableHead}</thead>
-          <tbody>
-            {isLoading && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.loading')}</td></tr>}
-            {!isLoading && meetings.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('common.noData')}</td></tr>}
-          </tbody>
-          {meetingsByMonth.map(group => {
-            const open = openMonths.has(group.key);
-            return (
-              <tbody key={group.key}>
-                <tr className="border-b bg-muted/30 hover:bg-muted/50 cursor-pointer" onClick={() => toggleMonth(group.key)}>
-                  <td colSpan={4} className="px-4 py-2 font-semibold">
-                    <div className="flex items-center gap-2">
-                      {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                      <span>{group.label}</span>
-                      <span className="font-normal text-muted-foreground">({group.meetings.length})</span>
-                    </div>
-                  </td>
-                </tr>
-                {open && group.meetings.map(renderRow)}
-              </tbody>
-            );
-          })}
-        </table>
+      {/* Meetings by month */}
+      {isLoading && (
+        <div className="space-y-3">
+          {[0, 1, 2].map(i => <div key={i} className="h-28 rounded-lg border bg-muted/30 animate-pulse" />)}
+        </div>
+      )}
+      {!isLoading && meetings.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-14 text-center">
+          <CalendarDays className="h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">{query ? t('pm.meetings.noSearchResults') : t('pm.meetings.noMeetingsYear', { year: yearFilter })}</p>
+          {!query && can('projects', 'manage') && (
+            <Button variant="outline" size="sm" onClick={() => navigate('/pm/meetings/new')}><Plus className="h-4 w-4 mr-1.5" />{t('pm.meetings.new')}</Button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {meetingsByMonth.map(group => {
+          const open = openMonths.has(group.key);
+          return (
+            <section key={group.key} className="space-y-2.5">
+              <button type="button" onClick={() => toggleMonth(group.key)}
+                className="flex w-full items-center gap-2 text-left text-sm font-semibold text-muted-foreground hover:text-foreground">
+                <ChevronDown className={cn('h-4 w-4 transition-transform', !open && '-rotate-90')} />
+                <span className="text-foreground">{group.label}</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">{group.meetings.length}</span>
+                <span className="h-px flex-1 bg-border" />
+              </button>
+              {open && <div className="space-y-2.5">{group.meetings.map(renderCard)}</div>}
+            </section>
+          );
+        })}
       </div>
-
-      {/* New meeting dialog */}
-      <Dialog open={newOpen} onOpenChange={v => { if (v) setNewOpen(true); else requestCloseNew(); }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{t('pm.meetings.newTitle')}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">{t('pm.meetings.fieldDate')} *</label>
-                <DateInput value={meetingDate} onChange={setMeetingDate} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('pm.meetings.fieldNotes')}</label>
-              <Textarea placeholder={t('pm.meetings.notesPlaceholder')} value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({entries.length})</p>
-              {entries.length === 0 && <p className="text-sm text-muted-foreground">{t('pm.meetings.noActiveProjects')}</p>}
-              <div className="space-y-2">
-                {entriesByEmployee.map((group, idx) => {
-                  const collapsed = collapsedDialogGroups.has(group.key);
-                  return (
-                    <div key={group.key} className="rounded-md border overflow-hidden">
-                      <button
-                        type="button"
-                        className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
-                        onClick={() => toggleDialogGroup(group.key)}
-                      >
-                        <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
-                        <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
-                        <span className="font-normal text-muted-foreground">({group.entries.length})</span>
-                        {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
-                      </button>
-                      {!collapsed && (
-                        <table className="w-full table-fixed text-sm">
-                          {entryColGroup}
-                          <thead>
-                            <tr className="border-b bg-muted/50 text-muted-foreground">
-                              <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                              <th className="text-left px-3 py-2 font-medium">{t('common.status')}</th>
-                              <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                              <th className="text-left px-3 py-2 font-medium">
-                                <div>{t('pm.meetings.colLastMeeting')}</div>
-                                {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {group.entries.map(entry => (
-                              <Fragment key={entry.projectId}>
-                              <tr className="border-b">
-                                <td className="px-3 py-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                      {entry.projectName}
-                                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                    </button>
-                                    <ProjectNotesHint notes={entry.projectNotes} />
-                                    {addTaskButton(entry.projectId)}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <Select value={entry.entryStatus} onValueChange={v => updateEntry(entry.projectId, 'entryStatus', v)}>
-                                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="active">{t('pm.status.active')}</SelectItem>
-                                      <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
-                                      <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <Input
-                                    className="h-7 text-xs"
-                                    placeholder={t('pm.meetings.notePlaceholder')}
-                                    value={entry.notes}
-                                    onChange={e => updateEntry(entry.projectId, 'notes', e.target.value)}
-                                    onKeyDown={focusNextNote}
-                                    data-meeting-note
-                                  />
-                                </td>
-                                <td className="px-3 py-2">
-                                  {entry.lastEntryNotes
-                                    ? <span className="text-xs text-muted-foreground italic">{entry.lastEntryNotes}</span>
-                                    : <span className="text-xs text-muted-foreground">—</span>}
-                                </td>
-                              </tr>
-                              {renderTaskRow(entry.projectId, entry.employeeId)}
-                              </Fragment>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={requestCloseNew}>{t('common.cancel')}</Button>
-            <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending || !meetingDate}>
-              {createMeeting.isPending ? t('common.loading') : t('pm.meetings.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Meeting detail / edit dialog */}
-      <Dialog open={!!detailId} onOpenChange={v => { if (!v) requestCloseDetail(); }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editMode
-                ? t('pm.meetings.editTitle', { date: detail?.meetingDate ? formatDate(detail.meetingDate) : '' })
-                : t('pm.meetings.dialogTitle', { date: detail?.meetingDate ? formatDate(detail.meetingDate) : '' })}
-            </DialogTitle>
-          </DialogHeader>
-
-          {detail && !editMode && (
-            <div className="space-y-3">
-              {detail.notes && <p className="text-sm text-muted-foreground italic border-l-2 pl-3">{detail.notes}</p>}
-              {detail.entries.length === 0 && <p className="text-sm text-muted-foreground">{t('common.noData')}</p>}
-              {detailByEmployee.map((group, idx) => {
-                const collapsed = collapsedDetailGroups.has(group.key);
-                return (
-                  <div key={group.key} className="rounded-md border overflow-hidden">
-                    <button
-                      className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
-                      onClick={() => toggleDetailGroup(group.key)}
-                    >
-                      <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
-                      <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
-                      <span className="font-normal text-muted-foreground">({group.entries.length})</span>
-                      {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </button>
-                    {!collapsed && (
-                      <div className="divide-y">
-                        {group.entries.map(entry => (
-                          <div
-                            key={entry.id}
-                            className="flex gap-3 p-3 text-sm cursor-pointer hover:bg-muted/30"
-                            onClick={() => { setDetailId(null); navigate(`/pm/projects/${entry.projectId}`); }}
-                          >
-                            <div className="w-[220px] shrink-0 break-words">
-                              <div className="font-medium">{entry.projectName}</div>
-                              <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
-                            </div>
-                            <div className="flex-1">
-                              <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="text-xs mb-1">
-                                {t(`pm.status.${entry.entryStatus}`)}
-                              </Badge>
-                              {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
-                              {(detailTasksByProject.get(entry.projectId) ?? []).length > 0 && (
-                                <div className="mt-1.5 space-y-0.5">
-                                  {detailTasksByProject.get(entry.projectId)!.map(task => {
-                                    const closedHere = task.completedMeetingId === detail.id;
-                                    return (
-                                      <TaskLine
-                                        key={task.id}
-                                        title={task.title}
-                                        assigneeName={task.assigneeName}
-                                        dueDate={task.dueDate}
-                                        completedAt={task.completedAt}
-                                        done={task.status === 'done'}
-                                        meta={<Badge variant={closedHere ? 'secondary' : 'outline'} className="text-[10px] px-1 py-0 shrink-0">
-                                          {t(closedHere ? 'pm.tasks.closedHere' : 'pm.tasks.createdHere')}
-                                        </Badge>}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {detail && editMode && (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">{t('pm.meetings.fieldNotes')}</label>
-                <Textarea placeholder={t('pm.meetings.notesPlaceholder')} value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={2} />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">{t('pm.meetings.projectsSection')} ({editEntries.length})</p>
-                {editEntriesByEmployee.map((group, idx) => {
-                  const collapsed = collapsedDetailGroups.has(group.key);
-                  return (
-                  <div key={group.key} className="rounded-md border overflow-hidden">
-                    <button
-                      type="button"
-                      className={`w-full px-3 py-2 text-sm font-semibold flex items-center gap-2 text-left ${GROUP_COLORS[idx % GROUP_COLORS.length]}`}
-                      onClick={() => toggleDetailGroup(group.key)}
-                    >
-                      <Users className="h-3.5 w-3.5 opacity-70 shrink-0" />
-                      <span className="flex-1">{group.employeeName ?? t('pm.reports.unassigned')}</span>
-                      <span className="font-normal text-muted-foreground">({group.entries.length})</span>
-                      {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </button>
-                    {!collapsed && <table className="w-full table-fixed text-sm">
-                      {entryColGroup}
-                      <thead>
-                        <tr className="border-b bg-muted/50 text-muted-foreground">
-                          <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colProject')}</th>
-                          <th className="text-left px-3 py-2 font-medium">{t('common.status')}</th>
-                          <th className="text-left px-3 py-2 font-medium">{t('pm.meetings.colNote')}</th>
-                          <th className="text-left px-3 py-2 font-medium">
-                            <div>{t('pm.meetings.colLastMeeting')}</div>
-                            {(() => { const d = group.entries.map(e => e.lastMeetingDate).filter(Boolean).sort().at(-1); return d ? <div className="text-xs font-normal text-muted-foreground">{formatDate(d)}</div> : null; })()}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.entries.map(entry => (
-                          <Fragment key={entry.projectId}>
-                          <tr className="border-b">
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <button type="button" onClick={() => setQuickViewId(entry.projectId)} className="flex items-center gap-1 font-medium hover:underline text-left">
-                                  {entry.projectName}
-                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                </button>
-                                <ProjectNotesHint notes={entry.projectNotes} />
-                                {addTaskButton(entry.projectId)}
-                              </div>
-                              <div className="text-xs text-muted-foreground">{entry.projectNumber}</div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <Select value={entry.entryStatus} onValueChange={v => updateEditEntry(entry.projectId, 'entryStatus', v)}>
-                                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="active">{t('pm.status.active')}</SelectItem>
-                                  <SelectItem value="on_hold">{t('pm.status.on_hold')}</SelectItem>
-                                  <SelectItem value="completed">{t('pm.status.completed')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-3 py-2">
-                              <Input
-                                className="h-7 text-xs"
-                                placeholder={t('pm.meetings.notePlaceholder')}
-                                value={entry.notes ?? ''}
-                                onChange={e => updateEditEntry(entry.projectId, 'notes', e.target.value)}
-                                onKeyDown={focusNextNote}
-                                data-meeting-note
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              {entry.lastEntryNotes
-                                ? <span className="text-xs text-muted-foreground italic">{entry.lastEntryNotes}</span>
-                                : <span className="text-xs text-muted-foreground">—</span>}
-                            </td>
-                          </tr>
-                          {renderTaskRow(entry.projectId, entry.employeeId)}
-                          </Fragment>
-                        ))}
-                      </tbody>
-                    </table>}
-                  </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            {!editMode ? (
-              <>
-                <Button variant="outline" onClick={() => setDetailId(null)}>{t('common.close')}</Button>
-                {can('projects', 'manage') && <Button variant="outline" onClick={openEditMode} disabled={!detail || !activeProjects}>{t('common.edit')}</Button>}
-                {detail && can('projects', 'delete') && (
-                  <Button variant="destructive" onClick={() => { if (confirm(t('pm.meetings.deleteConfirm'))) { deleteMeeting.mutate(detail.id); setDetailId(null); } }}>
-                    {t('common.delete')}
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={requestCancelEdit}>{t('common.cancel')}</Button>
-                <Button onClick={() => updateMeeting.mutate(detail!.id)} disabled={updateMeeting.isPending}>
-                  {updateMeeting.isPending ? t('common.loading') : t('common.save')}
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Project quick-view */}
-      <Dialog open={!!quickViewId} onOpenChange={o => { if (!o) setQuickViewId(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {quickViewProject ? `${quickViewProject.name} (${quickViewProject.projectNumber})` : '…'}
-            </DialogTitle>
-          </DialogHeader>
-          {quickViewProject && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                <div className="text-muted-foreground">{t('pm.projects.fieldCustomer')}</div>
-                <div>{quickViewProject.customerName || '—'}</div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldFacility')}</div>
-                <div>{quickViewProject.facilityName || '—'}</div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldEmployee')}</div>
-                <div>{quickViewProject.employeeName || '—'}</div>
-                <div className="text-muted-foreground">{t('common.status')}</div>
-                <div><Badge variant="outline">{t(`pm.status.${quickViewProject.status}`)}</Badge></div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldPriority')}</div>
-                <div><Badge variant="secondary">{t(`pm.priority.${quickViewProject.priority}`)}</Badge></div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldStartDate')}</div>
-                <div>{quickViewProject.startDate ? formatDate(quickViewProject.startDate) : '—'}</div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldEndDate')}</div>
-                <div>{quickViewProject.endDate ? formatDate(quickViewProject.endDate) : '—'}</div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldContractValue')}</div>
-                <div>{quickViewProject.contractValue ? `${Number(quickViewProject.contractValue).toLocaleString('sl-SI')} €` : '—'}</div>
-                <div className="text-muted-foreground">{t('pm.projects.fieldInvoiced')}</div>
-                <div>{quickViewProject.invoicedAmount ? `${Number(quickViewProject.invoicedAmount).toLocaleString('sl-SI')} €` : '—'}</div>
-              </div>
-              {quickViewProject.notes && (
-                <div className="pt-1 border-t">
-                  <p className="text-muted-foreground mb-1">{t('pm.projects.fieldNotes')}</p>
-                  <p className="whitespace-pre-wrap">{quickViewProject.notes}</p>
-                </div>
-              )}
-              <div className="pt-2 border-t flex justify-end">
-                {/* New tab so unsaved meeting edits in the dialog underneath aren't lost */}
-                <Button variant="outline" size="sm" onClick={() => window.open(`/pm/projects/${quickViewProject.id}`, '_blank', 'noopener')}>
-                  {t('pm.meetings.openProject')} <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Unsaved changes warning */}
-      <Dialog open={!!discardTarget || navBlocker.state === 'blocked'} onOpenChange={o => { if (!o) cancelDiscard(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{t('pm.meetings.discardTitle')}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">{t('pm.meetings.discardText')}</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={cancelDiscard}>{t('pm.meetings.discardKeepEditing')}</Button>
-            <Button variant="destructive" onClick={confirmDiscard}>{t('pm.meetings.discardConfirm')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

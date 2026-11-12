@@ -85,6 +85,7 @@ export const createPmMeetingSchema = z.object({
 });
 
 export const updatePmMeetingSchema = z.object({
+  meetingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   notes: z.string().optional().nullable(),
   entries: z.array(z.object({
     projectId: z.string().uuid(),

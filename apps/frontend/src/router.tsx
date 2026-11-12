@@ -20,6 +20,8 @@ const PmProjectsPage = lazy(() => import('@/extensions/projects/pages/ProjectsPa
 const PmProjectDetailPage = lazy(() => import('@/extensions/projects/pages/ProjectDetailPage'));
 const PmKimaiLinksPage = lazy(() => import('@/extensions/projects/pages/KimaiLinksPage'));
 const PmMeetingsPage = lazy(() => import('@/extensions/projects/pages/MeetingsPage'));
+const PmMeetingDetailPage = lazy(() => import('@/extensions/projects/pages/MeetingDetailPage'));
+const PmMeetingFormPage = lazy(() => import('@/extensions/projects/pages/MeetingFormPage'));
 const PmReportsPage = lazy(() => import('@/extensions/projects/pages/ProjectReportsPage'));
 const PmMyTasksPage = lazy(() => import('@/extensions/projects/pages/MyTasksPage'));
 const ChangelogProjectsPage = lazy(() => import('@/extensions/changelog/pages/ChangelogProjectsPage'));
@@ -138,6 +140,9 @@ export const router = createBrowserRouter([
       { path: 'pm/projects/kimai-links', element: withSuspense(<ProtectedRoute permKey="projects.manage"><PmKimaiLinksPage /></ProtectedRoute>) },
       { path: 'pm/projects/:id', element: withSuspense(<ProtectedRoute permKey="projects.access"><PmProjectDetailPage /></ProtectedRoute>) },
       { path: 'pm/meetings', element: withSuspense(<ProtectedRoute permKey="projects.access"><PmMeetingsPage /></ProtectedRoute>) },
+      { path: 'pm/meetings/new', element: withSuspense(<ProtectedRoute permKey="projects.manage"><PmMeetingFormPage /></ProtectedRoute>) },
+      { path: 'pm/meetings/:id', element: withSuspense(<ProtectedRoute permKey="projects.access"><PmMeetingDetailPage /></ProtectedRoute>) },
+      { path: 'pm/meetings/:id/edit', element: withSuspense(<ProtectedRoute permKey="projects.manage"><PmMeetingFormPage /></ProtectedRoute>) },
       { path: 'pm/reports', element: withSuspense(<ProtectedRoute permKey="projects.access"><PmReportsPage /></ProtectedRoute>) },
       { path: 'pm/tasks', element: withSuspense(<ProtectedRoute permKey="projects.access"><PmMyTasksPage /></ProtectedRoute>) },
       { path: 'changelog/projects', element: withSuspense(<ProtectedRoute permKey="changelog.access"><ChangelogProjectsPage /></ProtectedRoute>) },

@@ -11,16 +11,25 @@ import { requireRole } from '../../../middleware/role';
 const router = Router();
 router.use(requireRole('projects', 'access'));
 
-// List meetings (paginated, newest first, optional year filter)
+// List meetings (paginated, newest first, optional year filter and text search)
+// ?q= matches the meeting notes, entry notes, and the names / numbers of the projects discussed
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string ?? '20', 10)));
   const offset = (page - 1) * limit;
   const year = req.query.year ? parseInt(req.query.year as string, 10) : null;
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
 
-  const where = year
-    ? sql`extract(year from ${pmWeeklyMeetings.meetingDate}::date) = ${year}`
-    : undefined;
+  const conditions = [];
+  if (year) conditions.push(sql`extract(year from ${pmWeeklyMeetings.meetingDate}::date) = ${year}`);
+  if (q) {
+    const pattern = `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`;
+    conditions.push(sql`(${pmWeeklyMeetings.notes} ilike ${pattern} or exists (
+      select 1 from pm_meeting_entries me join pm_projects p on p.id = me.project_id
+      where me.meeting_id = ${pmWeeklyMeetings.id}
+        and (me.notes ilike ${pattern} or p.name ilike ${pattern} or p.project_number ilike ${pattern})))`);
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [meetings, [{ count }]] = await Promise.all([
     db.select({
@@ -31,17 +40,44 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       createdByName: users.name,
       createdAt: pmWeeklyMeetings.createdAt,
       updatedAt: pmWeeklyMeetings.updatedAt,
+      // Per-meeting counts for the list cards
+      projectCount: sql<number>`(select count(*)::int from pm_meeting_entries me where me.meeting_id = ${pmWeeklyMeetings.id})`,
+      notedCount: sql<number>`(select count(*)::int from pm_meeting_entries me where me.meeting_id = ${pmWeeklyMeetings.id} and coalesce(trim(me.notes), '') <> '')`,
+      completedCount: sql<number>`(select count(*)::int from pm_meeting_entries me where me.meeting_id = ${pmWeeklyMeetings.id} and me.entry_status = 'completed')`,
+      onHoldCount: sql<number>`(select count(*)::int from pm_meeting_entries me where me.meeting_id = ${pmWeeklyMeetings.id} and me.entry_status = 'on_hold')`,
+      tasksCreated: sql<number>`(select count(*)::int from pm_project_tasks t where t.meeting_id = ${pmWeeklyMeetings.id})`,
+      tasksClosed: sql<number>`(select count(*)::int from pm_project_tasks t where t.completed_meeting_id = ${pmWeeklyMeetings.id})`,
     })
       .from(pmWeeklyMeetings)
       .leftJoin(users, eq(pmWeeklyMeetings.createdById, users.id))
       .where(where)
-      .orderBy(desc(pmWeeklyMeetings.meetingDate))
+      .orderBy(desc(pmWeeklyMeetings.meetingDate), desc(pmWeeklyMeetings.createdAt))
       .limit(limit)
       .offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(pmWeeklyMeetings).where(where),
   ]);
 
   res.json({ data: meetings, total: Number(count), page, limit, totalPages: Math.ceil(Number(count) / limit) });
+});
+
+// Summary for the top of the meetings page.
+// ?today=YYYY-MM-DD is the user's local date, so "overdue" matches what the task lists show.
+router.get('/stats/summary', async (req: Request, res: Response): Promise<void> => {
+  const today = typeof req.query.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.today) ? req.query.today : null;
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT max(meeting_date) FROM pm_weekly_meetings) AS last_meeting_date,
+      (SELECT count(*)::int FROM pm_projects WHERE status = 'active') AS active_projects,
+      (SELECT count(*)::int FROM pm_project_tasks WHERE status = 'open') AS open_tasks,
+      (SELECT count(*)::int FROM pm_project_tasks WHERE status = 'open' AND due_date < ${today ?? sql`current_date`}::date) AS overdue_tasks
+  `);
+  const r = result.rows[0] as any;
+  res.json({
+    lastMeetingDate: r.last_meeting_date ?? null,
+    activeProjects: Number(r.active_projects ?? 0),
+    openTasks: Number(r.open_tasks ?? 0),
+    overdueTasks: Number(r.overdue_tasks ?? 0),
+  });
 });
 
 // Get single meeting with entries + project info
@@ -86,7 +122,19 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   // Tasks created or closed in this meeting
   const tasks = await selectTasks(or(eq(pmProjectTasks.meetingId, req.params.id), eq(pmProjectTasks.completedMeetingId, req.params.id)));
 
-  res.json({ ...meeting, entries, tasks });
+  // Neighbouring meetings for the previous / next buttons (same order as the list)
+  const key = sql`(${pmWeeklyMeetings.meetingDate}, ${pmWeeklyMeetings.createdAt})`;
+  const self = sql`(select m.meeting_date, m.created_at from pm_weekly_meetings m where m.id = ${meeting.id})`;
+  const [[prev], [next]] = await Promise.all([
+    db.select({ id: pmWeeklyMeetings.id, meetingDate: pmWeeklyMeetings.meetingDate }).from(pmWeeklyMeetings)
+      .where(sql`${key} < ${self}`)
+      .orderBy(desc(pmWeeklyMeetings.meetingDate), desc(pmWeeklyMeetings.createdAt)).limit(1),
+    db.select({ id: pmWeeklyMeetings.id, meetingDate: pmWeeklyMeetings.meetingDate }).from(pmWeeklyMeetings)
+      .where(sql`${key} > ${self}`)
+      .orderBy(pmWeeklyMeetings.meetingDate, pmWeeklyMeetings.createdAt).limit(1),
+  ]);
+
+  res.json({ ...meeting, entries, tasks, prev: prev ?? null, next: next ?? null });
 });
 
 // Tasks for the meeting form: all open tasks, plus (when editing) tasks created or closed in that meeting
@@ -179,7 +227,11 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   let createdTaskIds: string[] = [];
   const updated = await db.transaction(async (tx) => {
     const [meeting] = await tx.update(pmWeeklyMeetings)
-      .set({ notes: parsed.data.notes ?? null, updatedAt: new Date() })
+      .set({
+        notes: parsed.data.notes ?? null,
+        ...(parsed.data.meetingDate ? { meetingDate: parsed.data.meetingDate } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(pmWeeklyMeetings.id, req.params.id))
       .returning();
     if (!meeting) return meeting;
