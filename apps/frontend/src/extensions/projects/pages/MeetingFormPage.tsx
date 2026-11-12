@@ -245,8 +245,10 @@ export default function MeetingFormPage() {
 
   return (
     <div className="pb-10">
-      {/* Header stays visible while scrolling through the projects */}
-      <div className="sticky top-0 z-20 -mx-4 lg:-mx-6 -mt-4 lg:-mt-6 mb-6 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+      {/* Header stays visible while scrolling through the projects.
+          Sticky stops at the scroll container's padding edge, so the negative top offset
+          (same as <main>'s p-4 / lg:p-6) pins it flush under the top bar with no gap. */}
+      <div className="sticky -top-4 lg:-top-6 z-20 -mx-4 lg:-mx-6 -mt-4 lg:-mt-6 mb-6 border-b bg-background shadow-sm">
         <div className="px-4 lg:px-6 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate(backTo)} title={t('common.back')}>
             <ArrowLeft className="h-4 w-4" />
