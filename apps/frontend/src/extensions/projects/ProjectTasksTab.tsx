@@ -88,6 +88,7 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
           title={task.title}
           assigneeName={task.assigneeName}
           dueDate={task.dueDate}
+          completedAt={task.completedAt}
           done={task.status === 'done'}
           disabled={updateTask.isPending || toggleOwnTask.isPending}
           onToggle={onToggle}

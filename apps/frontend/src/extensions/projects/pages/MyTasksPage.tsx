@@ -24,6 +24,16 @@ export default function MyTasksPage() {
 
   const [assignee, setAssignee] = useState('me');
   const [showDone, setShowDone] = useState(false);
+  // Tasks with a status change in flight — only those rows are locked
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  function setPending(taskId: string, pending: boolean) {
+    setPendingIds(prev => {
+      const next = new Set(prev);
+      if (pending) next.add(taskId); else next.delete(taskId);
+      return next;
+    });
+  }
 
   const { data: tasks = [], isLoading } = useQuery<TaskWithProject[]>({
     queryKey: ['pm-my-tasks', assignee, showDone],
@@ -33,7 +43,22 @@ export default function MyTasksPage() {
   const toggle = useMutation({
     mutationFn: ({ taskId, done }: { taskId: string; done: boolean }) =>
       api.patch(`/pm/tasks/${taskId}/status`, { status: done ? 'done' : 'open' }),
-    onSuccess: () => {
+    onMutate: ({ taskId }) => setPending(taskId, true),
+    onSettled: (_data, _err, { taskId }) => setPending(taskId, false),
+    onSuccess: (_data, { taskId, done }) => {
+      if (done) {
+        toast(tItem => (
+          <div className="flex items-center gap-3">
+            <span className="text-sm">{t('pm.tasks.completedOk')}</span>
+            <button
+              className="text-sm font-medium underline shrink-0"
+              onClick={() => { toggle.mutate({ taskId, done: false }); toast.dismiss(tItem.id); }}
+            >
+              {t('common.undo')}
+            </button>
+          </div>
+        ), { duration: 6000 });
+      }
       qc.invalidateQueries({ queryKey: ['pm-my-tasks'] });
       qc.invalidateQueries({ queryKey: ['pm-my-task-count'] });
       qc.invalidateQueries({ queryKey: ['notifications'] });
@@ -46,7 +71,9 @@ export default function MyTasksPage() {
 
   const overdue = tasks.filter(task => isTaskOverdue(task));
   const open = tasks.filter(task => task.status === 'open' && !isTaskOverdue(task));
-  const done = tasks.filter(task => task.status === 'done');
+  const done = tasks
+    .filter(task => task.status === 'done')
+    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
 
   function renderSection(title: string, list: TaskWithProject[], className = '') {
     if (list.length === 0) return null;
@@ -59,8 +86,9 @@ export default function MyTasksPage() {
               title={task.title}
               assigneeName={assignee === 'me' ? undefined : task.assigneeName}
               dueDate={task.dueDate}
+              completedAt={task.completedAt}
               done={task.status === 'done'}
-              disabled={toggle.isPending}
+              disabled={pendingIds.has(task.id)}
               onToggle={isDone => toggle.mutate({ taskId: task.id, done: isDone })}
               meta={
                 <button type="button" className="text-muted-foreground hover:underline shrink-0 max-w-[40%] truncate text-left"

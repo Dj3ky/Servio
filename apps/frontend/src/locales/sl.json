@@ -749,7 +749,9 @@
       "filterMine": "Moje naloge",
       "filterAll": "Vse naloge",
       "showDone": "Prikaži zaključene",
-      "noneOpen": "Ni odprtih nalog."
+      "noneOpen": "Ni odprtih nalog.",
+      "completedOk": "Naloga zaključena",
+      "completedOn": "Zaključeno {{date}}"
     },
     "notes": {
       "tab": "Zapiski",

@@ -739,7 +739,9 @@
       "filterMine": "My tasks",
       "filterAll": "All tasks",
       "showDone": "Show done",
-      "noneOpen": "No open tasks."
+      "noneOpen": "No open tasks.",
+      "completedOk": "Task completed",
+      "completedOn": "Completed {{date}}"
     },
     "notes": {
       "tab": "Notes",

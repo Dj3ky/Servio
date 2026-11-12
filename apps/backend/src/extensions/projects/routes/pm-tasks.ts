@@ -5,7 +5,9 @@ import { db } from '../../../db';
 import { pmProjectTasks } from '../schema';
 import { requireRole } from '../../../middleware/role';
 import { getPermissions } from '../../../services/permissionsService';
-import { selectTasks } from '../tasks';
+import { selectTasks, selectRecentDoneTasks } from '../tasks';
+
+const RECENT_DONE_LIMIT = 50;
 import { markTaskNotificationsRead, notifyTaskCompleted } from '../taskNotifications';
 
 const router = Router();
@@ -16,7 +18,8 @@ function canManage(role: string) {
   return (perms.projects?.manage ?? []).includes(role);
 }
 
-// Tasks across all projects. ?assignee=me (default) | all | <userId>, ?status=open (default) | all.
+// Tasks across all projects. ?assignee=me (default) | all | <userId>,
+// ?status=open (default) | all (open + the latest RECENT_DONE_LIMIT done tasks).
 // Users who can't manage projects only ever get their own tasks.
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const { userId, role } = req.auth!;
@@ -28,9 +31,12 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (!z.string().uuid().safeParse(assignee).success) { res.status(400).json({ error: 'errors.validation' }); return; }
     conditions.push(eq(pmProjectTasks.assigneeId, assignee));
   }
-  if (req.query.status !== 'all') conditions.push(eq(pmProjectTasks.status, 'open'));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  res.json(await selectTasks(conditions.length > 0 ? and(...conditions) : undefined));
+  const open = await selectTasks(and(where, eq(pmProjectTasks.status, 'open')));
+  // Done tasks are capped to the most recently completed ones so the list doesn't grow forever
+  const done = req.query.status === 'all' ? await selectRecentDoneTasks(where, RECENT_DONE_LIMIT) : [];
+  res.json([...open, ...done]);
 });
 
 // Open / overdue counts of the current user's tasks, for the sidebar badge

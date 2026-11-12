@@ -35,14 +35,17 @@ export function usePmEmployees(enabled = true) {
 }
 
 // One task row: checkbox, title, owner, due date. Extra actions go in `children`.
+// With `completedAt`, a done task shows its completion date instead of the due date.
 export function TaskLine({
-  title, assigneeName, dueDate, done, onToggle, meta, children, disabled,
+  title, assigneeName, dueDate, completedAt, done, onToggle, meta, children, disabled,
 }: {
   title: string; assigneeName: string | null | undefined; dueDate: string | null; done: boolean; // undefined hides the owner
+  completedAt?: string | null;
   onToggle?: (done: boolean) => void; meta?: ReactNode; children?: ReactNode; disabled?: boolean;
 }) {
   const { t } = useTranslation();
   const overdue = isTaskOverdue({ status: done ? 'done' : 'open', dueDate });
+  const showCompleted = done && !!completedAt;
   return (
     <div className="flex items-center gap-2 text-xs min-h-7">
       {onToggle
@@ -51,10 +54,17 @@ export function TaskLine({
       <span className={`flex-1 min-w-0 break-words ${done ? 'line-through text-muted-foreground' : ''}`}>{title}</span>
       {meta}
       {assigneeName !== undefined && <span className="text-muted-foreground shrink-0">{assigneeName ?? '—'}</span>}
-      <span className={`font-mono shrink-0 whitespace-nowrap w-[92px] text-right ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}
-        title={overdue ? t('pm.tasks.overdue') : undefined}>
-        {dueDate ? formatDate(dueDate) : ''}
-      </span>
+      {showCompleted ? (
+        <span className="font-mono shrink-0 whitespace-nowrap w-[92px] text-right text-green-600 dark:text-green-400"
+          title={t('pm.tasks.completedOn', { date: formatDate(completedAt) })}>
+          ✓ {formatDate(completedAt)}
+        </span>
+      ) : (
+        <span className={`font-mono shrink-0 whitespace-nowrap w-[92px] text-right ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}
+          title={overdue ? t('pm.tasks.overdue') : undefined}>
+          {dueDate ? formatDate(dueDate) : ''}
+        </span>
+      )}
       {children}
     </div>
   );

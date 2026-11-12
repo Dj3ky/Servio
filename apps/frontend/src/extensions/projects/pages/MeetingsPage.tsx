@@ -498,6 +498,7 @@ export default function MeetingsPage() {
               title={task.title}
               assigneeName={task.assigneeName}
               dueDate={task.dueDate}
+              completedAt={task.completedAt}
               done={taskToggles[task.id] ?? task.status === 'done'}
               onToggle={done => toggleTask(task, done)}
               meta={task.meetingDate && <span className="text-muted-foreground shrink-0">{t('pm.tasks.fromMeeting', { date: formatDate(task.meetingDate) })}</span>}
@@ -741,6 +742,7 @@ export default function MeetingsPage() {
                                         title={task.title}
                                         assigneeName={task.assigneeName}
                                         dueDate={task.dueDate}
+                                        completedAt={task.completedAt}
                                         done={task.status === 'done'}
                                         meta={<Badge variant={closedHere ? 'secondary' : 'outline'} className="text-[10px] px-1 py-0 shrink-0">
                                           {t(closedHere ? 'pm.tasks.closedHere' : 'pm.tasks.createdHere')}
