@@ -25,6 +25,19 @@ export function isTaskOverdue(task: { status: string; dueDate: string | null }) 
   return task.status === 'open' && isPastDue(task.dueDate);
 }
 
+// Ids of tasks with a save in flight, so only those rows get locked
+export function usePendingTaskIds() {
+  const [ids, setIds] = useState<Set<string>>(new Set());
+  function setPending(taskId: string, pending: boolean) {
+    setIds(prev => {
+      const next = new Set(prev);
+      if (pending) next.add(taskId); else next.delete(taskId);
+      return next;
+    });
+  }
+  return { isPending: (taskId: string) => ids.has(taskId), setPending };
+}
+
 export function usePmEmployees(enabled = true) {
   const { data = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['pm-employees'],

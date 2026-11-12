@@ -760,6 +760,7 @@
       "showDone": "Prikaži zaključene",
       "noneOpen": "Ni odprtih nalog.",
       "completedOk": "Naloga zaključena",
+      "latestCount": "zadnjih {{count}}",
       "completedOn": "Zaključeno {{date}}"
     },
     "notes": {

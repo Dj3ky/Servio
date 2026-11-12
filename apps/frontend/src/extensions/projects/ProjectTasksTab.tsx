@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TaskLine, TaskForm, type PmTask, type TaskDraft } from './tasks';
+import { TaskLine, TaskForm, usePendingTaskIds, type PmTask, type TaskDraft } from './tasks';
 
 export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   projectId: string; tasks: PmTask[]; defaultAssigneeId: string | null;
@@ -19,6 +19,7 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const userId = useAuthStore(s => s.user?.id);
   const canManage = useCan()('projects', 'manage');
+  const pending = usePendingTaskIds();
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['pm-project-tasks', projectId] });
@@ -38,6 +39,8 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   const updateTask = useMutation({
     mutationFn: ({ taskId, body }: { taskId: string; body: Partial<TaskDraft> & { status?: 'open' | 'done' } }) =>
       api.patch(`/pm/projects/${projectId}/tasks/${taskId}`, body),
+    onMutate: ({ taskId }) => pending.setPending(taskId, true),
+    onSettled: (_data, _err, { taskId }) => pending.setPending(taskId, false),
     onSuccess: (_data, { body }) => {
       invalidate();
       if (!body.status) { toast.success(t('pm.tasks.updatedOk')); setEditingId(null); }
@@ -49,6 +52,8 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
   const toggleOwnTask = useMutation({
     mutationFn: ({ taskId, done }: { taskId: string; done: boolean }) =>
       api.patch(`/pm/tasks/${taskId}/status`, { status: done ? 'done' : 'open' }),
+    onMutate: ({ taskId }) => pending.setPending(taskId, true),
+    onSettled: (_data, _err, { taskId }) => pending.setPending(taskId, false),
     onSuccess: invalidate,
     onError: () => toast.error(t('pm.tasks.error')),
   });
@@ -90,7 +95,7 @@ export function ProjectTasksTab({ projectId, tasks, defaultAssigneeId }: {
           dueDate={task.dueDate}
           completedAt={task.completedAt}
           done={task.status === 'done'}
-          disabled={updateTask.isPending || toggleOwnTask.isPending}
+          disabled={pending.isPending(task.id)}
           onToggle={onToggle}
           meta={task.meetingDate && <span className="text-muted-foreground shrink-0">{t('pm.tasks.fromMeeting', { date: formatDate(task.meetingDate) })}</span>}
         >

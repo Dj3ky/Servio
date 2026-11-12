@@ -750,6 +750,7 @@
       "showDone": "Show done",
       "noneOpen": "No open tasks.",
       "completedOk": "Task completed",
+      "latestCount": "latest {{count}}",
       "completedOn": "Completed {{date}}"
     },
     "notes": {
