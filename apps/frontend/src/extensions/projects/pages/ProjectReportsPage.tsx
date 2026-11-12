@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, Building2, ChevronDown, ChevronRight, Download, Printer, X } from 'lucide-react';
+import {
+  AlertCircle, BarChart3, Building2, ChevronDown, ChevronRight, Clock, Download, PieChart as PieChartIcon,
+  Printer, ReceiptText, Users, X,
+} from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -30,7 +33,7 @@ import type {
   CompletionsRow, CustomerRow, OutstandingProject, OverdueProject, PipelineRow, RevenueTrendRow, SummaryData, WorkloadGroup,
 } from '../reports/types';
 
-const TABS = ['revenue', 'outstanding', 'workload', 'status', 'overdue', 'customers'] as const;
+const TABS = ['revenue', 'outstanding', 'overdue', 'workload', 'customers', 'status'] as const;
 type Tab = typeof TABS[number];
 
 const currentYear = new Date().getFullYear();
@@ -443,24 +446,34 @@ export default function ProjectReportsPage() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="revenue">{t('pm.reports.tabRevenue')}</TabsTrigger>
-          <TabsTrigger value="outstanding" className="gap-1.5">
-            {t('pm.reports.tabOutstanding')}
-            {outstandingRows.length > 0 && (
-              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{outstandingRows.length}</span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="workload">{t('pm.reports.tabWorkload')}</TabsTrigger>
-          <TabsTrigger value="status">{t('pm.reports.tabStatus')}</TabsTrigger>
-          <TabsTrigger value="overdue" className="gap-1.5">
-            {t('pm.reports.tabOverdue')}
-            {overdueRows.length > 0 && (
-              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{overdueRows.length}</span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="customers">{t('pm.reports.tabCustomers')}</TabsTrigger>
-        </TabsList>
+        {/* Underline tabs; one scrolling row on narrow screens instead of wrapping */}
+        <div className="-mx-6 overflow-x-auto px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="h-auto w-full min-w-max justify-start gap-1 rounded-none border-b bg-transparent p-0">
+            {([
+              { value: 'revenue', label: t('pm.reports.tabRevenue'), icon: BarChart3 },
+              { value: 'outstanding', label: t('pm.reports.tabOutstanding'), icon: ReceiptText, count: loadingOutstanding ? null : outstandingRows.length },
+              { value: 'overdue', label: t('pm.reports.tabOverdue'), icon: Clock, count: loadingOverdue ? null : overdueRows.length },
+              { value: 'workload', label: t('pm.reports.tabWorkload'), icon: Users },
+              { value: 'customers', label: t('pm.reports.tabCustomers'), icon: Building2 },
+              { value: 'status', label: t('pm.reports.tabStatus'), icon: PieChartIcon },
+            ] satisfies { value: Tab; label: string; icon: typeof Clock; count?: number | null }[]).map(item => (
+              <TabsTrigger
+                key={item.value}
+                value={item.value}
+                className="group relative -mb-px h-11 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-3 text-muted-foreground shadow-none hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              >
+                <item.icon className="h-4 w-4 opacity-70 group-data-[state=active]:opacity-100 group-data-[state=active]:text-primary" />
+                {item.label}
+                {'count' in item && item.count != null && (
+                  <span className={cn(
+                    'inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
+                    item.count > 0 ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'bg-muted text-muted-foreground',
+                  )}>{item.count}</span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         {/* ── Revenue ─────────────────────────────────────────────────────── */}
         <TabsContent value="revenue" className="mt-4">
