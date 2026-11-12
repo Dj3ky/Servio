@@ -1,4 +1,4 @@
-// Underlined tabs with count badges, shared by the projects list and the project page
+// Underlined tabs with count badges — the standard tab menu style across Servio
 
 export const underlineTabsList =
   'h-auto w-full justify-start gap-6 overflow-x-auto overflow-y-hidden rounded-none border-b bg-transparent p-0';

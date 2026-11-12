@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, desc, and, ilike, isNull, inArray } from 'drizzle-orm';
+import { eq, desc, and, ilike, isNull, inArray, lt } from 'drizzle-orm';
 import { db } from '../../../db';
 import { clProjects, clEntries, clEntryAttachments } from '../schema';
 import { requireRole } from '../../../middleware/role';
@@ -12,11 +12,14 @@ router.use(requireRole('changelog', 'access'));
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const categoryId = req.query.categoryId as string | undefined;
   const search = req.query.search as string | undefined;
-  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string ?? '50', 10)));
+  const limit = Math.min(200, Math.max(1, parseInt((req.query.limit as string) ?? '50', 10) || 50));
+  // Cursor for "load more": only entries older than this timestamp
+  const before = req.query.before ? new Date(req.query.before as string) : null;
 
   const conditions = [isNull(clEntries.deletedAt)];
   if (categoryId) conditions.push(eq(clEntries.categoryId, categoryId));
   if (search) conditions.push(ilike(clEntries.note, `%${search}%`));
+  if (before && !isNaN(before.getTime())) conditions.push(lt(clEntries.createdAt, before));
 
   const entries = await db.select({
     id: clEntries.id,

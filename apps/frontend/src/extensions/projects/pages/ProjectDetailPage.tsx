@@ -26,7 +26,7 @@ import { useKimaiStatus } from '../kimai';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
-import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '../tabStyles';
+import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '@/components/ui/tab-styles';
 import { ProjectNotesBox } from '../ProjectNotesBox';
 
 const DETAIL_TABS = ['meetings', 'tasks', 'notes', 'phases', 'documents', 'invoicesIssued', 'invoicesReceived', 'hours'] as const;

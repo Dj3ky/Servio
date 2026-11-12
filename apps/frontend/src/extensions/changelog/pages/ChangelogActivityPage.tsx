@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, History } from 'lucide-react';
+import { Search, History, FolderOpen } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getCategoryLabel, groupByDay, type ClCategory } from '../constants';
-import { Avatar, CategoryPill, AttachmentGrid, type EntryAttachment } from '../EntryComponents';
+import { groupByDay, type ClCategory } from '../constants';
+import { CategoryChips, TimelineDayHeader, TimelineEntry, TimelineSkeleton, type EntryAttachment } from '../EntryComponents';
+import { ChangelogTabs } from '../ChangelogTabs';
 
 interface ActivityEntry {
   id: string;
@@ -25,6 +24,8 @@ interface ActivityEntry {
   attachments: EntryAttachment[];
 }
 
+const PAGE_SIZE = 50;
+
 export default function ChangelogActivityPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -38,95 +39,88 @@ export default function ChangelogActivityPage() {
     queryFn: () => api.get('/changelog/categories'),
   });
 
-  const params = new URLSearchParams();
-  if (categoryFilter) params.set('categoryId', categoryFilter);
-  if (debouncedSearch) params.set('search', debouncedSearch);
-
-  const { data: entries, isLoading } = useQuery<ActivityEntry[]>({
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['changelog-activity', categoryFilter, debouncedSearch],
-    queryFn: () => api.get(`/changelog/activity?${params}`),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (categoryFilter) params.set('categoryId', categoryFilter);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (pageParam) params.set('before', pageParam);
+      return api.get<ActivityEntry[]>(`/changelog/activity?${params}`);
+    },
+    getNextPageParam: (lastPage: ActivityEntry[]) =>
+      lastPage.length < PAGE_SIZE ? undefined : lastPage[lastPage.length - 1].createdAt,
   });
+
+  // Pages can overlap by one entry at the cursor boundary, so de-duplicate by id
+  const seen = new Set<string>();
+  const entries = (data?.pages ?? []).flat().filter(e => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 
   function categoryFor(categoryId: string | null) {
     return (categories ?? []).find(c => c.id === categoryId) ?? null;
   }
 
-  const dayGroups = groupByDay(entries ?? [], t, i18n.language);
+  const dayGroups = groupByDay(entries, t, i18n.language);
 
   return (
     <div className="p-6 space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate('/changelog/projects')} className="-ml-2">
-        <ArrowLeft className="h-4 w-4 mr-2" />{t('common.back')}
-      </Button>
-
       <div>
-        <h1 className="text-2xl font-bold">{t('changelog.activity.title')}</h1>
+        <h1 className="text-2xl font-bold">{t('changelog.projects.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('changelog.activity.subtitle')}</p>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
+      <ChangelogTabs value="activity" />
+
+      <div className="space-y-3">
+        <div className="relative max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={categoryFilter || 'all'} onValueChange={v => setCategoryFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[220px]"><SelectValue placeholder={t('changelog.entries.allCategories')} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('changelog.entries.allCategories')}</SelectItem>
-            {(categories ?? []).map(c => (
-              <SelectItem key={c.id} value={c.id}>
-                <CategoryPill category={c} label={getCategoryLabel(c, t)} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CategoryChips categories={categories ?? []} value={categoryFilter} onChange={setCategoryFilter} />
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</p>}
+      {isLoading && <TimelineSkeleton />}
 
-      {!isLoading && (entries ?? []).length === 0 && (
-        <div className="rounded-md border py-12 text-center text-muted-foreground">
+      {!isLoading && entries.length === 0 && (
+        <div className="rounded-lg border border-dashed py-14 text-center text-muted-foreground">
           <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">{t('common.noData')}</p>
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="max-w-4xl">
         {dayGroups.map(group => (
-          <div key={group.label} className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h3>
-            {group.items.map(entry => {
-              const cat = categoryFor(entry.categoryId);
-              return (
-                <div key={entry.id} className="rounded-lg border p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {cat && <CategoryPill category={cat} label={getCategoryLabel(cat, t)} />}
-                      <Avatar name={entry.authorName} />
-                      <span className="text-sm font-medium">{entry.authorName}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(entry.createdAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {entry.editedAt && (
-                        <span className="text-xs text-muted-foreground">
-                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: formatDateTime(entry.editedAt) })}
-                        </span>
-                      )}
-                    </div>
+          <section key={group.label}>
+            <TimelineDayHeader label={group.label} />
+            <ol className="pt-2 pb-4">
+              {group.items.map(entry => (
+                <TimelineEntry
+                  key={entry.id}
+                  entry={entry}
+                  category={categoryFor(entry.categoryId)}
+                  aside={
                     <button
-                      className="text-xs font-medium text-primary hover:underline shrink-0"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors max-w-[220px]"
                       onClick={() => navigate(`/changelog/projects/${entry.projectId}`)}
                     >
-                      {entry.projectName}
+                      <FolderOpen className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{entry.projectName}</span>
                     </button>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
-                  <AttachmentGrid attachments={entry.attachments} canModify={false} />
-                </div>
-              );
-            })}
-          </div>
+                  }
+                />
+              ))}
+            </ol>
+          </section>
         ))}
+
+        {hasNextPage && (
+          <div className="flex justify-center pt-2">
+            <Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+              {isFetchingNextPage ? t('common.loading') : t('changelog.activity.loadMore')}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

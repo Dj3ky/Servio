@@ -13,9 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { CategoryManagerDialog } from '../CategoryManagerDialog';
 import { ContactsEditor, cleanContacts, type ClContact } from '../ContactsEditor';
+import { ChangelogTabs } from '../ChangelogTabs';
+import { formatRelative } from '../constants';
 
 interface ClProject {
   id: string;
@@ -30,11 +33,13 @@ interface ClProject {
 }
 
 const STATUS_COLORS: Record<string, string> = { active: 'default', completed: 'secondary', archived: 'outline' };
+const STATUS_FILTERS = ['active', 'completed', 'archived', 'all'] as const;
+type StatusFilter = typeof STATUS_FILTERS[number];
 
 const emptyForm = { name: '', description: '', nasPath: '', contacts: [] as ClContact[] };
 
 export default function ChangelogProjectsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuthStore();
@@ -44,6 +49,7 @@ export default function ChangelogProjectsPage() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const debouncedSearch = useDebounce(search, 300);
 
   const params = new URLSearchParams();
@@ -70,19 +76,26 @@ export default function ChangelogProjectsPage() {
     mutation.mutate({ ...form, contacts: cleanContacts(form.contacts) });
   }
 
-  const projects = data ?? [];
+  const allProjects = data ?? [];
+  const counts: Record<StatusFilter, number> = {
+    active: allProjects.filter(p => p.status === 'active').length,
+    completed: allProjects.filter(p => p.status === 'completed').length,
+    archived: allProjects.filter(p => p.status === 'archived').length,
+    all: allProjects.length,
+  };
+  // Most recently touched projects first
+  const projects = allProjects
+    .filter(p => statusFilter === 'all' || p.status === statusFilter)
+    .sort((a, b) => new Date(b.lastActivityAt ?? b.createdAt).getTime() - new Date(a.lastActivityAt ?? a.createdAt).getTime());
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">{t('changelog.projects.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('changelog.projects.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/changelog/activity')}>
-            <History className="h-4 w-4 mr-2" />{t('changelog.activity.title')}
-          </Button>
           {canManageChangelog && (
             <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
               <Settings2 className="h-4 w-4 mr-2" />{t('changelog.categories.manage')}
@@ -92,22 +105,54 @@ export default function ChangelogProjectsPage() {
         </div>
       </div>
 
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
+      <ChangelogTabs value="projects" />
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="inline-flex items-center rounded-lg border p-0.5 bg-muted/40">
+          {STATUS_FILTERS.map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                statusFilter === s ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {s === 'all' ? t('common.all') : t(`changelog.status.${s}`)}
+              {!isLoading && <span className="text-[10px] text-muted-foreground tabular-nums">{counts[s]}</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</p>}
+      {isLoading && (
+        <div className="rounded-lg border divide-y">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-72 max-w-full" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-3 w-20 hidden sm:block" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {!isLoading && projects.length === 0 && (
-        <div className="rounded-md border py-12 text-center text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-14 text-center text-muted-foreground">
           <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">{t('common.noData')}</p>
         </div>
       )}
 
       {!isLoading && projects.length > 0 && (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-lg border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-muted-foreground">
@@ -120,20 +165,22 @@ export default function ChangelogProjectsPage() {
             </thead>
             <tbody>
               {projects.map(p => (
-                <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/changelog/projects/${p.id}`)}>
+                <tr key={p.id} className="group border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/changelog/projects/${p.id}`)}>
                   <td className="px-4 py-3">
                     <div className="font-medium">{p.name}</div>
-                    {p.description && <div className="text-xs text-muted-foreground">{p.description}</div>}
+                    {p.description && <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div>}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={STATUS_COLORS[p.status] as any}>{t(`changelog.status.${p.status}`)}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{p.entryCount}</td>
-                  <td className="px-4 py-3 text-muted-foreground text-sm">
-                    {p.lastActivityAt ? formatDateTime(p.lastActivityAt) : '—'}
+                  <td className="px-4 py-3 text-muted-foreground tabular-nums">{p.entryCount}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
+                    {p.lastActivityAt
+                      ? <span title={formatDateTime(p.lastActivityAt)}>{formatRelative(p.lastActivityAt, i18n.language)}</span>
+                      : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground inline transition-transform group-hover:translate-x-0.5" />
                   </td>
                 </tr>
               ))}

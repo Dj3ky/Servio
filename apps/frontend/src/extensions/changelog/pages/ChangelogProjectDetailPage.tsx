@@ -4,9 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Upload, Paperclip, X, Copy, FolderOpen, Printer } from 'lucide-react';
+import { ChevronRight, Pencil, Trash2, Search, Upload, Paperclip, X, Copy, FolderOpen, Printer, History } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
+import { printHtml, escapeHtml } from '@/lib/printHtml';
 import { useAuthStore } from '@/stores/authStore';
 import { usePermissionsStore } from '@/stores/permissionsStore';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -16,8 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { getCategoryLabel, groupByDay, type ClCategory } from '../constants';
-import { Avatar, CategoryPill, AttachmentGrid, formatFileSize, type EntryAttachment } from '../EntryComponents';
+import { CategoryPill, CategoryChips, TimelineDayHeader, TimelineEntry, TimelineSkeleton, formatFileSize, type EntryAttachment } from '../EntryComponents';
 import { ContactsEditor, ContactsList, cleanContacts, type ClContact } from '../ContactsEditor';
+import { EntryComposer } from '../EntryComposer';
 
 interface ClProject {
   id: string;
@@ -106,11 +108,18 @@ export default function ChangelogProjectDetailPage() {
     return fd;
   }
 
+  const createEntry = useMutation({
+    mutationFn: (fd: FormData) => api.post(`/changelog/projects/${id}/entries`, fd),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['changelog-entries', id] });
+      qc.invalidateQueries({ queryKey: ['changelog-projects'] });
+      toast.success(t('changelog.entries.savedOk'));
+    },
+    onError: () => toast.error(t('changelog.entries.saveError')),
+  });
+
   const saveEntry = useMutation({
-    mutationFn: () =>
-      editingEntryId
-        ? api.patch(`/changelog/projects/${id}/entries/${editingEntryId}`, buildEntryFormData())
-        : api.post(`/changelog/projects/${id}/entries`, buildEntryFormData()),
+    mutationFn: () => api.patch(`/changelog/projects/${id}/entries/${editingEntryId}`, buildEntryFormData()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['changelog-entries', id] });
       qc.invalidateQueries({ queryKey: ['changelog-projects'] });
@@ -190,13 +199,6 @@ export default function ChangelogProjectDetailPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, multiple: true });
 
-  function openCreateEntry() {
-    setEntryForm({ categoryId: categories?.[0]?.id ?? '', note: '' });
-    setEntryFiles([]);
-    setEditingEntryId(null);
-    setEntryDialogOpen(true);
-  }
-
   function openEditEntry(entry: ClEntry) {
     setEntryForm({ categoryId: entry.categoryId ?? '', note: entry.note });
     setEntryFiles([]);
@@ -242,46 +244,47 @@ export default function ChangelogProjectDetailPage() {
 
     const rows = entries.map(e => {
       const cat = categoryFor(e.categoryId);
-      return `<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e2e8f0">
+      const catHtml = cat
+        ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};margin-right:4px"></span><strong>${escapeHtml(getCategoryLabel(cat, t))}</strong> · `
+        : '';
+      return `<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;break-inside:avoid">
         <div style="font-size:11px;color:#555;margin-bottom:3px">
-          ${cat ? `<strong>${getCategoryLabel(cat, t)}</strong> · ` : ''}${e.authorName} · ${new Date(e.createdAt).toLocaleString(i18n.language)}
+          ${catHtml}${escapeHtml(e.authorName)} · ${new Date(e.createdAt).toLocaleString(i18n.language)}
         </div>
-        <div style="font-size:12px;white-space:pre-wrap">${e.note.replace(/</g, '&lt;')}</div>
+        <div style="font-size:12px;white-space:pre-wrap">${escapeHtml(e.note)}</div>
       </div>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>${project.name}</title>
+      <title>${escapeHtml(project.name)}</title>
       <style>
         @page { size: A4; margin: 15mm; }
-        body { font-family: Arial, sans-serif; color: #111; }
+        body { font-family: Arial, sans-serif; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h1 { font-size: 18px; margin: 0 0 2px 0; }
         .meta { font-size: 10px; color: #666; margin-bottom: 16px; }
-        @media print { button { display: none; } }
       </style>
     </head><body>
-      <h1>${project.name}</h1>
-      <div class="meta">${date} · ${entries.length} ${t('changelog.fields.entryCount').toLowerCase()}</div>
+      <h1>${escapeHtml(project.name)}</h1>
+      <div class="meta">${date} · ${entries.length} ${escapeHtml(t('changelog.fields.entryCount').toLowerCase())}</div>
       ${rows}
     </body></html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    printHtml(html);
   }
 
   const dayGroups = groupByDay(entries ?? [], t, i18n.language);
 
   return (
     <div className="p-6 space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate('/changelog/projects')} className="-ml-2">
-        <ArrowLeft className="h-4 w-4 mr-2" />{t('common.back')}
-      </Button>
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+        <button className="hover:text-foreground transition-colors" onClick={() => navigate('/changelog/projects')}>
+          {t('changelog.projects.title')}
+        </button>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span className="text-foreground font-medium truncate">{project?.name}</span>
+      </nav>
 
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{project?.name}</h1>
@@ -305,89 +308,72 @@ export default function ChangelogProjectDetailPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={printChangelog} title={t('common.print')}>
-            <Printer className="h-4 w-4" />
-          </Button>
-          <Button onClick={openCreateEntry}><Plus className="h-4 w-4 mr-2" />{t('changelog.entries.new')}</Button>
-        </div>
+        <Button variant="outline" size="icon" onClick={printChangelog} title={t('common.print')} className="shrink-0">
+          <Printer className="h-4 w-4" />
+        </Button>
       </div>
 
       <ContactsList contacts={project?.contacts ?? []} />
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="max-w-4xl space-y-4">
+        <EntryComposer
+          categories={categories ?? []}
+          pending={createEntry.isPending}
+          onSubmit={fd => createEntry.mutateAsync(fd)}
+        />
+
+        <div className="space-y-3">
+          <div className="relative max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <CategoryChips categories={categories ?? []} value={categoryFilter} onChange={setCategoryFilter} />
         </div>
-        <Select value={categoryFilter || 'all'} onValueChange={v => setCategoryFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[220px]"><SelectValue placeholder={t('changelog.entries.allCategories')} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('changelog.entries.allCategories')}</SelectItem>
-            {(categories ?? []).map(c => (
-              <SelectItem key={c.id} value={c.id}>
-                <CategoryPill category={c} label={getCategoryLabel(c, t)} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</p>}
+        {isLoading && <TimelineSkeleton />}
 
-      {!isLoading && (entries ?? []).length === 0 && (
-        <p className="text-sm text-muted-foreground py-8 text-center">{t('common.noData')}</p>
-      )}
+        {!isLoading && (entries ?? []).length === 0 && (
+          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+            <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">{t('common.noData')}</p>
+          </div>
+        )}
 
-      <div className="space-y-6">
-        {dayGroups.map(group => (
-          <div key={group.label} className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h3>
-            {group.items.map(entry => {
-              const cat = categoryFor(entry.categoryId);
-              return (
-                <div key={entry.id} className="rounded-lg border p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {cat && <CategoryPill category={cat} label={getCategoryLabel(cat, t)} />}
-                      <Avatar name={entry.authorName} />
-                      <span className="text-sm font-medium">{entry.authorName}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</span>
-                      {entry.editedAt && (
-                        <span className="text-xs text-muted-foreground">
-                          · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: formatDateTime(entry.editedAt) })}
-                        </span>
-                      )}
-                    </div>
-                    {canModify(entry) && (
-                      <div className="flex items-center gap-1 shrink-0">
+        <div>
+          {dayGroups.map(group => (
+            <section key={group.label}>
+              <TimelineDayHeader label={group.label} />
+              <ol className="pt-2 pb-4">
+                {group.items.map(entry => (
+                  <TimelineEntry
+                    key={entry.id}
+                    entry={entry}
+                    category={categoryFor(entry.categoryId)}
+                    canModify={canModify(entry)}
+                    onDeleteAttachment={a => setDeleteAttachmentTarget({ entryId: entry.id, attachment: a })}
+                    actions={canModify(entry) ? (
+                      <>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditEntry(entry)} title={t('common.edit')}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(entry)} title={t('common.delete')}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
-                  <AttachmentGrid
-                    attachments={entry.attachments}
-                    canModify={canModify(entry)}
-                    onDelete={(a) => setDeleteAttachmentTarget({ entryId: entry.id, attachment: a })}
+                      </>
+                    ) : undefined}
                   />
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                ))}
+              </ol>
+            </section>
+          ))}
+        </div>
       </div>
 
-      {/* Add/Edit entry dialog */}
+      {/* Edit entry dialog */}
       <Dialog open={entryDialogOpen} onOpenChange={setEntryDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingEntryId ? t('changelog.entries.edit') : t('changelog.entries.new')}</DialogTitle>
+            <DialogTitle>{t('changelog.entries.edit')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEntrySubmit} className="space-y-4">
             <div className="space-y-1">

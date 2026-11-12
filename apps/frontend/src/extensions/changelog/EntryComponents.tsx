@@ -1,7 +1,10 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Paperclip, Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getAvatarColor, getContrastColor, getInitials, type ClCategory } from './constants';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatDateTime } from '@/lib/utils';
+import { getAvatarColor, getCategoryLabel, getContrastColor, getInitials, formatRelative, type ClCategory } from './constants';
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
 
@@ -97,6 +100,139 @@ export function AttachmentGrid({ attachments, canModify, onDelete }: {
               </Button>
             )}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Timeline ────────────────────────────────────────────────────────────────
+
+export interface TimelineEntryData {
+  id: string;
+  note: string;
+  authorName: string;
+  editedByName: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  attachments: EntryAttachment[];
+}
+
+// Day heading that stays pinned at the top while scrolling through that day's entries
+export function TimelineDayHeader({ label }: { label: string }) {
+  return (
+    <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
+    </div>
+  );
+}
+
+// One entry on the vertical timeline: a dot in the category colour, then author, time and the note.
+export function TimelineEntry({ entry, category, aside, actions, canModify = false, onDeleteAttachment }: {
+  entry: TimelineEntryData;
+  category: ClCategory | null;
+  aside?: ReactNode;
+  actions?: ReactNode;
+  canModify?: boolean;
+  onDeleteAttachment?: (attachment: EntryAttachment) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const dotColor = category?.color ?? 'hsl(var(--muted-foreground))';
+
+  return (
+    <li className="group relative pl-7 pb-5 last:pb-1">
+      {/* line + dot */}
+      <span className="absolute left-[5px] top-3 bottom-0 w-px bg-border group-last:hidden" aria-hidden />
+      <span
+        className="absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full ring-4 ring-background"
+        style={{ backgroundColor: dotColor }}
+        aria-hidden
+      />
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <Avatar name={entry.authorName} size="sm" />
+          <span className="text-sm font-medium">{entry.authorName}</span>
+          <span className="text-xs text-muted-foreground" title={formatDateTime(entry.createdAt)}>
+            {formatRelative(entry.createdAt, i18n.language)}
+          </span>
+          {category && <CategoryPill category={category} label={getCategoryLabel(category, t)} />}
+          {entry.editedAt && (
+            <span className="text-xs text-muted-foreground italic" title={formatDateTime(entry.editedAt)}>
+              · {t('changelog.entries.editedBy', { name: entry.editedByName ?? entry.authorName, date: formatRelative(entry.editedAt, i18n.language) })}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {aside}
+          {actions && (
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+              {actions}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="mt-1.5 text-sm whitespace-pre-wrap break-words leading-relaxed">{entry.note}</p>
+      <AttachmentGrid attachments={entry.attachments} canModify={canModify} onDelete={onDeleteAttachment} />
+    </li>
+  );
+}
+
+export function TimelineSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-3 w-24" />
+      <ul className="space-y-6">
+        {Array.from({ length: rows }).map((_, i) => (
+          <li key={i} className="relative pl-7">
+            <Skeleton className="absolute left-0 top-1 h-[11px] w-[11px] rounded-full" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+            <Skeleton className="mt-2 h-3 w-full max-w-lg" />
+            <Skeleton className="mt-1.5 h-3 w-2/3 max-w-sm" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Category filter chips ───────────────────────────────────────────────────
+
+export function CategoryChips({ categories, value, onChange }: {
+  categories: ClCategory[];
+  value: string;
+  onChange: (categoryId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const base = 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors';
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange('')}
+        className={`${base} ${value === '' ? 'border-foreground bg-foreground text-background' : 'text-muted-foreground hover:text-foreground hover:border-foreground/40'}`}
+      >
+        {t('changelog.entries.allCategories')}
+      </button>
+      {categories.map(c => {
+        const active = value === c.id;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onChange(active ? '' : c.id)}
+            className={`${base} ${active ? 'border-transparent' : 'text-muted-foreground hover:text-foreground hover:border-foreground/40'}`}
+            style={active ? { backgroundColor: c.color, color: getContrastColor(c.color) } : undefined}
+          >
+            {!active && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />}
+            {getCategoryLabel(c, t)}
+          </button>
         );
       })}
     </div>

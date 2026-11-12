@@ -1109,7 +1109,11 @@
   "changelog": {
     "activity": {
       "title": "Recent Activity",
-      "subtitle": "The latest entries across every project, in one feed."
+      "subtitle": "The latest entries across every project, in one feed.",
+      "loadMore": "Load older entries"
+    },
+    "tabs": {
+      "projects": "Projects"
     },
     "projects": {
       "title": "Changelog",
@@ -1176,6 +1180,8 @@
       "editedBy": "edited by {{name}} · {{date}}",
       "attachments": "Attachments",
       "dropFiles": "Drag files here or click to browse",
+      "attach": "Attach",
+      "ctrlEnterHint": "Ctrl+Enter to add",
       "savedOk": "Entry saved",
       "saveError": "Failed to save",
       "deletedOk": "Entry deleted",

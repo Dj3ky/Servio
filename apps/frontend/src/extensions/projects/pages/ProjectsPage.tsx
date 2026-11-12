@@ -21,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
-import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '../tabStyles';
+import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '@/components/ui/tab-styles';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { ProjectNoteCount } from '../ProjectNotesTab';
 import { NameSuggestionLists } from '../nameSuggestions';

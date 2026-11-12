@@ -1155,7 +1155,11 @@
   "changelog": {
     "activity": {
       "title": "Nedavna aktivnost",
-      "subtitle": "Zadnji vnosi iz vseh projektov na enem mestu."
+      "subtitle": "Zadnji vnosi iz vseh projektov na enem mestu.",
+      "loadMore": "Naloži starejše vnose"
+    },
+    "tabs": {
+      "projects": "Projekti"
     },
     "projects": {
       "title": "Dnevnik sprememb",
@@ -1222,6 +1226,8 @@
       "editedBy": "uredil {{name}} · {{date}}",
       "attachments": "Priloge",
       "dropFiles": "Povlecite datoteke sem ali kliknite za izbiro",
+      "attach": "Priloži",
+      "ctrlEnterHint": "Ctrl+Enter za dodajanje",
       "savedOk": "Vnos je bil shranjen",
       "saveError": "Napaka pri shranjevanju",
       "deletedOk": "Vnos je bil izbrisan",

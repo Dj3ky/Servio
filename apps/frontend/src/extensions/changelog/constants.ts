@@ -45,6 +45,19 @@ export function getAvatarColor(name: string) {
   return AVATAR_COLOR_PRESETS[Math.abs(hash) % AVATAR_COLOR_PRESETS.length];
 }
 
+// "just now" / "5 min ago" / "3 h ago" / "2 days ago"; older than a week falls back to a date.
+export function formatRelative(value: string | Date, locale: string) {
+  const date = new Date(value);
+  const diffSec = Math.round((date.getTime() - Date.now()) / 1000);
+  const abs = Math.abs(diffSec);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
+  if (abs < 45) return rtf.format(0, 'second');
+  if (abs < 3600) return rtf.format(Math.round(diffSec / 60), 'minute');
+  if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), 'hour');
+  if (abs < 7 * 86400) return rtf.format(Math.round(diffSec / 86400), 'day');
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function dayKey(date: Date) {
   return date.toDateString();
 }
