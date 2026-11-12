@@ -782,7 +782,9 @@
       "uploadError": "Napaka pri nalaganju",
       "deleteConfirm": "Izbriši dokument?",
       "deletedOk": "Dokument izbrisan",
-      "error": "Napaka"
+      "error": "Napaka",
+      "noPreview": "Za to datoteko na tej napravi ni predogleda. Prenesite jo, da jo odprete.",
+      "zoomHint": "Kliknite za povečavo ali pomanjšavo"
     },
     "meetings": {
       "tab": "Sestanki",

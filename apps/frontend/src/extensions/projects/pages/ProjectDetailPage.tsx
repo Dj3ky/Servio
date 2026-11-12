@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { ChevronRight, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn, formatDate, normalizeAmountInput } from '@/lib/utils';
+import { DocumentPreviewDialog, previewKind } from '../DocumentPreview';
+import { StatusBadge } from '../meetings/components';
 import { useCan } from '@/stores/permissionsStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +52,6 @@ interface Project {
   phases: Phase[]; documents: Document[];
 }
 
-const ENTRY_STATUS_COLORS: Record<string, string> = { completed: 'default', active: 'outline', on_hold: 'secondary' };
 
 function formatCurrency(v: string | null | undefined) {
   if (!v) return '—';
@@ -262,6 +263,7 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ['pm-project', id],
@@ -657,9 +659,7 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
                   </Link>
                 )}
                 <div className="flex-1">
-                  <Badge variant={ENTRY_STATUS_COLORS[entry.entryStatus] as any} className="mb-1 text-xs">
-                    {t(`pm.status.${entry.entryStatus}`)}
-                  </Badge>
+                  <StatusBadge status={entry.entryStatus} className="mb-1" />
                   {entry.notes && <p className="text-muted-foreground">{entry.notes}</p>}
                 </div>
               </div>
@@ -681,12 +681,16 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
             {project.documents.map(doc => (
               <div key={doc.id} className="flex items-center gap-3 p-3 rounded-md border bg-card">
                 <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <button
-                  className="flex-1 text-sm text-left hover:underline truncate"
-                  onClick={() => window.open(doc.filePath, '_blank', 'noopener,noreferrer')}
-                >
-                  {doc.originalName}
-                </button>
+                {/* PDFs and images open in an in-app preview (no new window in the installed app); other files download */}
+                {previewKind(doc) ? (
+                  <button className="flex-1 text-sm text-left hover:underline truncate" onClick={() => setPreviewDoc(doc)}>
+                    {doc.originalName}
+                  </button>
+                ) : (
+                  <a href={doc.filePath} download={doc.originalName} className="flex-1 text-sm text-left hover:underline truncate">
+                    {doc.originalName}
+                  </a>
+                )}
                 <span className="text-xs text-muted-foreground shrink-0">
                   {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ''} · {doc.uploaderName}
                 </span>
@@ -864,6 +868,8 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
         onUpload={(files) => uploadDocument.mutate(files)}
         uploading={uploadDocument.isPending}
       />
+
+      <DocumentPreviewDialog doc={previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
 }

@@ -772,7 +772,9 @@
       "uploadError": "Upload error",
       "deleteConfirm": "Delete document?",
       "deletedOk": "Document deleted",
-      "error": "Error"
+      "error": "Error",
+      "noPreview": "There's no preview for this file on this device. Download it to open it.",
+      "zoomHint": "Click to zoom in or out"
     },
     "meetings": {
       "tab": "Meetings",
