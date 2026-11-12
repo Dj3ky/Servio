@@ -50,6 +50,8 @@ const chartTooltip = {
     fontSize: 12,
   },
   labelStyle: { color: 'hsl(var(--popover-foreground))', fontWeight: 600 },
+  // Without this, bars coloured per Cell give the row no colour and it falls back to black (unreadable in dark mode)
+  itemStyle: { color: 'hsl(var(--popover-foreground))' },
 };
 
 const ageSeverity = (days: number): Severity => (days > 90 ? 'high' : days > 30 ? 'medium' : 'low');
