@@ -22,7 +22,7 @@ async function ensureUploadsDir() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
 }
 
-// Filters shared by the project list and the CSV export: archived, search, status, priority, employeeId, customer
+// Filters shared by the project list and the CSV export: archived, year, search, status, priority, employeeId, customer
 function projectFilters(query: Request['query']) {
   const search = query.search as string | undefined;
   const status = query.status as string | undefined;
@@ -46,6 +46,11 @@ function projectFilters(query: Request['query']) {
       ilike(pmProjects.facilityName, pattern),
     ));
   }
+  // Archive year, by completion date
+  const year = Number(query.year);
+  if (Number.isInteger(year) && year > 1900 && year < 3000) {
+    conditions.push(sql`extract(year from ${pmProjects.completedAt}) = ${year}`);
+  }
   if (status && archived !== 'true') conditions.push(eq(pmProjects.status, status));
   if (priority) conditions.push(eq(pmProjects.priority, priority));
   if (employeeId) conditions.push(eq(pmProjects.employeeId, employeeId));
@@ -58,7 +63,7 @@ function projectFilters(query: Request['query']) {
 
 // Order shared by the project list and the CSV export: the archive by completion date, the rest in manual order
 function projectListOrder(query: Request['query']) {
-  return query.archived === 'true' ? desc(pmProjects.completedAt) : pmProjects.sortIndex;
+  return query.archived === 'true' ? sql`${pmProjects.completedAt} desc nulls last` : pmProjects.sortIndex;
 }
 
 // List projects
@@ -164,6 +169,25 @@ router.get('/suggestions', async (_req: Request, res: Response): Promise<void> =
     .map((r) => ({ name: r.facilityName!.trim(), customerName: r.customerName?.trim() || null }));
 
   res.json({ customers, facilities });
+});
+
+// Project totals for the Active / Archive tab badges
+router.get('/counts', async (_req: Request, res: Response): Promise<void> => {
+  const [row] = await db.select({
+    active: sql<number>`count(*) filter (where ${pmProjects.status} <> 'completed')::int`,
+    archived: sql<number>`count(*) filter (where ${pmProjects.status} = 'completed')::int`,
+  }).from(pmProjects);
+  res.json({ active: Number(row.active), archived: Number(row.archived) });
+});
+
+// Years that have completed projects, newest first, for the archive year filter
+router.get('/archive-years', async (_req: Request, res: Response): Promise<void> => {
+  const year = sql<number>`extract(year from ${pmProjects.completedAt})::int`;
+  const rows = await db.selectDistinct({ year })
+    .from(pmProjects)
+    .where(and(eq(pmProjects.status, 'completed'), sql`${pmProjects.completedAt} is not null`))
+    .orderBy(desc(year));
+  res.json(rows.map((r) => Number(r.year)));
 });
 
 const CSV_HEADER ='project_number;name;customer_name;facility_name;employee_name;employee_email;priority;status;order_date;start_date;end_date;contract_value;invoiced_amount;received_amount;notes';

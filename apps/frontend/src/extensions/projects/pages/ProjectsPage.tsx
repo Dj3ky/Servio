@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Link2, Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Archive, FolderOpen, Printer, FileUp, FileDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Link2, Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Printer, FileUp, FileDown, ArrowUp, ArrowDown, MoreHorizontal } from 'lucide-react';
 import { kimaiSafeName } from '@servio/shared';
 import { api } from '@/lib/api';
 import { formatDate, normalizeAmountInput } from '@/lib/utils';
@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
 import { ProjectNotesHint } from '../ProjectNotesHint';
@@ -109,14 +111,19 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  // Archive year: null until the user picks one, then the newest year with completed projects is used
+  const [yearChoice, setYearChoice] = useState<string | null>(null);
   const [groupByEmployee, setGroupByEmployee] = useState(true);
   // Groups the user has clicked; each click flips the group away from its default state
   const [toggledGroups, setToggledGroups] = useState<Set<string>>(new Set());
   const seesAllGroups = user?.role === 'admin' || user?.role === 'manager';
 
-  // Admins and managers start with every group open; everyone else only with their own
+  // Admins and managers start with every group open; everyone else only with their own.
+  // The archive starts fully collapsed (it can get long), except while searching.
   function isGroupCollapsed(key: string) {
-    const collapsedByDefault = !seesAllGroups && key !== user?.id;
+    const collapsedByDefault = archiveMode
+      ? !debouncedSearch
+      : !seesAllGroups && key !== user?.id;
     return collapsedByDefault !== toggledGroups.has(key);
   }
 
@@ -186,17 +193,49 @@ export default function ProjectsPage() {
     }
   }
 
+  const { data: tabCounts } = useQuery<{ active: number; archived: number }>({
+    queryKey: ['pm-projects', 'counts'],
+    queryFn: () => api.get('/pm/projects/counts'),
+  });
+
+  function switchMode(archive: boolean) {
+    setArchiveMode(archive);
+    setStatusFilter('');
+    setToggledGroups(new Set());
+  }
+
+  const { data: archiveYears, isSuccess: archiveYearsLoaded } = useQuery<number[]>({
+    queryKey: ['pm-projects', 'archive-years'],
+    queryFn: () => api.get('/pm/projects/archive-years'),
+    enabled: archiveMode,
+  });
+  // 'all' or a year; defaults to the newest year that has completed projects
+  const selectedYear = yearChoice ?? (archiveYears?.length ? String(archiveYears[0]) : 'all');
+  // A search looks through every year, so old work orders are always findable
+  const yearApplies = archiveMode && !debouncedSearch && selectedYear !== 'all';
+
   const params = new URLSearchParams();
   params.set('archived', archiveMode ? 'true' : 'false');
+  if (yearApplies) params.set('year', selectedYear);
   if (debouncedSearch) params.set('search', debouncedSearch);
   if (!archiveMode && statusFilter) params.set('status', statusFilter);
   if (priorityFilter) params.set('priority', priorityFilter);
-  params.set('limit', '200');
 
-  const { data, isLoading } = useQuery<{ data: PmProject[] }>({
-    queryKey: ['pm-projects', archiveMode, debouncedSearch, statusFilter, priorityFilter],
-    queryFn: () => api.get(`/pm/projects?${params}`),
+  const PAGE_SIZE = 100;
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['pm-projects', archiveMode, yearApplies ? selectedYear : 'all', debouncedSearch, statusFilter, priorityFilter],
+    queryFn: ({ pageParam }) => {
+      const pageParams = new URLSearchParams(params);
+      pageParams.set('page', String(pageParam));
+      pageParams.set('limit', String(PAGE_SIZE));
+      return api.get<{ data: PmProject[]; total: number; page: number; totalPages: number }>(`/pm/projects?${pageParams}`);
+    },
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
+    // Wait for the year list so the archive doesn't first load every year
+    enabled: !archiveMode || archiveYearsLoaded,
   });
+  const totalProjects = data?.pages[0]?.total ?? 0;
 
   const { data: usersData } = useQuery<User[]>({
     queryKey: ['pm-employees'],
@@ -283,7 +322,7 @@ export default function ProjectsPage() {
     });
   }
 
-  const projects = data?.data ?? [];
+  const projects = useMemo(() => data?.pages.flatMap(p => p.data) ?? [], [data]);
 
   // Group projects by employee for the grouped view
   const grouped = useMemo(() => {
@@ -315,7 +354,9 @@ export default function ProjectsPage() {
 
   function printProjects() {
     const date = new Date().toLocaleDateString('sl-SI');
-    const title = archiveMode ? t('pm.projects.archiveTitle') : t('pm.projects.title');
+    const title = archiveMode
+      ? `${t('pm.projects.archiveTitle')}${yearApplies ? ` ${selectedYear}` : ''}`
+      : t('pm.projects.title');
 
     const groupsToRender = groupByEmployee ? grouped : [{
       key: '__all__',
@@ -534,28 +575,7 @@ export default function ProjectsPage() {
             {archiveMode ? t('pm.projects.archiveSubtitle') : t('pm.projects.subtitle')}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Active / Archive toggle */}
-          <div className="flex rounded-md border overflow-hidden">
-            <button
-              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${!archiveMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-              onClick={() => { setArchiveMode(false); setStatusFilter(''); }}
-            >
-              <FolderOpen className="h-3.5 w-3.5" />{t('pm.projects.activeTab')}
-            </button>
-            <button
-              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l transition-colors ${archiveMode ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-              onClick={() => { setArchiveMode(true); setStatusFilter(''); }}
-            >
-              <Archive className="h-3.5 w-3.5" />{t('pm.projects.archiveTab')}
-            </button>
-          </div>
-          {kimaiStatus?.configured && canManage && (
-            <Button variant="outline" onClick={() => navigate('/pm/projects/kimai-links')}>
-              <Link2 className="h-4 w-4 mr-2" />{t('pm.kimai.links.title')}
-            </Button>
-          )}
-          <Button variant="outline" size="icon" onClick={printProjects} title={t('pm.projects.print')}><Printer className="h-4 w-4" /></Button>
+        <div className="flex items-center gap-2">
           <input
             ref={csvInputRef}
             type="file"
@@ -563,11 +583,56 @@ export default function ProjectsPage() {
             className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvImport(f); e.target.value = ''; }}
           />
-          <Button variant="outline" size="icon" disabled={exporting} onClick={handleExportCsv} title={t('contracts.exportCsv')}><FileDown className="h-4 w-4" /></Button>
-          {canManage && <Button variant="outline" size="icon" disabled={importing} onClick={() => csvInputRef.current?.click()} title={t('contracts.importCsv')}><FileUp className="h-4 w-4" /></Button>}
+          {/* Less frequent actions live in one menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label={t('pm.projects.moreActions')} title={t('pm.projects.moreActions')}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={printProjects}>
+                <Printer className="text-muted-foreground" />{t('pm.projects.print')}
+              </DropdownMenuItem>
+              {kimaiStatus?.configured && canManage && (
+                <DropdownMenuItem onSelect={() => navigate('/pm/projects/kimai-links')}>
+                  <Link2 className="text-muted-foreground" />{t('pm.kimai.links.title')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={exporting} onSelect={handleExportCsv}>
+                <FileDown className="text-muted-foreground" />{t('contracts.exportCsv')}
+              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem disabled={importing} onSelect={() => csvInputRef.current?.click()}>
+                  <FileUp className="text-muted-foreground" />{t('contracts.importCsv')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canManage && !archiveMode && <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />{t('pm.projects.new')}</Button>}
         </div>
       </div>
+
+      {/* Active / Archive tabs */}
+      <Tabs value={archiveMode ? 'archive' : 'active'} onValueChange={v => switchMode(v === 'archive')}>
+        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
+          {(['active', 'archive'] as const).map(tab => (
+            <TabsTrigger
+              key={tab}
+              value={tab}
+              className="group -mb-px gap-2 rounded-none border-b-2 border-transparent px-0.5 pb-2.5 pt-1 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none"
+            >
+              {tab === 'active' ? t('pm.projects.activeTab') : t('pm.projects.archiveTab')}
+              {tabCounts && (
+                <span className="rounded-full bg-muted px-2 py-px text-xs font-medium text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary">
+                  {tab === 'active' ? tabCounts.active : tabCounts.archived}
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Filters + view toggle */}
       <div className="flex gap-3 flex-wrap items-center">
@@ -585,6 +650,17 @@ export default function ProjectsPage() {
           </SelectContent>
         </Select>
         )}
+        {archiveMode && (
+          <Select value={selectedYear} onValueChange={setYearChoice} disabled={!!debouncedSearch}>
+            <SelectTrigger className="w-[130px]" title={debouncedSearch ? t('pm.projects.searchAllYears') : undefined}>
+              <SelectValue placeholder={t('pm.projects.allYears')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('pm.projects.allYears')}</SelectItem>
+              {(archiveYears ?? []).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={priorityFilter || 'all'} onValueChange={v => setPriorityFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('pm.projects.allPriorities')} /></SelectTrigger>
           <SelectContent>
@@ -594,19 +670,26 @@ export default function ProjectsPage() {
             <SelectItem value="low">{t('pm.priority.low')}</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex rounded-md border overflow-hidden">
-          <button
-            className={`px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${!groupByEmployee ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-            onClick={() => setGroupByEmployee(false)}
-          >
-            <LayoutList className="h-3.5 w-3.5" />{t('pm.groupBy.list')}
-          </button>
-          <button
-            className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l transition-colors ${groupByEmployee ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-            onClick={() => setGroupByEmployee(true)}
-          >
-            <Users className="h-3.5 w-3.5" />{t('pm.groupBy.employee')}
-          </button>
+        {archiveMode && debouncedSearch && (
+          <span className="text-xs text-muted-foreground">{t('pm.projects.searchAllYears')}</span>
+        )}
+        {/* List / grouped view: changes layout, not data, so it sits apart from the filters */}
+        <div className="ml-auto flex gap-0.5 rounded-md bg-muted p-0.5">
+          {([
+            { grouped: false, icon: LayoutList, label: t('pm.groupBy.list') },
+            { grouped: true, icon: Users, label: t('pm.groupBy.employee') },
+          ]).map(({ grouped, icon: Icon, label }) => (
+            <button
+              key={label}
+              aria-label={label}
+              aria-pressed={groupByEmployee === grouped}
+              title={label}
+              onClick={() => setGroupByEmployee(grouped)}
+              className={`flex h-8 w-9 items-center justify-center rounded transition-colors ${groupByEmployee === grouped ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
         </div>
       </div>
 
@@ -684,6 +767,18 @@ export default function ProjectsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Paging: shown once there are more projects than one page */}
+      {!isLoading && totalProjects > PAGE_SIZE && (
+        <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+          <span>{t('pm.projects.showingOf', { shown: projects.length, total: totalProjects })}</span>
+          {hasNextPage && (
+            <Button variant="outline" size="sm" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
+              {isFetchingNextPage ? t('common.loading') : t('pm.projects.loadMore')}
+            </Button>
+          )}
         </div>
       )}
 
