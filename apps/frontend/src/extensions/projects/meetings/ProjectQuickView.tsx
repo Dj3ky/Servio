@@ -276,8 +276,11 @@ export function ProjectQuickView({ projectId, onClose }: { projectId: string | n
                 <span className="text-xs text-muted-foreground mr-auto">{t('pm.quickView.documents', { count: project.documents.length })}</span>
               )}
               {/* New tab so unsaved meeting edits underneath aren't lost */}
-              <Button className="ml-auto" onClick={() => window.open(`/pm/projects/${project.id}`, '_blank', 'noopener')}>
-                {t('pm.meetings.openProject')}<ExternalLink className="ml-2 h-4 w-4" />
+              {/* A real link (not window.open with a features string), so browsers open a normal tab, not a popup window */}
+              <Button className="ml-auto" asChild>
+                <a href={`/pm/projects/${project.id}`} target="_blank" rel="noopener noreferrer">
+                  {t('pm.meetings.openProject')}<ExternalLink className="ml-2 h-4 w-4" />
+                </a>
               </Button>
             </div>
           )}
