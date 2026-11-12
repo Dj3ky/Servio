@@ -30,7 +30,7 @@ import {
 } from '../reports/parts';
 import { printProjectReport } from '../reports/printReport';
 import type {
-  CompletionsRow, CustomerRow, OutstandingProject, OverdueProject, PipelineRow, RevenueTrendRow, SummaryData, WorkloadGroup,
+  CompletionsRow, CustomerRow, OutstandingProject, OverdueProject, PipelineRow, RevenueTrendRow, RevenueYearRow, SummaryData, WorkloadGroup,
 } from '../reports/types';
 
 const TABS = ['revenue', 'outstanding', 'overdue', 'workload', 'customers', 'status'] as const;
@@ -168,6 +168,10 @@ export default function ProjectReportsPage() {
     queryKey: ['pm-report', 'outstanding', customer],
     queryFn: () => api.get(withCustomer('/pm/reports/outstanding')),
   });
+  const { data: revenueByYear, isLoading: loadingByYear } = useQuery<RevenueYearRow[]>({
+    queryKey: ['pm-report', 'revenue-by-year', customer],
+    queryFn: () => api.get(withCustomer('/pm/reports/revenue-by-year')),
+  });
   const { data: pipeline, isLoading: loadingPipeline } = useQuery<PipelineRow[]>({
     queryKey: ['pm-report', 'pipeline', customer],
     queryFn: () => api.get(withCustomer('/pm/reports/pipeline')),
@@ -198,6 +202,23 @@ export default function ProjectReportsPage() {
   const monthlyAverage = monthsSoFar > 0 ? revenueSoFar / monthsSoFar : 0;
   const completedInYear = (completions ?? []).reduce((s, c) => s + c.count, 0);
   const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`;
+
+  // Per-year totals, newest first, each with the change from the year before.
+  // The current year is still running, so it is compared with the same months of last year instead.
+  const yearRows = useMemo(() => {
+    const rows = revenueByYear ?? [];
+    return rows.map((r, i) => {
+      const prev = rows[i - 1];
+      let change: number | null = null;
+      if (r.year === currentYear) change = year === currentYear ? yoy : null;
+      else if (prev && prev.year === r.year - 1 && prev.revenue > 0) change = ((r.revenue - prev.revenue) / prev.revenue) * 100;
+      return { ...r, change };
+    }).reverse();
+  }, [revenueByYear, year, yoy]);
+  const allYearsTotal = yearRows.reduce((s, r) => s + r.revenue, 0);
+  const yearChart = [...yearRows].reverse();
+  // Years to pick from: the last six plus any older year that has invoices
+  const yearOptions = [...new Set([...YEAR_OPTIONS, ...yearRows.map(r => r.year), year])].sort((a, b) => b - a);
 
   const revenueChart = trend.map(r => ({ ...r, label: monthName(r.month, lang) }));
   const completionsChart = (completions ?? []).map(c => ({ ...c, label: monthName(c.month, lang) }));
@@ -272,6 +293,11 @@ export default function ProjectReportsPage() {
       case 'revenue':
         header = [r('colMonth'), `${r('invoiced')} ${year}`, `${r('invoiced')} ${year - 1}`, r('colInvoiceCount'), r('completions')];
         rows = trend.map((m, i) => [monthName(m.month, lang), csvMoney(m.revenue), csvMoney(m.prevRevenue), m.invoiceCount, completions?.[i]?.count ?? 0]);
+        // Yearly totals below the months, after an empty line
+        rows.push([], [r('colYear'), r('invoiced'), r('colInvoiceCount'), r('colProjects'), r('colChange')]);
+        for (const y of yearRows) {
+          rows.push([y.year, csvMoney(y.revenue), y.invoiceCount, y.projectCount, y.change === null ? '' : y.change.toFixed(1).replace('.', ',')]);
+        }
         break;
       case 'outstanding':
         header = [r('colNumber'), r('colName'), r('colCustomer'), r('colEmployee'), r('colCompletedAt'), r('colDaysSince'), r('colValue'), r('colInvoiced'), r('colOutstanding')];
@@ -319,7 +345,7 @@ export default function ProjectReportsPage() {
           <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
             <SelectTrigger className="w-[100px]" aria-label={t('pm.reports.year')}><SelectValue /></SelectTrigger>
             <SelectContent>
-              {YEAR_OPTIONS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+              {yearOptions.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={exportCsv}>
@@ -557,6 +583,97 @@ export default function ProjectReportsPage() {
               </Panel>
             </div>
           </div>
+
+          {/* Invoiced per year — follows the customer filter; click a year to open it above */}
+          <Panel
+            className="mt-4"
+            title={t('pm.reports.byYearTitle')}
+            note={customer ? t('pm.reports.byYearNoteCustomer', { customer }) : t('pm.reports.byYearNote')}
+            aside={yearRows.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {t('pm.reports.allYearsTotal')}: <strong className="text-foreground font-mono">{eur(allYearsTotal)}</strong>
+              </span>
+            )}
+          >
+            {loadingByYear && <Skeleton className="h-[220px] w-full" />}
+            {!loadingByYear && yearRows.length === 0 && <EmptyState>{t('pm.reports.byYearEmpty')}</EmptyState>}
+            {yearRows.length > 0 && (
+              <div className="grid gap-6 grid-cols-1 lg:grid-cols-5">
+                <div className="lg:col-span-3 min-w-0">
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={yearChart} margin={{ top: 8, right: 4, bottom: 0, left: -12 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                      <XAxis dataKey="year" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={eurShort} />
+                      <Tooltip
+                        {...chartTooltip}
+                        cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
+                        formatter={(value: number, _name: string, item: any) => [
+                          `${eur(value)} (${t('pm.reports.invoiceCount', { count: item.payload?.invoiceCount ?? 0 })})`,
+                          t('pm.reports.invoiced'),
+                        ]}
+                      />
+                      <Bar dataKey="revenue" radius={[4, 4, 0, 0]} maxBarSize={56} cursor="pointer"
+                        onClick={(d: any) => d?.year && setYear(Number(d.year))}>
+                        {yearChart.map(r => (
+                          <Cell key={r.year} fill={r.year === year ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.3)'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="lg:col-span-2 min-w-0 overflow-x-auto rounded-lg border">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50 text-muted-foreground">
+                        <th className="text-left px-3 py-2 font-medium">{t('pm.reports.colYear')}</th>
+                        <th className="text-right px-3 py-2 font-medium">{t('pm.reports.invoiced')}</th>
+                        <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colInvoiceCount')}</th>
+                        <th className="text-right px-3 py-2 font-medium">{t('pm.reports.colChange')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearRows.map(r => {
+                        const selected = r.year === year;
+                        return (
+                          <tr key={r.year}
+                            className={cn('border-b last:border-0 cursor-pointer hover:bg-muted/30', selected && 'bg-primary/10')}
+                            onClick={() => setYear(r.year)}
+                          >
+                            <td className="px-3 py-2">
+                              <button type="button" className="font-semibold tabular-nums hover:underline underline-offset-2"
+                                onClick={e => { e.stopPropagation(); setYear(r.year); }}>
+                                {r.year}
+                              </button>
+                              {r.year === currentYear && <span className="ml-2 text-xs text-muted-foreground">{t('pm.reports.yearSoFar')}</span>}
+                              <div className="text-[11px] text-muted-foreground">{t('pm.reports.projectsCount', { count: r.projectCount })}</div>
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tabular-nums font-semibold">{eur(r.revenue)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.invoiceCount}</td>
+                            <td className="px-3 py-2 text-right">
+                              {r.change === null ? <span className="text-muted-foreground">—</span> : (
+                                <span
+                                  className={cn('text-xs font-semibold tabular-nums',
+                                    r.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-300')}
+                                  title={r.year === currentYear ? t('pm.reports.changeSamePeriodHint') : undefined}
+                                >
+                                  {fmtPct(r.change)}{r.year === currentYear && '*'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {yearRows.some(r => r.year === currentYear && r.change !== null) && (
+                    <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">* {t('pm.reports.changeSamePeriodHint')}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </Panel>
         </TabsContent>
 
         {/* ── Outstanding — completed but not fully invoiced ──────────────── */}

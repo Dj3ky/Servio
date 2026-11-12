@@ -222,6 +222,33 @@ router.get('/revenue-trend', async (req: Request, res: Response): Promise<void> 
   res.json(filled);
 });
 
+// Issued invoices per year, every year that has any, oldest first
+router.get('/revenue-by-year', async (req: Request, res: Response): Promise<void> => {
+  const yearExpr = sql`extract(year from ${pmProjectInvoices.invoiceDate}::date)::int`;
+  const rows = await db.select({
+    year: sql<number>`${yearExpr}`,
+    revenue: sql<string>`coalesce(sum(${pmProjectInvoices.amount}), 0)`,
+    invoiceCount: sql<number>`count(*)::int`,
+    projectCount: sql<number>`count(distinct ${pmProjectInvoices.projectId})::int`,
+  })
+    .from(pmProjectInvoices)
+    .innerJoin(pmProjects, eq(pmProjectInvoices.projectId, pmProjects.id))
+    .where(and(
+      eq(pmProjectInvoices.direction, 'issued'),
+      sql`${pmProjectInvoices.invoiceDate} is not null`,
+      customerFilter(req),
+    ))
+    .groupBy(yearExpr)
+    .orderBy(yearExpr);
+
+  res.json(rows.map(r => ({
+    year: Number(r.year),
+    revenue: parseFloat(r.revenue),
+    invoiceCount: Number(r.invoiceCount),
+    projectCount: Number(r.projectCount),
+  })));
+});
+
 // Remaining value of open projects, grouped by when their deadline falls
 router.get('/pipeline', async (req: Request, res: Response): Promise<void> => {
   const bucket = sql<string>`case

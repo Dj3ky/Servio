@@ -31,6 +31,7 @@ export interface CustomerRow {
 // month: 1–12
 export interface RevenueTrendRow { month: number; revenue: number; invoiceCount: number; prevRevenue: number }
 export interface CompletionsRow { month: number; count: number }
+export interface RevenueYearRow { year: number; revenue: number; invoiceCount: number; projectCount: number }
 
 export interface OutstandingProject {
   id: string; projectNumber: string; name: string; customerName: string | null;
