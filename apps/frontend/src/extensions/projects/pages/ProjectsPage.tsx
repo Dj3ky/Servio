@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Link2, Plus, Search, ChevronRight, LayoutList, Users, ChevronDown, ChevronUp, Printer, FileUp, FileDown, ArrowUp, ArrowDown, MoreHorizontal } from 'lucide-react';
 import { kimaiSafeName } from '@servio/shared';
@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useEmployeeOrder, sortByEmployeeOrder } from '../employeeOrder';
+import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '../tabStyles';
 import { ProjectNotesHint } from '../ProjectNotesHint';
 import { ProjectNoteCount } from '../ProjectNotesTab';
 import { NameSuggestionLists } from '../nameSuggestions';
@@ -64,9 +65,6 @@ function getToken() {
   try { return JSON.parse(localStorage.getItem('servio-auth') ?? '{}').state?.token ?? ''; } catch { return ''; }
 }
 
-const PRIORITY_COLORS: Record<string, string> = { high: 'destructive', medium: 'default', low: 'secondary' };
-const STATUS_COLORS: Record<string, string> = { active: 'default', on_hold: 'outline', completed: 'secondary' };
-
 const GROUP_COLORS = [
   'bg-blue-500/10 border-l-4 border-l-blue-500',
   'bg-emerald-500/10 border-l-4 border-l-emerald-500',
@@ -107,7 +105,9 @@ export default function ProjectsPage() {
   const user = useAuthStore(s => s.user);
   const perms = usePermissionsStore(s => s.perms);
   const canManage = !!user && (perms.projects?.manage ?? []).includes(user.role);
-  const [archiveMode, setArchiveMode] = useState(false);
+  // In the URL (?view=archive) so going back from an archived project returns to the archive
+  const [searchParams, setSearchParams] = useSearchParams();
+  const archiveMode = searchParams.get('view') === 'archive';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -199,7 +199,7 @@ export default function ProjectsPage() {
   });
 
   function switchMode(archive: boolean) {
-    setArchiveMode(archive);
+    setSearchParams(archive ? { view: 'archive' } : {}, { replace: true });
     setStatusFilter('');
     setToggledGroups(new Set());
   }
@@ -434,56 +434,57 @@ export default function ProjectsPage() {
   // Shared column widths so grouped tables line up with each other
   const tableColGroup = archiveMode ? (
     <colgroup>
-      <col style={{ width: '26%' }} />
-      <col style={{ width: '22%' }} />
+      <col style={{ width: '32%' }} />
+      <col style={{ width: '24%' }} />
       {!groupByEmployee && <col style={{ width: '16%' }} />}
       <col style={{ width: '14%' }} />
-      <col style={{ width: '14%' }} />
-      <col style={{ width: '14%' }} />
+      <col style={{ width: '22%' }} />
       <col style={{ width: '40px' }} />
     </colgroup>
   ) : (
     <colgroup>
-      <col style={{ width: '20%' }} />
-      <col style={{ width: '16%' }} />
-      {!groupByEmployee && <col style={{ width: '12%' }} />}
-      <col style={{ width: '8%' }} />
-      <col style={{ width: '9%' }} />
-      <col style={{ width: '11%' }} />
-      <col style={{ width: '11%' }} />
-      <col style={{ width: '11%' }} />
-      <col style={{ width: '10%' }} />
+      <col style={{ width: '34%' }} />
+      <col style={{ width: '22%' }} />
+      {!groupByEmployee && <col style={{ width: '14%' }} />}
+      <col style={{ width: '22%' }} />
+      <col style={{ width: '12%' }} />
       <col style={{ width: '40px' }} />
     </colgroup>
   );
 
-  const tableHeaders = archiveMode ? (
+  const tableHeaders = (
     <tr className="border-b bg-muted/50 text-muted-foreground">
       <th className="text-left px-4 py-3 font-medium">{t('pm.projects.colWorkOrder')}</th>
       <th className="text-left px-4 py-3 font-medium">{t('pm.fields.customer')}</th>
       {!groupByEmployee && <th className="text-left px-4 py-3 font-medium">{t('pm.fields.employee')}</th>}
-      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.completedAt')}</th>
-      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.value')}</th>
-      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.invoiced')}</th>
-      <th className="px-4 py-3" />
-    </tr>
-  ) : (
-    <tr className="border-b bg-muted/50 text-muted-foreground">
-      <th className="text-left px-4 py-3 font-medium">{t('pm.projects.colWorkOrder')}</th>
-      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.customer')}</th>
-      {!groupByEmployee && <th className="text-left px-4 py-3 font-medium">{t('pm.fields.employee')}</th>}
-      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.priority')}</th>
-      <th className="text-left px-4 py-3 font-medium">{t('common.status')}</th>
-      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.value')}</th>
-      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.invoiced')}</th>
-      <th className="text-right px-4 py-3 font-medium">{t('pm.fields.remaining')}</th>
-      <th className="text-left px-4 py-3 font-medium">{t('pm.fields.deadline')}</th>
+      {archiveMode && <th className="text-left px-4 py-3 font-medium">{t('pm.fields.completedAt')}</th>}
+      <th className="text-right px-4 py-3 font-medium">{t('pm.projects.colInvoicing')}</th>
+      {!archiveMode && <th className="text-left px-4 py-3 font-medium">{t('pm.fields.deadline')}</th>}
       <th className="px-4 py-3" />
     </tr>
   );
 
+  // Invoiced vs. contract value in one cell, with a progress bar; the remainder is in the tooltip
+  function renderInvoicing(p: PmProject) {
+    const value = parseFloat(p.contractValue ?? '0');
+    const invoiced = parseFloat(p.invoicedAmount ?? '0');
+    if (!(value > 0)) {
+      return <span className="font-mono text-xs">{formatCurrency(p.invoicedAmount)}</span>;
+    }
+    const pct = Math.min(100, Math.max(0, (invoiced / value) * 100));
+    return (
+      <div title={`${t('pm.fields.remaining')}: ${formatCurrency(String(value - invoiced))}`} className="space-y-1">
+        <div className="font-mono text-xs whitespace-nowrap">
+          {formatCurrency(p.invoicedAmount)} <span className="text-muted-foreground">/ {formatCurrency(p.contractValue)}</span>
+        </div>
+        <div className="ml-auto h-1.5 max-w-[160px] rounded-full bg-muted overflow-hidden">
+          <div className={`h-full rounded-full ${pct >= 100 ? 'bg-green-600' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    );
+  }
+
   function renderProjectRow(p: PmProject, idx: number, siblings: PmProject[]) {
-    const remaining = parseFloat(p.contractValue ?? '0') - parseFloat(p.invoicedAmount ?? '0');
     const isOverdue = p.status !== 'completed' && isPastDue(p.endDate);
     const movable = canManage && groupByEmployee && !archiveMode;
     const moveTo = (neighbour: PmProject) => (e: React.MouseEvent) => {
@@ -491,11 +492,12 @@ export default function ProjectsPage() {
       moveProjectMutation.mutate({ projectId: p.id, otherProjectId: neighbour.id });
     };
     return (
-      <tr key={p.id} className="border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
+      <tr key={p.id} className="group border-b hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/pm/projects/${p.id}`)}>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             {movable && (
-              <div className="flex flex-col shrink-0 -my-1 -ml-2">
+              // Shown on hover (or keyboard focus) so the list stays calm
+              <div className="flex flex-col shrink-0 -my-1 -ml-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <button
                   className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
                   disabled={idx === 0 || moveProjectMutation.isPending}
@@ -515,8 +517,15 @@ export default function ProjectsPage() {
               </div>
             )}
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-medium">{p.name}</span>
+                {/* Only the exceptions get a badge: high priority and on hold */}
+                {p.priority === 'high' && !archiveMode && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-normal">{t('pm.priority.high')}</Badge>
+                )}
+                {p.status === 'on_hold' && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">{t('pm.status.on_hold')}</Badge>
+                )}
                 <ProjectNotesHint notes={p.notes} />
                 <ProjectNoteCount count={p.noteCount} latest={p.latestNote} />
                 {p.openTaskCount > 0 && (
@@ -533,29 +542,16 @@ export default function ProjectsPage() {
         </td>
         <td className="px-4 py-3 text-muted-foreground text-sm">{p.customerName ?? '—'}</td>
         {!groupByEmployee && <td className="px-4 py-3 text-muted-foreground text-sm">{p.employeeName ?? '—'}</td>}
-        {archiveMode ? (
+        {archiveMode && (
           <td className="px-4 py-3 text-sm text-green-600 font-medium">
             {p.completedAt ? formatDate(p.completedAt) : '—'}
           </td>
-        ) : (
-          <>
-            <td className="px-4 py-3">
-              <Badge variant={PRIORITY_COLORS[p.priority] as any}>{t(`pm.priority.${p.priority}`)}</Badge>
-            </td>
-            <td className="px-4 py-3">
-              <Badge variant={STATUS_COLORS[p.status] as any}>{t(`pm.status.${p.status}`)}</Badge>
-            </td>
-          </>
         )}
-        <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.contractValue)}</td>
-        <td className="px-4 py-3 text-right font-mono text-xs">{formatCurrency(p.invoicedAmount)}</td>
+        <td className="px-4 py-3 text-right">{renderInvoicing(p)}</td>
         {!archiveMode && (
-          <>
-            <td className={`px-4 py-3 text-right font-mono text-xs ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</td>
-            <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
-              {p.endDate ? formatDate(p.endDate) : '—'}
-            </td>
-          </>
+          <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
+            {p.endDate ? formatDate(p.endDate) : '—'}
+          </td>
         )}
         <td className="px-4 py-3 text-right">
           <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
@@ -616,16 +612,12 @@ export default function ProjectsPage() {
 
       {/* Active / Archive tabs */}
       <Tabs value={archiveMode ? 'archive' : 'active'} onValueChange={v => switchMode(v === 'archive')}>
-        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
+        <TabsList className={underlineTabsList}>
           {(['active', 'archive'] as const).map(tab => (
-            <TabsTrigger
-              key={tab}
-              value={tab}
-              className="group -mb-px gap-2 rounded-none border-b-2 border-transparent px-0.5 pb-2.5 pt-1 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none"
-            >
+            <TabsTrigger key={tab} value={tab} className={underlineTabsTrigger}>
               {tab === 'active' ? t('pm.projects.activeTab') : t('pm.projects.archiveTab')}
               {tabCounts && (
-                <span className="rounded-full bg-muted px-2 py-px text-xs font-medium text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary">
+                <span className={tabCountBadge}>
                   {tab === 'active' ? tabCounts.active : tabCounts.archived}
                 </span>
               )}

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
+import { ChevronRight, Plus, Trash2, Upload, FileText, Pencil, CheckCircle2, Circle, Clock, Receipt, Download, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, normalizeAmountInput } from '@/lib/utils';
 import { useCan } from '@/stores/permissionsStore';
@@ -24,6 +24,9 @@ import { useKimaiStatus } from '../kimai';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
+import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '../tabStyles';
+
+const DETAIL_TABS = ['meetings', 'tasks', 'notes', 'phases', 'documents', 'invoicesIssued', 'invoicesReceived', 'hours'] as const;
 
 interface User { id: string; name: string; }
 
@@ -223,6 +226,19 @@ export default function ProjectDetailPage() {
   const can = useCan();
   const canManage = can('projects', 'manage');
   const canDelete = can('projects', 'delete');
+
+  // Open tab lives in the URL (?tab=tasks): coming back lands on the same tab, and links can point at one.
+  // replace: switching tabs doesn't fill the browser history.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const requestedTab = (DETAIL_TABS as readonly string[]).includes(tabParam ?? '') ? tabParam! : 'meetings';
+  function selectTab(tab: string) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'meetings') next.delete('tab'); else next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  }
 
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [phaseName, setPhaseName] = useState('');
@@ -440,9 +456,19 @@ export default function ProjectDetailPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/pm/projects')} title={t('common.back')}><ArrowLeft className="h-4 w-4" /></Button>
-        <div className="flex-1">
+      <div className="flex items-end gap-4">
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Breadcrumb: back to the list the project is in (archive for completed ones) */}
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Link
+              to={project.status === 'completed' ? '/pm/projects?view=archive' : '/pm/projects'}
+              className="hover:text-foreground hover:underline"
+            >
+              {project.status === 'completed' ? t('pm.projects.archiveTitle') : t('pm.projects.title')}
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate text-foreground font-medium" aria-current="page">{project.projectNumber}</span>
+          </nav>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.name}</h1>
             <Select value={project.status} onValueChange={v => quickStatusChange.mutate(v)} disabled={!canManage || quickStatusChange.isPending}>
@@ -458,7 +484,6 @@ export default function ProjectDetailPage() {
             <Badge variant={project.priority === 'high' ? 'destructive' : 'outline'}>{t(`pm.priority.${project.priority}`)}</Badge>
             {isOverdue && <Badge variant="destructive">{t('pm.projects.overdue')}</Badge>}
           </div>
-          <p className="text-muted-foreground">{project.projectNumber}</p>
         </div>
         {canManage && (
           <Button variant="outline" size="sm" onClick={openEdit}>
@@ -473,62 +498,78 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Info cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.employee')}</span><span className="font-medium">{project.employeeName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.customer')}</span><span className="font-medium">{project.customerName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.facility')}</span><span className="font-medium">{project.facilityName ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.orderDate')}</span><span>{project.orderDate ? formatDate(project.orderDate) : '—'}</span></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.startDateShort')}</span><span>{project.startDate ? formatDate(project.startDate) : '—'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.deadline')}</span><span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{project.endDate ? formatDate(project.endDate) : '—'}</span></div>
-            {project.completedAt && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('pm.fields.completedAt')}</span>
-                <span className="text-green-600 font-medium">{formatDate(project.completedAt)}</span>
+      {/* Money tiles: the figures people check first */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-lg border p-4 space-y-1">
+          <div className="text-sm text-muted-foreground">{t('pm.fields.value')}</div>
+          <div className="text-2xl font-bold tracking-tight">{formatCurrency(project.contractValue)}</div>
+        </div>
+        <div className="rounded-lg border p-4 space-y-1">
+          <div className="text-sm text-muted-foreground">{t('pm.fields.invoiced')}</div>
+          <div className="text-2xl font-bold tracking-tight">{formatCurrency(project.invoicedAmount)}</div>
+          {contractVal > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${invoicedPct >= 100 ? 'bg-green-600' : 'bg-primary'}`} style={{ width: `${invoicedPct}%` }} />
               </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.value')}</span><span className="font-mono font-medium">{formatCurrency(project.contractValue)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.invoiced')}</span><span className="font-mono">{formatCurrency(project.invoicedAmount)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.received')}</span><span className="font-mono">{formatCurrency(project.receivedAmount)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.remaining')}</span><span className={`font-mono font-medium ${remaining > 0 ? 'text-green-600' : ''}`}>{formatCurrency(String(remaining))}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">{t('pm.fields.profit')}</span><span className={`font-mono font-medium ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{formatCurrency(String(profit))}</span></div>
-            {contractVal > 0 && (
-              <div className="mt-2">
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${invoicedPct}%` }} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">{invoicedPct.toFixed(0)}{t('pm.projects.invoicedPct')}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              <span className="text-xs font-semibold text-primary">{invoicedPct.toFixed(0)} %</span>
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg border p-4 space-y-1">
+          <div className="text-sm text-muted-foreground">{t('pm.fields.remaining')}</div>
+          <div className="text-2xl font-bold tracking-tight">{formatCurrency(String(remaining))}</div>
+        </div>
+        <div className={`rounded-lg border p-4 space-y-1 ${profit >= 0
+          ? 'border-green-500/30 bg-green-500/10 text-green-800 dark:text-green-300'
+          : 'border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300'}`}>
+          <div className="text-sm">{t('pm.fields.profit')}</div>
+          <div className={`text-2xl font-bold tracking-tight ${profit >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+            {formatCurrency(String(profit))}
+          </div>
+          {/* Profit = invoiced − received invoices, so show what was subtracted */}
+          <div className="text-xs">{t('pm.fields.received')}: {formatCurrency(project.receivedAmount)}</div>
+        </div>
+      </div>
+
+      {/* Who and when, in one compact strip */}
+      <div className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+        <span><span className="text-muted-foreground">{t('pm.fields.employee')} </span><span className="font-medium">{project.employeeName ?? '—'}</span></span>
+        <span><span className="text-muted-foreground">{t('pm.fields.customer')} </span><span className="font-medium">{project.customerName ?? '—'}</span></span>
+        <span><span className="text-muted-foreground">{t('pm.fields.facility')} </span><span className="font-medium">{project.facilityName ?? '—'}</span></span>
+        <span className="hidden sm:inline h-4 w-px bg-border" aria-hidden="true" />
+        <span><span className="text-muted-foreground">{t('pm.fields.orderDate')} </span>{project.orderDate ? formatDate(project.orderDate) : '—'}</span>
+        <span><span className="text-muted-foreground">{t('pm.fields.startDateShort')} </span>{project.startDate ? formatDate(project.startDate) : '—'}</span>
+        <span>
+          <span className="text-muted-foreground">{t('pm.fields.deadline')} </span>
+          <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'font-semibold'}>{project.endDate ? formatDate(project.endDate) : '—'}</span>
+        </span>
+        {project.completedAt && (
+          <span><span className="text-muted-foreground">{t('pm.fields.completedAt')} </span><span className="text-green-600 font-medium">{formatDate(project.completedAt)}</span></span>
+        )}
       </div>
 
       {project.notes && (
-        <Card><CardContent className="p-4 text-sm text-muted-foreground italic">{project.notes}</CardContent></Card>
+        <p className="px-1 text-sm text-muted-foreground italic whitespace-pre-line">{project.notes}</p>
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="meetings">
-        <TabsList>
-          <TabsTrigger value="meetings">{t('pm.meetings.tab')} ({meetingHistory?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="tasks">{t('pm.tasks.tab')} ({(tasks ?? []).filter(task => task.status === 'open').length})</TabsTrigger>
-          <TabsTrigger value="notes">{t('pm.notes.tab')} ({notes?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="phases">{t('pm.phases.tab')} ({project.phases.length})</TabsTrigger>
-          <TabsTrigger value="documents">{t('pm.documents.tab')} ({project.documents.length})</TabsTrigger>
-          <TabsTrigger value="invoicesIssued">{t('pm.invoices.tabIssued')} ({issuedInvoices.length})</TabsTrigger>
-          <TabsTrigger value="invoicesReceived">{t('pm.invoices.tabReceived')} ({receivedInvoices.length})</TabsTrigger>
-          {kimaiStatus?.configured && <TabsTrigger value="hours">{t('pm.kimai.tab')}</TabsTrigger>}
+      <Tabs value={requestedTab === 'hours' && !kimaiStatus?.configured ? 'meetings' : requestedTab} onValueChange={selectTab}>
+        <TabsList className={underlineTabsList}>
+          {([
+            ['meetings', t('pm.meetings.tab'), meetingHistory?.length ?? 0],
+            ['tasks', t('pm.tasks.tab'), (tasks ?? []).filter(task => task.status === 'open').length],
+            ['notes', t('pm.notes.tab'), notes?.length ?? 0],
+            ['phases', t('pm.phases.tab'), project.phases.length],
+            ['documents', t('pm.documents.tab'), project.documents.length],
+            ['invoicesIssued', t('pm.invoices.tabIssued'), issuedInvoices.length],
+            ['invoicesReceived', t('pm.invoices.tabReceived'), receivedInvoices.length],
+          ] as const).map(([value, label, count]) => (
+            <TabsTrigger key={value} value={value} className={underlineTabsTrigger}>
+              {label}<span className={tabCountBadge}>{count}</span>
+            </TabsTrigger>
+          ))}
+          {kimaiStatus?.configured && <TabsTrigger value="hours" className={underlineTabsTrigger}>{t('pm.kimai.tab')}</TabsTrigger>}
         </TabsList>
 
         {/* Hours (Kimai) */}

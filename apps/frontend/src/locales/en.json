@@ -670,6 +670,7 @@
       "showingOf": "Showing {{shown}} of {{total}}",
       "loadMore": "Load more",
       "moreActions": "More actions",
+      "colInvoicing": "Invoiced / value",
       "print": "Print",
       "moveUp": "Move up",
       "moveDown": "Move down",
