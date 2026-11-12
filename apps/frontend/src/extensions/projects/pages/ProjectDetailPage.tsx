@@ -25,6 +25,7 @@ import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
 import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '../tabStyles';
+import { ProjectNotesBox } from '../ProjectNotesBox';
 
 const DETAIL_TABS = ['meetings', 'tasks', 'notes', 'phases', 'documents', 'invoicesIssued', 'invoicesReceived', 'hours'] as const;
 
@@ -549,9 +550,7 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {project.notes && (
-        <p className="px-1 text-sm text-muted-foreground italic whitespace-pre-line">{project.notes}</p>
-      )}
+      <ProjectNotesBox projectId={project.id} notes={project.notes} canManage={canManage} />
 
       {/* Tabs */}
       <Tabs value={requestedTab === 'hours' && !kimaiStatus?.configured ? 'meetings' : requestedTab} onValueChange={selectTab}>
