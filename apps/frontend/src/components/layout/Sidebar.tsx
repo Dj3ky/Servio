@@ -57,7 +57,7 @@ const pmItems: NavItem[] = [
   { labelKey: 'nav.pmProjects', icon: FolderKanban, path: '/pm/projects', permKey: 'projects.access' },
   { labelKey: 'nav.pmMyTasks', icon: ListTodo, path: '/pm/tasks', permKey: 'projects.access' },
   { labelKey: 'nav.pmMeetings', icon: CalendarCheck, path: '/pm/meetings', permKey: 'projects.access' },
-  { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports', permKey: 'projects.access' },
+  { labelKey: 'nav.pmReports', icon: PieChart, path: '/pm/reports', permKey: 'projects.reports' },
 ];
 
 const changelogItems: NavItem[] = [

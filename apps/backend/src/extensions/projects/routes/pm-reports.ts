@@ -8,6 +8,11 @@ import { requireRole } from '../../../middleware/role';
 const router = Router();
 router.use(requireRole('projects', 'access'));
 
+// The reports page has its own permission. Per-project meeting history also lives under
+// /project/... but is shown on the project detail page, so it stays on projects.access.
+const requireReports = requireRole('projects', 'reports');
+router.use((req, res, next) => (req.path.startsWith('/project/') ? next() : requireReports(req, res, next)));
+
 // Optional ?customer= filter shared by all reports. Customer names are free text,
 // so they match ignoring case and surrounding spaces ("Petrol " = "PETROL").
 function customerFilter(req: Request): SQL | undefined {
