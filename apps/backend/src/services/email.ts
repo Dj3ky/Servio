@@ -75,12 +75,17 @@ export function renderTemplate(
   );
 }
 
-export async function sendDigestEmail(): Promise<void> {
+// test: send now even if the digest is off or nothing is pending, so the setup can be checked.
+// Returns the recipient it was sent to, or null when nothing was sent.
+export async function sendDigestEmail({ test = false }: { test?: boolean } = {}): Promise<string | null> {
   const s = await db.query.settings.findFirst();
-  if (!s?.digestEnabled) return;
+  if (!s || (!s.digestEnabled && !test)) return null;
 
   const recipient = s.digestEmail || s.accountingEmail;
-  if (!recipient) return;
+  if (!recipient) {
+    if (test) throw new Error('errors.digest_no_recipient');
+    return null;
+  }
 
   const appName = s.appName ?? 'Servio';
 
@@ -99,7 +104,7 @@ export async function sendDigestEmail(): Promise<void> {
     }),
   ]);
 
-  if (pendingReviews.length === 0 && pendingInvoices.length === 0) return;
+  if (pendingReviews.length === 0 && pendingInvoices.length === 0 && !test) return null;
 
   const reviewRows = pendingReviews.map((r) =>
     `<tr><td>${(r as any).contract?.customer?.name ?? ''}</td><td>${(r as any).contract?.facility?.name ?? ''}</td><td>${r.scheduledMonth.slice(0, 7)}</td><td>${r.status}</td></tr>`,
@@ -128,7 +133,9 @@ export async function sendDigestEmail(): Promise<void> {
     </table>` : '<p>No pending invoices.</p>'}
   `;
 
-  await sendMail({ to: recipient, subject: `${appName} – Daily Digest ${format(new Date(), 'yyyy-MM-dd')}`, html });
+  const subject = `${test ? '[TEST] ' : ''}${appName} – Daily Digest ${format(new Date(), 'yyyy-MM-dd')}`;
+  await sendMail({ to: recipient, subject, html });
+  return recipient;
 }
 
 export async function sendEscalationAlerts(): Promise<void> {

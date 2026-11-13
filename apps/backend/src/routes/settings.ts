@@ -18,6 +18,9 @@ import {
   testSmtpSchema,
   createEmailTemplateSchema,
   updateEmailTemplateSchema,
+  userRoleSchema,
+  permissions as defaultPermissions,
+  type UserRole,
 } from '@servio/shared';
 import { createBackup, rescheduleBackup } from '../services/backup';
 import { db } from '../db';
@@ -26,7 +29,7 @@ import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { imageUpload, sqlUpload } from '../middleware/upload';
 import { encrypt, decrypt } from '../utils/crypto';
-import { testSmtpConnection } from '../services/email';
+import { testSmtpConnection, sendDigestEmail } from '../services/email';
 import { createAuditLog, diffRecords } from '../utils/audit';
 import { getPermissions, loadPermissions } from '../services/permissionsService';
 import { loadUserAccess } from '../services/userAccessService';
@@ -182,6 +185,20 @@ router.patch('/smtp', requireRole('settings', 'manage'), async (req: Request, re
   res.json({ success: true });
 });
 
+// Turns email off: without host, user and password the email and inbox services treat SMTP as not configured.
+// Port and SSL are kept so setting it up again starts from the same values.
+router.delete('/smtp', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  await updateSettingsAudited(req, 'smtp', {
+    smtpHost: null,
+    smtpUser: null,
+    smtpPassEncrypted: null,
+    smtpFrom: null,
+    imapPort: null,
+    updatedAt: new Date(),
+  });
+  res.json({ success: true });
+});
+
 router.post('/smtp/test', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = testSmtpSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
@@ -212,6 +229,20 @@ router.patch('/smb', requireRole('settings', 'manage'), async (req: Request, res
   res.json({ success: true });
 });
 
+// Turns the NAS connection off. Base path and path template are kept for a later setup.
+// NAS backups are switched off too, since every one of them would now fail.
+router.delete('/smb', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  await updateSettingsAudited(req, 'smb', {
+    smbHost: null,
+    smbShare: null,
+    smbUsername: null,
+    smbPassEncrypted: null,
+    backupToNas: false,
+    updatedAt: new Date(),
+  });
+  res.json({ success: true });
+});
+
 router.patch('/backup', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
@@ -238,14 +269,31 @@ router.patch('/alerts', requireRole('settings', 'manage'), async (req: Request, 
   res.json({ success: true });
 });
 
+// Sends the digest right now to the saved recipient, regardless of the on/off switch or schedule
+router.post('/alerts/test-digest', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const recipient = await sendDigestEmail({ test: true });
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'test_digest', payload: { recipient }, req });
+    res.json({ success: true, recipient });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message === 'errors.digest_no_recipient') { res.status(400).json({ error: message }); return; }
+    res.json({ success: false, error: message });
+  }
+});
+
 router.post('/logo', requireRole('settings', 'manage'), imageUpload.single('logo'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
 
   const uploadsDir = path.join(process.cwd(), 'uploads');
   await fs.mkdir(uploadsDir, { recursive: true });
 
-  const ext = (path.extname(req.file.originalname) || '.png').toLowerCase();
-  const filename = `logo${ext}`;
+  // Extension from the actual bytes, not the uploaded name — "x.svg" holding a PNG must not be served as SVG
+  const buf = req.file.buffer;
+  const isPng = buf.length > 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  const isJpeg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  if (!isPng && !isJpeg) { res.status(400).json({ error: 'errors.logo_format' }); return; }
+  const filename = isPng ? 'logo.png' : 'logo.jpg';
   await removeLogoFiles(uploadsDir, filename);
   await fs.writeFile(path.join(uploadsDir, filename), req.file.buffer);
 
@@ -269,6 +317,8 @@ async function removeLogoFiles(uploadsDir: string, keep?: string): Promise<void>
     .map((f) => fs.unlink(path.join(uploadsDir, f)).catch(() => {})));
 }
 
+// Readable by every signed-in user on purpose: the review upload, invoice email and
+// send-to-accounting dialogs pick a template from this list. Changing templates is permission-checked.
 router.get('/templates', async (_req: Request, res: Response): Promise<void> => {
   const templates = await db.query.emailTemplates.findMany({ orderBy: (t, { asc }) => [asc(t.name)] });
   res.json(templates);
@@ -393,41 +443,119 @@ router.delete('/backup/:filename', requireRole('settings', 'backup'), async (req
 
 router.post('/backup/restore', requireRole('settings', 'backup'), sqlUpload.single('backup'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: 'errors.file_required' }); return; }
+  await handleRestore(req, res, req.file.buffer, req.file.originalname);
+});
 
-  // Validate file magic bytes — reject anything that doesn't match its claimed type
-  const buf = req.file.buffer;
-  if (req.file.originalname.endsWith('.tar.gz')) {
-    if (buf.length < 2 || buf[0] !== 0x1f || buf[1] !== 0x8b) {
-      res.status(400).json({ error: 'errors.validation' });
-      return;
-    }
-  } else {
-    // Plain SQL must be text — null bytes indicate binary content
-    if (buf.includes(0x00)) {
-      res.status(400).json({ error: 'errors.validation' });
-      return;
-    }
+// Restores a backup that is already in the backup folder, without downloading and re-uploading it
+router.post('/backup/restore/:filename', requireRole('settings', 'backup'), async (req: Request, res: Response): Promise<void> => {
+  const { filename } = req.params;
+  if ((!filename.endsWith('.sql') && !filename.endsWith('.tar.gz')) || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    res.status(400).json({ error: 'errors.validation' });
+    return;
+  }
+  const s = await db.query.settings.findFirst();
+  const filePath = path.join(path.resolve(s?.backupPath ?? './backups'), filename);
+  // Read it now: the safety backup taken next applies the retention policy, which could delete this file
+  const buf = await fs.readFile(filePath).catch(() => null);
+  if (!buf) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  await handleRestore(req, res, buf, filename);
+});
+
+// Shared by both restore routes: validate, take a safety backup of the current data, then restore
+async function handleRestore(req: Request, res: Response, buf: Buffer, filename: string): Promise<void> {
+  if (!looksLikeBackup(buf, filename)) { res.status(400).json({ error: 'errors.validation' }); return; }
+
+  // Restoring overwrites everything, so first save what is there now. If this fails, nothing is touched.
+  let safetyBackup: string;
+  try {
+    safetyBackup = path.basename(await createBackup());
+  } catch (err) {
+    res.status(500).json({ error: 'errors.restore_safety_backup_failed', message: err instanceof Error ? err.message : String(err) });
+    return;
   }
 
+  try {
+    await restoreBackup(buf, filename);
+  } catch (err) {
+    res.status(500).json({ error: 'errors.restore_failed', safetyBackup, message: err instanceof Error ? err.message : 'Restore failed' });
+    return;
+  }
+
+  // The restore replaced the tables behind these in-memory copies and the backup schedule
+  await loadPermissions();
+  await loadUserAccess();
+  rescheduleBackup().catch(console.error);
+
+  // No userId: the restoring user may not exist in the restored data, and the entry would be rejected
+  await createAuditLog({ userEmail: req.auth!.email, action: 'restore_backup', payload: { filename, safetyBackup }, req });
+  res.json({ success: true, safetyBackup });
+}
+
+// Checks the file's magic bytes match its claimed type
+function looksLikeBackup(buf: Buffer, filename: string): boolean {
+  if (filename.endsWith('.tar.gz')) return buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+  // Plain SQL must be text — null bytes indicate binary content
+  return !buf.includes(0x00);
+}
+
+// Drops every table, sequence and enum type, whatever features or extensions created them,
+// so backups made before --clean was used (or before a table existed) restore without clashes.
+const RESTORE_CLEANUP_SQL = `
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
+  END LOOP;
+  FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
+    EXECUTE format('DROP SEQUENCE IF EXISTS public.%I CASCADE', r.sequencename);
+  END LOOP;
+  FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+           WHERE n.nspname = 'public' AND t.typtype = 'e' LOOP
+    EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
+  END LOOP;
+END $$;
+`;
+// The drizzle schema (migration history) is left alone on purpose: dumps made with --clean
+// replace it themselves, and wiping it for an older dump would make startup re-run every migration.
+
+async function restoreBackup(buf: Buffer, filename: string): Promise<void> {
   const tmpDir = path.join(os.tmpdir(), `servio-restore-${Date.now()}`);
   try {
     await fs.mkdir(tmpDir, { recursive: true });
 
     let sqlFilePath: string;
+    let extractedUploads: string | null = null;
 
-    if (req.file.originalname.endsWith('.tar.gz')) {
-      // Bundled backup — extract, locate the SQL file, optionally restore uploads
+    if (filename.endsWith('.tar.gz')) {
+      // Bundled backup — extract and locate the SQL file
       const tarPath = path.join(tmpDir, 'backup.tar.gz');
-      await fs.writeFile(tarPath, req.file.buffer);
+      await fs.writeFile(tarPath, buf);
       await execFileAsync('tar', ['-xzf', tarPath, '-C', tmpDir]);
 
-      const entries = await fs.readdir(tmpDir);
-      const sqlEntry = entries.find((f) => f.endsWith('.sql'));
-      if (!sqlEntry) { res.status(400).json({ error: 'errors.validation' }); return; }
+      const sqlEntry = (await fs.readdir(tmpDir)).find((f) => f.endsWith('.sql'));
+      if (!sqlEntry) throw new Error('The archive contains no .sql file');
       sqlFilePath = path.join(tmpDir, sqlEntry);
+      extractedUploads = path.join(tmpDir, 'uploads');
+    } else {
+      // Legacy plain SQL upload
+      sqlFilePath = path.join(tmpDir, 'restore.sql');
+      await fs.writeFile(sqlFilePath, buf);
+    }
 
-      // Restore uploads directory if it was included in the bundle
-      const extractedUploads = path.join(tmpDir, 'uploads');
+    const dbUrl = new URL(process.env.DATABASE_URL!);
+    const env = { ...process.env, PGPASSWORD: dbUrl.password };
+    // -q keeps psql from echoing every statement; a big dump would otherwise overflow the output buffer
+    const psqlBase = ['-q', '-h', dbUrl.hostname, '-p', dbUrl.port || '5432', '-U', dbUrl.username, '-d', dbUrl.pathname.slice(1)];
+    const opts = { env, maxBuffer: 64 * 1024 * 1024 };
+
+    const cleanupFile = path.join(tmpDir, 'cleanup.sql');
+    await fs.writeFile(cleanupFile, RESTORE_CLEANUP_SQL);
+    await execFileAsync('psql', [...psqlBase, '-v', 'ON_ERROR_STOP=1', '-f', cleanupFile], opts);
+    await execFileAsync('psql', [...psqlBase, '-f', sqlFilePath], opts);
+
+    // Restore uploaded files (logo, documents, attachments) if the bundle has them
+    if (extractedUploads) {
       try {
         await fs.access(extractedUploads);
         const uploadsTarget = path.resolve('./uploads');
@@ -436,61 +564,11 @@ router.post('/backup/restore', requireRole('settings', 'backup'), sqlUpload.sing
       } catch {
         // no uploads in bundle — DB-only restore
       }
-    } else {
-      // Legacy plain SQL upload
-      sqlFilePath = path.join(tmpDir, 'restore.sql');
-      await fs.writeFile(sqlFilePath, req.file.buffer);
     }
-
-    const dbUrl = new URL(process.env.DATABASE_URL!);
-    const host = dbUrl.hostname;
-    const port = dbUrl.port || '5432';
-    const database = dbUrl.pathname.slice(1);
-    const username = dbUrl.username;
-    const env = { ...process.env, PGPASSWORD: dbUrl.password };
-    const psqlBase = ['-h', host, '-p', port, '-U', username, '-d', database];
-
-    // Wipe the existing schema so the backup restores cleanly whether it was
-    // created with --clean (new format) or without (old format).
-    const cleanupSql = [
-      'DROP TABLE IF EXISTS reviews CASCADE',
-      'DROP TABLE IF EXISTS invoices CASCADE',
-      'DROP TABLE IF EXISTS audit_logs CASCADE',
-      'DROP TABLE IF EXISTS notifications CASCADE',
-      'DROP TABLE IF EXISTS contracts CASCADE',
-      'DROP TABLE IF EXISTS email_templates CASCADE',
-      'DROP TABLE IF EXISTS facilities CASCADE',
-      'DROP TABLE IF EXISTS customers CASCADE',
-      'DROP TABLE IF EXISTS settings CASCADE',
-      'DROP TABLE IF EXISTS users CASCADE',
-      'DROP TABLE IF EXISTS __drizzle_migrations CASCADE',
-      'DROP TYPE IF EXISTS user_role CASCADE',
-      'DROP TYPE IF EXISTS review_frequency CASCADE',
-      'DROP TYPE IF EXISTS invoice_delivery CASCADE',
-      'DROP TYPE IF EXISTS review_status CASCADE',
-      'DROP TYPE IF EXISTS invoice_status CASCADE',
-      'DROP TYPE IF EXISTS notification_type CASCADE',
-      'DROP TYPE IF EXISTS notification_type_new CASCADE',
-    ].map((s) => `${s};`).join('\n');
-
-    const cleanupFile = path.join(tmpDir, 'cleanup.sql');
-    await fs.writeFile(cleanupFile, cleanupSql);
-    await execFileAsync('psql', [...psqlBase, '-f', cleanupFile], { env });
-
-    await execFileAsync('psql', [...psqlBase, '-f', sqlFilePath], { env });
-
-    // The restore replaced the tables behind these in-memory copies
-    await loadPermissions();
-    await loadUserAccess();
-
-    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restore_backup', payload: { filename: req.file.originalname }, req });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'errors.internal', message: err instanceof Error ? err.message : 'Restore failed' });
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
-});
+}
 
 router.post('/backup/restart', requireRole('settings', 'backup'), async (req: Request, res: Response): Promise<void> => {
   await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'restart_services', payload: {}, req });
@@ -519,9 +597,27 @@ router.get('/permissions', (_req: Request, res: Response): void => {
   res.json(getPermissions());
 });
 
+// Keeps only known sections, actions and roles, and always grants admin: the permission check
+// has no admin bypass, so a config without admin would lock every admin out of Settings for good.
+// Returns null when the body isn't a { section: { action: roles[] } } object at all.
+function sanitizePermissions(body: unknown): Record<string, Record<string, UserRole[]>> | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const known = defaultPermissions as Record<string, Record<string, UserRole[]>>;
+  const out: Record<string, Record<string, UserRole[]>> = {};
+  for (const [section, actions] of Object.entries(body as Record<string, unknown>)) {
+    if (!known[section] || typeof actions !== 'object' || actions === null || Array.isArray(actions)) continue;
+    for (const [action, roles] of Object.entries(actions as Record<string, unknown>)) {
+      if (!known[section][action] || !Array.isArray(roles)) continue;
+      const valid = roles.filter((r): r is UserRole => userRoleSchema.safeParse(r).success);
+      out[section] = { ...out[section], [action]: Array.from(new Set<UserRole>(['admin', ...valid])) };
+    }
+  }
+  return out;
+}
+
 router.patch('/permissions', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
-  const config = req.body as Record<string, Record<string, string[]>>;
-  if (typeof config !== 'object' || config === null) {
+  const config = sanitizePermissions(req.body);
+  if (!config) {
     res.status(400).json({ error: 'errors.validation' });
     return;
   }

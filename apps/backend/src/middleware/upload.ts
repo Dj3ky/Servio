@@ -15,7 +15,8 @@ export const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
-    const allowed = ['image/png', 'image/jpeg', 'image/svg+xml'];
+    // No SVG: it can carry scripts that run when the file is opened directly
+    const allowed = ['image/png', 'image/jpeg'];
     cb(null, allowed.includes(file.mimetype));
   },
 });

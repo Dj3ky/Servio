@@ -83,10 +83,10 @@ function dayBoundary(iso: string, end: boolean): string | undefined {
 }
 
 const SETTINGS_SECTION_TAB: Record<string, string> = {
-  general: 'general', smtp: 'smtp', smb: 'smb', backup: 'backup', alerts: 'alerts', kimai: 'extensions',
+  general: 'general', logo: 'general', smtp: 'smtp', smb: 'smb', backup: 'backup', alerts: 'alerts', kimai: 'extensions',
 };
 const ACTION_SETTINGS_TAB: Record<string, string> = {
-  create_backup: 'backup', restore_backup: 'backup', test_smtp: 'smtp', test_smb: 'smb', restart_services: 'general',
+  create_backup: 'backup', restore_backup: 'backup', test_smtp: 'smtp', test_digest: 'alerts', test_smb: 'smb', restart_services: 'general',
 };
 
 // Where an entry points to in the app: a path, 'resolve' (needs a server lookup), or null (nowhere to go)
