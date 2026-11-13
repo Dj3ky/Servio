@@ -2043,14 +2043,15 @@ function PermissionsTab() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {/* Phones scroll sideways; from md up the table fits, so the header can stick to the page scroll */}
+        {/* Phones scroll sideways; from md up the table fits, so the header sticks to the page scroll.
+            Negative top cancels the p-4 / lg:p-6 padding of <main> in Layout.tsx, so nothing shows above it. */}
         <div className="overflow-x-auto md:overflow-visible border-t">
           <table className="w-full text-sm">
             <thead>
               <tr>
-                <th className="sticky top-0 z-10 bg-card border-b text-left py-2 px-4 font-medium text-muted-foreground" />
+                <th className="sticky -top-4 lg:-top-6 z-10 bg-card border-b text-left py-2 px-4 font-medium text-muted-foreground" />
                 {ALL_ROLES.map(role => (
-                  <th key={role} className="sticky top-0 z-10 bg-card border-b text-center py-2 px-1 font-medium w-20">
+                  <th key={role} className="sticky -top-4 lg:-top-6 z-10 bg-card border-b text-center py-2 px-1 font-medium w-20">
                     <span className="text-[11px] leading-tight uppercase tracking-wide">{t(`users.roles.${role}` as any)}</span>
                   </th>
                 ))}
