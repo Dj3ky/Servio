@@ -704,7 +704,7 @@ export default function SettingsPage() {
   const saveGeneral = useMutation({
     mutationFn: (d: UpdateGeneralSettings) => api.patch('/settings/general', d),
     onSuccess: () => {
-      toast.success(t('common.save'));
+      toast.success(t('settings.saved'));
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['public-settings'] });
     },
@@ -724,7 +724,7 @@ export default function SettingsPage() {
         headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
       }).then((r) => { if (!r.ok) throw new Error(); return r.json(); });
-      toast.success(t('common.save'));
+      toast.success(t('settings.saved'));
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['public-settings'] });
     } catch {
@@ -733,6 +733,15 @@ export default function SettingsPage() {
       setLogoUploading(false);
     }
   }
+
+  const removeLogo = useMutation({
+    mutationFn: () => api.delete('/settings/logo'),
+    onSuccess: () => {
+      toast.success(t('settings.logoRemoved'));
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public-settings'] });
+    },
+  });
 
   // ── SMTP ─────────────────────────────────────────────────────────────────────
   const smtpForm = useForm<UpdateSmtpSettings>({
@@ -755,12 +764,16 @@ export default function SettingsPage() {
 
   const saveSmtp = useMutation({
     mutationFn: (d: UpdateSmtpSettings) => api.patch('/settings/smtp', d),
-    onSuccess: () => toast.success(t('common.save')),
+    onSuccess: () => {
+      toast.success(t('settings.saved'));
+      // Refetch so the password field clears and shows "leave blank" once a password is stored
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
   });
 
   const testSmtp = useMutation({
     mutationFn: (d: TestSmtpRequest) => api.post('/settings/smtp/test', d),
-    onSuccess: (r: any) => r.success ? toast.success('SMTP OK — test email sent') : toast.error(r.error ?? 'SMTP test failed'),
+    onSuccess: (r: any) => r.success ? toast.success(t('settings.smtpTestOk')) : toast.error(r.error ?? t('settings.smtpTestFailed')),
   });
 
   // ── SMB ──────────────────────────────────────────────────────────────────────
@@ -779,13 +792,13 @@ export default function SettingsPage() {
 
   const saveSmb = useMutation({
     mutationFn: (d: UpdateSmbSettings) => api.patch('/settings/smb', d),
-    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+    onSuccess: () => { toast.success(t('settings.saved')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
   });
 
   const testSmb = useMutation({
     mutationFn: () => api.post<{ success: boolean; error?: string }>('/smb/test'),
-    onSuccess: (r) => r.success ? toast.success('SMB OK — connection successful') : toast.error(r.error ?? 'SMB connection failed'),
-    onError: (err: any) => toast.error(err?.message ?? 'SMB test failed'),
+    onSuccess: (r) => r.success ? toast.success(t('settings.smbTestOk')) : toast.error(r.error ?? t('settings.smbTestFailed')),
+    onError: (err: any) => toast.error(err?.message ?? t('settings.smbTestFailed')),
   });
 
   // ── Backup ───────────────────────────────────────────────────────────────────
@@ -860,7 +873,7 @@ export default function SettingsPage() {
 
   const saveBackup = useMutation({
     mutationFn: (d: UpdateBackupSettings) => api.patch('/settings/backup', d),
-    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+    onSuccess: () => { toast.success(t('settings.saved')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
   });
 
   const { data: backupFiles = [], refetch: refetchBackups } = useQuery({
@@ -871,7 +884,7 @@ export default function SettingsPage() {
 
   const createBackupMutation = useMutation({
     mutationFn: () => api.post<{ success: boolean; filePath: string }>('/settings/backup/create', {}),
-    onSuccess: () => { toast.success('Backup created'); refetchBackups(); },
+    onSuccess: () => { toast.success(t('settings.backupCreated')); refetchBackups(); },
     onError: (err: any) => toast.error(err?.message ?? t('errors.internal')),
   });
 
@@ -905,13 +918,14 @@ export default function SettingsPage() {
       }
       return api.post('/settings/templates', d);
     },
-    onSuccess: () => { toast.success(t('common.save')); refetchTemplates(); setTemplateDialog(null); },
+    onSuccess: () => { toast.success(t('settings.saved')); refetchTemplates(); setTemplateDialog(null); },
     onError: () => toast.error(t('errors.internal')),
   });
 
+  const [deleteTemplateTarget, setDeleteTemplateTarget] = useState<EmailTemplate | null>(null);
   const deleteTemplate = useMutation({
     mutationFn: (id: string) => api.delete(`/settings/templates/${id}`),
-    onSuccess: () => { toast.success(t('common.delete')); refetchTemplates(); },
+    onSuccess: () => { toast.success(t('common.delete')); refetchTemplates(); setDeleteTemplateTarget(null); },
     onError: () => toast.error(t('errors.internal')),
   });
 
@@ -929,7 +943,7 @@ export default function SettingsPage() {
 
   const saveAlerts = useMutation({
     mutationFn: (d: UpdateAlertsSettings) => api.patch('/settings/alerts', d),
-    onSuccess: () => { toast.success(t('common.save')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
+    onSuccess: () => { toast.success(t('settings.saved')); queryClient.invalidateQueries({ queryKey: ['settings'] }); },
   });
 
   const digestEnabled = alertsForm.watch('digestEnabled');
@@ -1071,6 +1085,12 @@ export default function SettingsPage() {
                   <Upload className="h-4 w-4 mr-2" />
                   {logoUploading ? t('common.loading') : t('common.upload')}
                 </Button>
+                {settings?.logoUrl && (
+                  <Button variant="outline" disabled={removeLogo.isPending} onClick={() => removeLogo.mutate()}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t('settings.logoRemove')}
+                  </Button>
+                )}
                 <p className="text-xs text-muted-foreground">{t('settings.logoHint')}</p>
               </div>
             </CardContent>
@@ -1355,7 +1375,7 @@ export default function SettingsPage() {
                       <span className="font-medium text-sm">{tpl.name}</span>
                       {tpl.isDefault && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          <CheckCircle2 className="h-3 w-3" /> default
+                          <CheckCircle2 className="h-3 w-3" /> {t('settings.templateDefaultBadge')}
                         </span>
                       )}
                       <Badge variant="outline" className="text-xs font-mono">{tpl.language.toUpperCase()}</Badge>
@@ -1373,7 +1393,7 @@ export default function SettingsPage() {
                       </Button>
                     )}
                     {can('settings', 'deleteTemplates') && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)} title={t('common.delete')}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTemplateTarget(tpl)} title={t('common.delete')}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
@@ -1862,6 +1882,25 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!deleteTemplateTarget} onOpenChange={(v) => { if (!v) setDeleteTemplateTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.deleteTemplateTitle')}</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">{t('settings.deleteTemplateConfirm', { name: deleteTemplateTarget?.name ?? '' })}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTemplateTarget(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteTemplate.isPending}
+              onClick={() => deleteTemplateTarget && deleteTemplate.mutate(deleteTemplateTarget.id)}
+            >
+              {deleteTemplate.isPending ? t('common.loading') : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!deleteBackupTarget} onOpenChange={(v) => { if (!v) setDeleteBackupTarget(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -1923,12 +1962,13 @@ function PermissionsTab() {
 
   const save = useMutation({
     mutationFn: () => api.patch('/settings/permissions', local),
-    onSuccess: () => { toast.success(t('common.save')); refetch(); },
+    onSuccess: () => { toast.success(t('settings.saved')); refetch(); },
   });
 
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const reset = useMutation({
     mutationFn: () => api.delete('/settings/permissions'),
-    onSuccess: () => { setLocal(null); refetch(); toast.success(t('common.reset')); },
+    onSuccess: () => { setLocal(null); refetch(); setResetConfirmOpen(false); toast.success(t('common.reset')); },
   });
 
   const p = (key: string) => t(`settings.perm.${key}` as any);
@@ -2025,6 +2065,7 @@ function PermissionsTab() {
   if (isLoading) return <div className="text-sm text-muted-foreground py-4">{t('common.loading')}</div>;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
@@ -2033,7 +2074,7 @@ function PermissionsTab() {
             <CardDescription className="mt-1">{t('settings.rolesDesc')}</CardDescription>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={() => reset.mutate()} disabled={reset.isPending}>
+            <Button variant="outline" size="sm" onClick={() => setResetConfirmOpen(true)} disabled={reset.isPending}>
               {t('common.reset')}
             </Button>
             <Button size="sm" onClick={() => save.mutate()} disabled={!isDirty || save.isPending}>
@@ -2090,12 +2131,16 @@ function PermissionsTab() {
                           const blocked = !!row.requires && !hasRole(row.requires, role);
                           const checked = !blocked && hasRole(`${row.section}.${row.action}`, role);
                           return (
-                            <td key={role} className="text-center py-2 px-1">
+                            // Tooltip sits on the cell: Firefox shows none on a disabled input
+                            <td
+                              key={role}
+                              className="text-center py-2 px-1"
+                              title={blocked ? t('settings.perm.requires' as any, { name: labelOf(row.requires!) }) : undefined}
+                            >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 disabled={isAdmin || blocked}
-                                title={blocked ? t('settings.perm.requires' as any, { name: labelOf(row.requires!) }) : undefined}
                                 onChange={() => toggle(row, role)}
                                 className="h-4 w-4 rounded border-border cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 accent-primary"
                               />
@@ -2112,5 +2157,21 @@ function PermissionsTab() {
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('settings.rolesResetTitle')}</DialogTitle>
+          <p className="text-sm text-muted-foreground pt-1">{t('settings.rolesResetConfirm')}</p>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="destructive" onClick={() => reset.mutate()} disabled={reset.isPending}>
+            {reset.isPending ? t('common.loading') : t('common.reset')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

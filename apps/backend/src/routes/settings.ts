@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { eq } from 'drizzle-orm';
+import cron from 'node-cron';
 
 const execFileAsync = promisify(execFile);
 import {
@@ -214,6 +215,8 @@ router.patch('/smb', requireRole('settings', 'manage'), async (req: Request, res
 router.patch('/backup', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
+  // An invalid expression would otherwise save fine and backups would silently never run
+  if (!cron.validate(parsed.data.backupSchedule)) { res.status(400).json({ error: 'errors.invalid_cron' }); return; }
 
   await updateSettingsAudited(req, 'backup', { backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, backupNasPath: parsed.data.backupNasPath || null, backupKeepRecent: parsed.data.backupKeepRecent, backupKeepMonthly: parsed.data.backupKeepMonthly, auditLogRetentionMonths: parsed.data.auditLogRetentionMonths, updatedAt: new Date() });
   rescheduleBackup().catch(console.error);
@@ -241,15 +244,30 @@ router.post('/logo', requireRole('settings', 'manage'), imageUpload.single('logo
   const uploadsDir = path.join(process.cwd(), 'uploads');
   await fs.mkdir(uploadsDir, { recursive: true });
 
-  const ext = path.extname(req.file.originalname) || '.png';
+  const ext = (path.extname(req.file.originalname) || '.png').toLowerCase();
   const filename = `logo${ext}`;
-  const filePath = path.join(uploadsDir, filename);
-  await fs.writeFile(filePath, req.file.buffer);
+  await removeLogoFiles(uploadsDir, filename);
+  await fs.writeFile(path.join(uploadsDir, filename), req.file.buffer);
 
-  const logoUrl = `/uploads/${filename}`;
-  await db.update(settings).set({ logoUrl, updatedAt: new Date() }).where(eq(settings.id, 1));
+  // The file name never changes, so the version query makes browsers fetch the new image
+  const logoUrl = `/uploads/${filename}?v=${Date.now()}`;
+  await updateSettingsAudited(req, 'logo', { logoUrl, updatedAt: new Date() });
   res.json({ logoUrl });
 });
+
+router.delete('/logo', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  await removeLogoFiles(path.join(process.cwd(), 'uploads'));
+  await updateSettingsAudited(req, 'logo', { logoUrl: null, updatedAt: new Date() });
+  res.json({ success: true });
+});
+
+// Deletes uploads/logo.* (except `keep`), so a logo replaced by another format doesn't linger
+async function removeLogoFiles(uploadsDir: string, keep?: string): Promise<void> {
+  const files = await fs.readdir(uploadsDir).catch(() => [] as string[]);
+  await Promise.all(files
+    .filter((f) => /^logo\.[a-z0-9]+$/i.test(f) && f !== keep)
+    .map((f) => fs.unlink(path.join(uploadsDir, f)).catch(() => {})));
+}
 
 router.get('/templates', async (_req: Request, res: Response): Promise<void> => {
   const templates = await db.query.emailTemplates.findMany({ orderBy: (t, { asc }) => [asc(t.name)] });
