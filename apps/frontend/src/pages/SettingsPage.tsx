@@ -2043,15 +2043,15 @@ function PermissionsTab() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {/* Own scroll area so the role header can stay visible while scrolling */}
-        <div className="overflow-auto max-h-[70vh] border-t">
+        {/* Phones scroll sideways; from md up the table fits, so the header can stick to the page scroll */}
+        <div className="overflow-x-auto md:overflow-visible border-t">
           <table className="w-full text-sm">
             <thead>
               <tr>
-                <th className="sticky top-0 z-10 bg-card border-b text-left py-2 px-4 font-medium text-muted-foreground min-w-[14rem]" />
+                <th className="sticky top-0 z-10 bg-card border-b text-left py-2 px-4 font-medium text-muted-foreground" />
                 {ALL_ROLES.map(role => (
-                  <th key={role} className="sticky top-0 z-10 bg-card border-b text-center py-2 px-3 font-medium w-24">
-                    <span className="text-xs uppercase tracking-wide">{t(`users.roles.${role}` as any)}</span>
+                  <th key={role} className="sticky top-0 z-10 bg-card border-b text-center py-2 px-1 font-medium w-20">
+                    <span className="text-[11px] leading-tight uppercase tracking-wide">{t(`users.roles.${role}` as any)}</span>
                   </th>
                 ))}
               </tr>
@@ -2089,7 +2089,7 @@ function PermissionsTab() {
                           const blocked = !!row.requires && !hasRole(row.requires, role);
                           const checked = !blocked && hasRole(`${row.section}.${row.action}`, role);
                           return (
-                            <td key={role} className="text-center py-2 px-3">
+                            <td key={role} className="text-center py-2 px-1">
                               <input
                                 type="checkbox"
                                 checked={checked}
