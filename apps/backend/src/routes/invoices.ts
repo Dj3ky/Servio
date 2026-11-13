@@ -5,7 +5,7 @@ import { db } from '../db';
 import { invoices } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords } from '../utils/audit';
 import { broadcast } from '../ws';
 import path from 'path';
 import os from 'os';
@@ -228,10 +228,17 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     updates.completedById = req.auth!.userId;
   }
 
+  const before = await db.query.invoices.findFirst({ where: (inv, { eq }) => eq(inv.id, req.params.id) });
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const [updated] = await db.update(invoices).set(updates).where(eq(invoices.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_invoice', entityType: 'invoice', entityId: req.params.id, payload: { status: parsed.data.status }, req });
+  await createAuditLog({
+    userId: req.auth!.userId, userEmail: req.auth!.email, action: 'complete_invoice', entityType: 'invoice', entityId: req.params.id,
+    payload: { status: parsed.data.status, changes: diffRecords(before, updated, ['status', 'invoiceNumber', 'notes']) },
+    req,
+  });
 
   broadcast('invoice_updated', { invoiceId: updated.id, contractId: updated.contractId, status: updated.status });
   broadcast('dashboard_refresh', {});

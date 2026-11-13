@@ -1,23 +1,9 @@
 import { z } from 'zod';
+import { AuditAction } from '../enums';
 
-export const auditActionSchema = z.enum([
-  'create',
-  'update',
-  'delete',
-  'login',
-  'logout',
-  'upload',
-  'complete_review',
-  'complete_invoice',
-  'send_email',
-  'test_smb',
-  'test_smtp',
-  'create_backup',
-  'restore_backup',
-  'archive_audit_logs',
-  'deactivate_user',
-  'reset_password',
-]);
+// Derived from the AuditAction enum so the two can never drift apart
+const auditActionValues = Object.values(AuditAction) as [AuditAction, ...AuditAction[]];
+export const auditActionSchema = z.enum(auditActionValues);
 
 export const auditLogSchema = z.object({
   id: z.string().uuid(),
@@ -31,15 +17,21 @@ export const auditLogSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
+export const auditLogSortFields = ['createdAt', 'userEmail', 'action', 'entityType', 'ipAddress'] as const;
+
 export const auditLogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  action: auditActionSchema.optional(),
-  entityType: z.string().optional(),
-  entityId: z.string().uuid().optional(),
+  // Actions are stored as plain text, so older or extension-specific values are allowed too
+  action: z.string().max(64).optional(),
+  entityType: z.string().max(64).optional(),
+  entityId: z.string().max(128).optional(),
   userId: z.string().uuid().optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
+  search: z.string().trim().max(200).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  sortBy: z.enum(auditLogSortFields).default('createdAt'),
+  sortDir: z.enum(['asc', 'desc']).default('desc'),
 });
 
 export type AuditLog = z.infer<typeof auditLogSchema>;

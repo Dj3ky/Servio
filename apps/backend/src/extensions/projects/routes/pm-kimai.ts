@@ -5,7 +5,7 @@ import { db } from '../../../db';
 import { pmKimaiConfig, pmKimaiTimesheets, pmProjects } from '../schema';
 import { requireRole } from '../../../middleware/role';
 import { encrypt } from '../../../utils/crypto';
-import { createAuditLog } from '../../../utils/audit';
+import { createAuditLog, diffRecords } from '../../../utils/audit';
 import {
   KimaiError,
   loadKimaiConnection,
@@ -88,11 +88,12 @@ router.patch('/settings/cost-mode', requireRole('settings', 'manage'), handle(as
   const parsed = kimaiCostModeSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  const [before] = await db.select({ ratesAreCosts: pmKimaiConfig.ratesAreCosts }).from(pmKimaiConfig).limit(1);
   const [updated] = await db.update(pmKimaiConfig)
     .set({ ratesAreCosts: parsed.data.ratesAreCosts, updatedAt: new Date() })
-    .returning({ id: pmKimaiConfig.id });
+    .returning({ id: pmKimaiConfig.id, ratesAreCosts: pmKimaiConfig.ratesAreCosts });
   if (!updated) throw new KimaiError('errors.kimai_not_configured', 409);
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'kimai', ratesAreCosts: parsed.data.ratesAreCosts }, req });
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'kimai', changes: diffRecords(before, updated, ['ratesAreCosts']) }, req });
   res.json({ success: true });
 }));
 
@@ -100,9 +101,11 @@ router.put('/settings', requireRole('settings', 'manage'), handle(async (req, re
   const { url, token } = await connectionFromBody(req.body);
   const values = { url, tokenEncrypted: encrypt(token), updatedAt: new Date() };
 
+  const [before] = await db.select({ url: pmKimaiConfig.url, tokenEncrypted: pmKimaiConfig.tokenEncrypted }).from(pmKimaiConfig).limit(1);
   await db.insert(pmKimaiConfig).values({ id: 1, ...values })
     .onConflictDoUpdate({ target: pmKimaiConfig.id, set: values });
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'kimai' }, req });
+  // The token is re-encrypted on every save, so it always shows as changed (masked)
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'kimai', changes: diffRecords(before, values, ['url', 'tokenEncrypted']) }, req });
   res.json({ success: true });
 }));
 

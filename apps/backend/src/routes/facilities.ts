@@ -5,7 +5,7 @@ import { db } from '../db';
 import { facilities } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords } from '../utils/audit';
 import { broadcast } from '../ws';
 
 const router = Router();
@@ -66,6 +66,9 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
   const parsed = updateFacilitySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  const before = await db.query.facilities.findFirst({ where: (f, { eq }) => eq(f.id, req.params.id) });
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const [updated] = await db
     .update(facilities)
     .set({ ...parsed.data, updatedAt: new Date() })
@@ -74,7 +77,7 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
 
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'facility', entityId: req.params.id, payload: parsed.data as Record<string, unknown>, req });
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'facility', entityId: req.params.id, payload: { name: updated.name, changes: diffRecords(before, updated, Object.keys(parsed.data)) }, req });
   broadcast('facility_updated', { facilityId: req.params.id, contractId: '' });
 
   res.json(updated);

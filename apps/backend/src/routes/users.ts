@@ -6,7 +6,7 @@ import { db } from '../db';
 import { users, auditLogs } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords } from '../utils/audit';
 import { loadUserAccess } from '../services/userAccessService';
 import { sendToUser } from '../ws';
 
@@ -94,6 +94,12 @@ router.patch('/:id', requireRole('users', 'manage'), async (req: Request, res: R
   const { id } = req.params;
   const updates: Partial<typeof users.$inferInsert> = {};
 
+  const before = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, id) });
+  if (!before) {
+    res.status(404).json({ error: 'errors.not_found' });
+    return;
+  }
+
   if (parsed.data.email !== undefined) {
     const normalized = parsed.data.email.toLowerCase();
     const existing = await db.query.users.findFirst({
@@ -125,7 +131,7 @@ router.patch('/:id', requireRole('users', 'manage'), async (req: Request, res: R
     action: parsed.data.isActive === false ? 'deactivate_user' : 'update',
     entityType: 'user',
     entityId: id,
-    payload: parsed.data as Record<string, unknown>,
+    payload: { email: updated.email, changes: diffRecords(before, updated, Object.keys(updates)) },
     req,
   });
 

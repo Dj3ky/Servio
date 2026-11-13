@@ -4,17 +4,38 @@ import fs from 'fs/promises';
 import { eq, sql, ilike, or, and, inArray } from 'drizzle-orm';
 import { createContractSchema, updateContractSchema } from '@servio/shared';
 import { db } from '../db';
-import { contracts, reviews, invoices, customers, facilities, users } from '../db/schema';
+import { contracts, reviews, invoices, customers, facilities, users, emailTemplates } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
 import { documentUpload } from '../middleware/upload';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords, type AuditChanges } from '../utils/audit';
 import { format, startOfMonth } from 'date-fns';
 import { shouldCreateReview } from '../services/scheduler';
 import { readCsvRows, escapeCsv as escape } from '../utils/csv';
 
 const router = Router();
 router.use(requireAuth);
+
+// Swaps referenced IDs in an audit diff for readable names (technician, template, customer, facility)
+const REFERENCE_NAMES = {
+  assignedTechnicianId: { table: users, id: users.id, name: users.name },
+  emailTemplateId: { table: emailTemplates, id: emailTemplates.id, name: emailTemplates.name },
+  customerId: { table: customers, id: customers.id, name: customers.name },
+  facilityId: { table: facilities, id: facilities.id, name: facilities.name },
+} as const;
+
+async function labelReferences(changes: AuditChanges): Promise<AuditChanges> {
+  for (const [key, ref] of Object.entries(REFERENCE_NAMES)) {
+    const change = changes[key];
+    if (!change) continue;
+    const ids = [change.from, change.to].filter((v): v is string => typeof v === 'string');
+    if (ids.length === 0) continue;
+    const rows = await db.select({ id: ref.id, name: ref.name }).from(ref.table).where(inArray(ref.id, ids));
+    const nameOf = (v: unknown) => (typeof v === 'string' ? rows.find((r) => r.id === v)?.name ?? v : v);
+    changes[key] = { from: nameOf(change.from), to: nameOf(change.to) };
+  }
+  return changes;
+}
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
@@ -207,6 +228,9 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
   if (parsed.data.valueWithoutVat !== undefined) updates.valueWithoutVat = parsed.data.valueWithoutVat?.toString() ?? null;
   if (parsed.data.valueWithoutVatPerYear !== undefined) updates.valueWithoutVatPerYear = parsed.data.valueWithoutVatPerYear?.toString() ?? null;
 
+  const before = await db.query.contracts.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const [updated] = await db.update(contracts).set(updates as any).where(eq(contracts.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
@@ -236,7 +260,7 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
     }
   }
 
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'contract', entityId: req.params.id, payload: parsed.data as Record<string, unknown>, req });
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'contract', entityId: req.params.id, payload: { contractNumber: updated.contractNumber, changes: await labelReferences(diffRecords(before, updated, Object.keys(parsed.data))) }, req });
   res.json(updated);
 });
 

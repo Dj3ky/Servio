@@ -26,12 +26,26 @@ import { requireRole } from '../middleware/role';
 import { imageUpload, sqlUpload } from '../middleware/upload';
 import { encrypt, decrypt } from '../utils/crypto';
 import { testSmtpConnection } from '../services/email';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords } from '../utils/audit';
 import { getPermissions, loadPermissions } from '../services/permissionsService';
 import { loadUserAccess } from '../services/userAccessService';
 import { broadcast } from '../ws';
 
 const router = Router();
+
+// Saves one settings section and logs exactly which of its fields changed
+async function updateSettingsAudited(req: Request, section: string, updates: Partial<typeof settings.$inferInsert>): Promise<void> {
+  const [before] = await db.select().from(settings).where(eq(settings.id, 1)).limit(1);
+  const [after] = await db.update(settings).set(updates).where(eq(settings.id, 1)).returning();
+  await createAuditLog({
+    userId: req.auth!.userId,
+    userEmail: req.auth!.email,
+    action: 'update',
+    entityType: 'settings',
+    payload: { section, changes: diffRecords(before, after ?? updates, Object.keys(updates)) },
+    req,
+  });
+}
 
 // Short-lived one-time tokens for PWA/browser-navigation downloads (30s TTL)
 const downloadTokens = new Map<string, { filename: string; expires: number }>();
@@ -136,13 +150,12 @@ router.patch('/general', requireRole('settings', 'manage'), async (req: Request,
   const parsed = updateGeneralSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({
+  await updateSettingsAudited(req, 'general', {
     appName: parsed.data.appName,
     defaultLanguage: parsed.data.defaultLanguage,
     accountingEmail: parsed.data.accountingEmail || null,
     updatedAt: new Date(),
-  }).where(eq(settings.id, 1));
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'general' }, req });
+  });
   res.json({ success: true });
 });
 
@@ -164,8 +177,7 @@ router.patch('/smtp', requireRole('settings', 'manage'), async (req: Request, re
     updates.smtpPassEncrypted = encrypt(parsed.data.smtpPass);
   }
 
-  await db.update(settings).set(updates).where(eq(settings.id, 1));
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'smtp' }, req });
+  await updateSettingsAudited(req, 'smtp', updates);
   res.json({ success: true });
 });
 
@@ -195,8 +207,7 @@ router.patch('/smb', requireRole('settings', 'manage'), async (req: Request, res
     updates.smbPassEncrypted = encrypt(parsed.data.smbPassword);
   }
 
-  await db.update(settings).set(updates).where(eq(settings.id, 1));
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'smb' }, req });
+  await updateSettingsAudited(req, 'smb', updates);
   res.json({ success: true });
 });
 
@@ -204,8 +215,7 @@ router.patch('/backup', requireRole('settings', 'manage'), async (req: Request, 
   const parsed = updateBackupSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({ backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, backupNasPath: parsed.data.backupNasPath || null, backupKeepRecent: parsed.data.backupKeepRecent, backupKeepMonthly: parsed.data.backupKeepMonthly, auditLogRetentionMonths: parsed.data.auditLogRetentionMonths, updatedAt: new Date() }).where(eq(settings.id, 1));
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'backup' }, req });
+  await updateSettingsAudited(req, 'backup', { backupEnabled: parsed.data.backupEnabled, backupSchedule: parsed.data.backupSchedule, backupPath: parsed.data.backupPath, backupToNas: parsed.data.backupToNas, backupNasPath: parsed.data.backupNasPath || null, backupKeepRecent: parsed.data.backupKeepRecent, backupKeepMonthly: parsed.data.backupKeepMonthly, auditLogRetentionMonths: parsed.data.auditLogRetentionMonths, updatedAt: new Date() });
   rescheduleBackup().catch(console.error);
   res.json({ success: true });
 });
@@ -214,15 +224,14 @@ router.patch('/alerts', requireRole('settings', 'manage'), async (req: Request, 
   const parsed = updateAlertsSettingsSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
-  await db.update(settings).set({
+  await updateSettingsAudited(req, 'alerts', {
     digestEnabled: parsed.data.digestEnabled,
     digestFrequency: parsed.data.digestFrequency,
     digestEmail: parsed.data.digestEmail || null,
     escalationEnabled: parsed.data.escalationEnabled,
     escalationDays: parsed.data.escalationDays,
     updatedAt: new Date(),
-  }).where(eq(settings.id, 1));
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'settings', payload: { section: 'alerts' }, req });
+  });
   res.json({ success: true });
 });
 
@@ -252,6 +261,7 @@ router.post('/templates', requireRole('settings', 'manageTemplates'), async (req
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
   const [template] = await db.insert(emailTemplates).values(parsed.data).returning();
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'create', entityType: 'email_template', entityId: template.id, payload: { name: template.name, language: template.language, templateType: template.templateType }, req });
   res.status(201).json(template);
 });
 
@@ -259,13 +269,20 @@ router.patch('/templates/:id', requireRole('settings', 'manageTemplates'), async
   const parsed = updateEmailTemplateSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  const [before] = await db.select().from(emailTemplates).where(eq(emailTemplates.id, req.params.id)).limit(1);
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const [updated] = await db.update(emailTemplates).set({ ...parsed.data, updatedAt: new Date() }).where(eq(emailTemplates.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'email_template', entityId: updated.id, payload: { name: updated.name, changes: diffRecords(before, updated, Object.keys(parsed.data)) }, req });
   res.json(updated);
 });
 
 router.delete('/templates/:id', requireRole('settings', 'deleteTemplates'), async (req: Request, res: Response): Promise<void> => {
-  await db.delete(emailTemplates).where(eq(emailTemplates.id, req.params.id));
+  const [deleted] = await db.delete(emailTemplates).where(eq(emailTemplates.id, req.params.id)).returning();
+  if (deleted) {
+    await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'delete', entityType: 'email_template', entityId: deleted.id, payload: { name: deleted.name, language: deleted.language, templateType: deleted.templateType }, req });
+  }
   res.json({ success: true });
 });
 
@@ -468,6 +485,17 @@ router.post('/backup/restart', requireRole('settings', 'backup'), async (req: Re
   }, 500);
 });
 
+// { section: { action: roles[] } } → { 'section.action': sortedRoles[] }, so each permission diffs on its own
+function flattenPermissions(map: unknown): Record<string, string[]> {
+  const flat: Record<string, string[]> = {};
+  for (const [section, actions] of Object.entries((map ?? {}) as Record<string, Record<string, string[]>>)) {
+    for (const [action, roles] of Object.entries(actions ?? {})) {
+      flat[`${section}.${action}`] = Array.isArray(roles) ? [...roles].sort() : [];
+    }
+  }
+  return flat;
+}
+
 // Every role reads this — the frontend decides what to show from it
 router.get('/permissions', (_req: Request, res: Response): void => {
   res.json(getPermissions());
@@ -479,17 +507,21 @@ router.patch('/permissions', requireRole('settings', 'manage'), async (req: Requ
     res.status(400).json({ error: 'errors.validation' });
     return;
   }
+  const before = flattenPermissions(getPermissions());
   await db.update(settings).set({ permissionsConfig: config });
   await loadPermissions();
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: config, req });
+  const after = flattenPermissions(getPermissions());
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: { changes: diffRecords(before, after, new Set([...Object.keys(before), ...Object.keys(after)])) }, req });
   broadcast('permissions_updated', {});
   res.json({ success: true });
 });
 
 router.delete('/permissions', requireRole('settings', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const before = flattenPermissions(getPermissions());
   await db.update(settings).set({ permissionsConfig: null });
   await loadPermissions();
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: { reset: true }, req });
+  const after = flattenPermissions(getPermissions());
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'permissions', payload: { reset: true, changes: diffRecords(before, after, new Set([...Object.keys(before), ...Object.keys(after)])) }, req });
   broadcast('permissions_updated', {});
   res.json({ success: true });
 });

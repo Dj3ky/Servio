@@ -21,6 +21,15 @@ const loginLimiter = rateLimit({
   message: { error: 'errors.too_many_attempts' },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res, _next, options) => {
+    // Log only the first blocked attempt per window, so a brute-force run can't flood the audit log
+    const info = (req as Request & { rateLimit?: { current: number; limit: number } }).rateLimit;
+    if (!info || info.current === info.limit + 1) {
+      const attempted = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 254) : undefined;
+      void createAuditLog({ userEmail: attempted, action: 'login_blocked', payload: { attempts: info?.current }, req });
+    }
+    res.status(options.statusCode).json(options.message);
+  },
 });
 
 router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -31,18 +40,32 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
   }
 
   const { email, password } = parsed.data;
+  const normalizedEmail = email.toLowerCase();
 
   const user = await db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.email, email.toLowerCase()),
+    where: (u, { eq }) => eq(u.email, normalizedEmail),
   });
 
+  const logFailure = (reason: 'unknown_user' | 'inactive_user' | 'wrong_password') =>
+    // No userId: the actor is unverified, so the attempt is linked to the account as its entity instead
+    createAuditLog({
+      userEmail: normalizedEmail,
+      action: 'login_failed',
+      entityType: user ? 'user' : undefined,
+      entityId: user?.id,
+      payload: { reason },
+      req,
+    });
+
   if (!user || !user.isActive) {
+    await logFailure(!user ? 'unknown_user' : 'inactive_user');
     res.status(401).json({ error: 'errors.invalid_credentials' });
     return;
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    await logFailure('wrong_password');
     res.status(401).json({ error: 'errors.invalid_credentials' });
     return;
   }

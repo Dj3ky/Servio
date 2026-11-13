@@ -5,7 +5,7 @@ import { db } from '../db';
 import { customers } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/role';
-import { createAuditLog } from '../utils/audit';
+import { createAuditLog, diffRecords } from '../utils/audit';
 
 const router = Router();
 router.use(requireAuth);
@@ -61,10 +61,13 @@ router.patch('/:id', requireRole('records', 'manage'), async (req: Request, res:
   const parsed = updateCustomerSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
+  const before = await db.query.customers.findFirst({ where: (c, { eq }) => eq(c.id, req.params.id) });
+  if (!before) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
   const [updated] = await db.update(customers).set({ ...parsed.data, updatedAt: new Date() }).where(eq(customers.id, req.params.id)).returning();
   if (!updated) { res.status(404).json({ error: 'errors.not_found' }); return; }
 
-  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'customer', entityId: req.params.id, payload: parsed.data as Record<string, unknown>, req });
+  await createAuditLog({ userId: req.auth!.userId, userEmail: req.auth!.email, action: 'update', entityType: 'customer', entityId: req.params.id, payload: { name: updated.name, changes: diffRecords(before, updated, Object.keys(parsed.data)) }, req });
   res.json(updated);
 });
 
