@@ -92,7 +92,11 @@ function Timeline({ project }: { project: QuickProject }) {
 
 // Side panel with a project summary, opened from a project name in the meeting form.
 // Non-modal: the form stays usable, and clicking another project name swaps the content.
-export function ProjectQuickView({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
+// closeOnOutsideClick: for read-only pages (reports), a click outside closes the panel,
+// except on elements marked data-quick-view-trigger, which swap the project instead.
+export function ProjectQuickView({ projectId, onClose, closeOnOutsideClick = false }: {
+  projectId: string | null; onClose: () => void; closeOnOutsideClick?: boolean;
+}) {
   const { t } = useTranslation();
   const employeeOrder = useEmployeeOrder();
   const [notesExpanded, setNotesExpanded] = useState(false);
@@ -127,7 +131,12 @@ export function ProjectQuickView({ projectId, onClose }: { projectId: string | n
     <DialogPrimitive.Root open={!!projectId} onOpenChange={o => { if (!o) onClose(); }} modal={false}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Content
-          onInteractOutside={e => e.preventDefault()}
+          onPointerDownOutside={e => {
+            const target = e.detail.originalEvent.target as Element | null;
+            if (!closeOnOutsideClick || fullOpen || target?.closest('[data-quick-view-trigger]')) e.preventDefault();
+          }}
+          // Focus moving elsewhere (e.g. into the full-project popup) never closes the panel
+          onFocusOutside={e => e.preventDefault()}
           onOpenAutoFocus={e => e.preventDefault()}
           className="fixed inset-y-0 right-0 z-50 flex w-full sm:w-[440px] flex-col border-l bg-background shadow-2xl outline-none data-[state=open]:animate-sheet-in-right data-[state=closed]:animate-sheet-out-right"
         >

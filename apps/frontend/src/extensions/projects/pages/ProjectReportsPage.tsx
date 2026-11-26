@@ -724,7 +724,7 @@ export default function ProjectReportsPage() {
                   </thead>
                   <tbody>
                     {outSort.sorted.map(p => (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
+                      <tr key={p.id} data-quick-view-trigger className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
                         <td className="px-4 py-3"><ProjectCell id={p.id} name={p.name} number={p.projectNumber} onOpen={setQuickId} /></td>
                         <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                         <td className="px-4 py-3"><Person employeeId={p.employeeId} name={p.employeeName} order={employeeOrder} fallback={t('pm.reports.unassigned')} /></td>
@@ -822,7 +822,7 @@ export default function ProjectReportsPage() {
                               const remaining = num(p.contractValue) - num(p.invoicedAmount);
                               const late = isPastDue(p.endDate);
                               return (
-                                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
+                                <tr key={p.id} data-quick-view-trigger className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
                                   <td className="px-3 py-2"><ProjectCell id={p.id} name={p.name} number={p.projectNumber} onOpen={setQuickId} /></td>
                                   <td className="px-3 py-2 text-xs text-muted-foreground truncate">{p.customerName ?? '—'}</td>
                                   <td className="px-3 py-2"><StatusBadge status={p.status} /></td>
@@ -909,7 +909,7 @@ export default function ProjectReportsPage() {
                 </thead>
                 <tbody>
                   {lateSort.sorted.map(p => (
-                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
+                    <tr key={p.id} data-quick-view-trigger className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(p.id)}>
                       <td className="px-4 py-3"><ProjectCell id={p.id} name={p.name} number={p.projectNumber} onOpen={setQuickId} /></td>
                       <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? '—'}</td>
                       <td className="px-4 py-3"><Person employeeId={p.employeeId} name={p.employeeName} order={employeeOrder} fallback={t('pm.reports.unassigned')} /></td>
@@ -982,7 +982,7 @@ export default function ProjectReportsPage() {
         </TabsContent>
       </Tabs>
 
-      <ProjectQuickView projectId={quickId} onClose={() => setQuickId(null)} />
+      <ProjectQuickView projectId={quickId} onClose={() => setQuickId(null)} closeOnOutsideClick />
     </div>
   );
 }
