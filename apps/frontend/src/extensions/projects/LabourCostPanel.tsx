@@ -15,7 +15,9 @@ export interface LabourCostData {
   byActivity: { activityName: string | null; cost: string; seconds: number }[];
 }
 
-const MAX_ACTIVITY_LABEL = 20;
+const MAX_ACTIVITY_LABEL = 34;
+// Rough width of one character at the 11px axis font, to size the label column to the longest name
+const LABEL_CHAR_PX = 7;
 
 const AXIS_TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
 
@@ -65,15 +67,19 @@ function CostTooltip({ active, payload }: { active?: boolean; payload?: { payloa
 
 // Rows sit 40px apart so bars stay thin however many activities there are; the full names are in the table below
 function ActivityChart({ rows }: { rows: { label: string; cost: number; seconds: number }[] }) {
+  const total = rows.reduce((sum, r) => sum + r.cost, 0);
+  const data = rows.map(r => ({ ...r, valueLabel: `${formatCost(r.cost)} · ${total > 0 ? Math.round((r.cost / total) * 100) : 0} %` }));
+  const longest = Math.min(MAX_ACTIVITY_LABEL, Math.max(...rows.map(r => r.label.length)));
+  const labelWidth = Math.max(80, Math.ceil(longest * LABEL_CHAR_PX) + 12);
   return (
     <div style={{ height: rows.length * 40 + 8 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 84, bottom: 4, left: 0 }}>
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 130, bottom: 4, left: 0 }}>
           <XAxis type="number" hide domain={[0, 'dataMax']} />
           <YAxis
             type="category"
             dataKey="label"
-            width={120}
+            width={labelWidth}
             interval={0}
             tick={AXIS_TICK}
             axisLine={false}
@@ -82,7 +88,7 @@ function ActivityChart({ rows }: { rows: { label: string; cost: number; seconds:
           />
           <Tooltip content={<CostTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
           <Bar dataKey="cost" fill="hsl(var(--primary))" maxBarSize={24} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-            <LabelList dataKey="cost" position="right" formatter={formatCost} fontSize={11} fill="hsl(var(--foreground))" />
+            <LabelList dataKey="valueLabel" position="right" fontSize={11} fill="hsl(var(--foreground))" />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
