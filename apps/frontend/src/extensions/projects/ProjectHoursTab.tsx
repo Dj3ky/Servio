@@ -347,7 +347,7 @@ export function ProjectHoursTab({ project }: { project: HoursProject }) {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 px-4 py-3 text-sm">
           {linked ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-              <span className="min-w-0"><span className="text-muted-foreground">Kimai </span><span className="font-medium">{project.kimaiProjectName}</span></span>
+              <span className="min-w-0"><span className="text-muted-foreground">{t('pm.kimai.projectLabel')}: </span><span className="font-medium">{project.kimaiProjectName}</span></span>
               <span className="hidden sm:inline h-4 w-px bg-border" aria-hidden="true" />
               <span className="text-muted-foreground">
                 {hours?.syncedAt ? t('pm.kimai.syncedAt', { date: formatDateTime(hours.syncedAt) }) : t('pm.kimai.neverSynced')}

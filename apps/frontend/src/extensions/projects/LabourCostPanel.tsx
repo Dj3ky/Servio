@@ -86,7 +86,22 @@ function ActivityChart({ rows }: { rows: { label: string; cost: number; seconds:
           />
           <Tooltip content={<CostTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
           <Bar dataKey="cost" fill="hsl(var(--primary))" maxBarSize={24} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-            <LabelList dataKey="valueLabel" position="right" fontSize={11} fill="hsl(var(--foreground))" />
+            {/* Plain <text>: Recharts' own label wraps to the bar's width, which breaks short bars onto two lines */}
+            <LabelList
+              dataKey="valueLabel"
+              content={({ x, y, width, height, value }) => (
+                <text
+                  x={Number(x) + Number(width) + 6}
+                  y={Number(y) + Number(height) / 2}
+                  dominantBaseline="central"
+                  fontSize={11}
+                  fill="hsl(var(--foreground))"
+                  className="tabular-nums"
+                >
+                  {value}
+                </text>
+              )}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
