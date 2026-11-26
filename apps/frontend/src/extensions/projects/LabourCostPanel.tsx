@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api } from '@/lib/api';
 import { formatHours } from './hoursFormat';
 
 export interface LabourCostData {
@@ -21,7 +19,7 @@ const LABEL_CHAR_PX = 7;
 
 const AXIS_TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
 
-function formatCost(value: string | number) {
+export function formatCost(value: string | number) {
   // de-DE: same format as sl-SI, but sl-SI skips the thousands separator for 4-digit amounts
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(value));
 }
@@ -96,7 +94,8 @@ function ActivityChart({ rows }: { rows: { label: string; cost: number; seconds:
   );
 }
 
-export function LabourCostView({ data }: { data: LabourCostData }) {
+// Warnings and charts only: the total sits in the Hours tab's summary tiles, and cost per person in its people table
+export function LabourCostCharts({ data }: { data: LabourCostData }) {
   const { t } = useTranslation();
   const months = useMemo(() => withEmptyMonths(data.byMonth), [data.byMonth]);
   const activities = useMemo(() => data.byActivity.map(a => ({
@@ -107,12 +106,7 @@ export function LabourCostView({ data }: { data: LabourCostData }) {
   const allUnknown = data.unknownEntries === data.entryCount;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-medium">{t('pm.kimai.labourCost')}</p>
-        <p className="text-2xl font-semibold">{allUnknown ? t('pm.kimai.costUnknown') : formatCost(data.totalCost)}</p>
-      </div>
-
+    <div className="space-y-6">
       {data.unknownEntries > 0 && (
         <p className="text-sm text-amber-600 dark:text-amber-400">
           {t('pm.kimai.costUnknownEntries', { count: data.unknownEntries, total: data.entryCount })}
@@ -172,27 +166,6 @@ export function LabourCostView({ data }: { data: LabourCostData }) {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">{t('pm.kimai.person')}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t('pm.kimai.hours')}</th>
-                  <th className="py-2 text-right font-medium">{t('pm.kimai.cost')}</th>
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {data.byUser.map(u => (
-                  <tr key={u.userName} className="border-b last:border-0">
-                    <td className="py-2 pr-3">{u.userName}</td>
-                    <td className="py-2 pr-3 text-right whitespace-nowrap">{formatHours(u.seconds)}</td>
-                    <td className="py-2 text-right whitespace-nowrap">{formatCost(u.cost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
           {months.length > 1 && (
             <details className="text-sm">
               <summary className="cursor-pointer text-muted-foreground">{t('pm.kimai.costMonthTable')}</summary>
@@ -222,16 +195,4 @@ export function LabourCostView({ data }: { data: LabourCostData }) {
       )}
     </div>
   );
-}
-
-export function LabourCostPanel({ projectId }: { projectId: string }) {
-  const { t } = useTranslation();
-  const { data, isLoading } = useQuery<LabourCostData>({
-    queryKey: ['pm-kimai-cost', projectId],
-    queryFn: () => api.get(`/pm/kimai/cost/${projectId}`),
-  });
-
-  if (isLoading) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
-  if (!data || data.entryCount === 0) return null;
-  return <LabourCostView data={data} />;
 }

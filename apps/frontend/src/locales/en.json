@@ -1069,6 +1069,8 @@
       "costByMonth": "Labour cost by month",
       "costByActivity": "Labour cost by activity",
       "costPerHour": "Per hour",
+      "avgPerHour": "Average per hour",
+      "entries": "Entries",
       "noActivity": "No activity",
       "ratesAreCosts": "Kimai rates are our cost",
       "ratesAreCostsDesc": "Turn on if your Kimai rates hold your real costs. A cost equal to the rate then no longer triggers a warning. Entries with a cost of 0 are still flagged.",

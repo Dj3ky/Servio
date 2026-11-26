@@ -1093,6 +1093,8 @@
       "costByMonth": "Strošek dela po mesecih",
       "costByActivity": "Strošek dela po aktivnostih",
       "costPerHour": "Na uro",
+      "avgPerHour": "Povprečno na uro",
+      "entries": "Zapisi",
       "noActivity": "Brez aktivnosti",
       "ratesAreCosts": "Cene v Kimai so naš strošek",
       "ratesAreCostsDesc": "Vklopite, če so v Kimai kot cene vpisani dejanski stroški. Potem strošek, enak ceni, ne sproži več opozorila. Zapisi s stroškom 0 se še vedno označijo.",
