@@ -423,7 +423,7 @@ export default function ProjectReportsPage() {
           deltaTone={pastDeadlineRemaining > 0 ? 'danger' : 'neutral'}
           delta={pastDeadlineRemaining > 0 ? t('pm.reports.overdueCount', { count: overdueRows.length }) : null}
           deltaTitle={overdueRows.map(p => `${p.projectNumber} · ${p.name}`).join('\n')}
-          onClick={() => setTab('overdue')}
+          onDeltaClick={() => setTab('overdue')}
           foot={pastDeadlineRemaining > 0
             ? t('pm.reports.kpiPastDeadline', { amount: eur(pastDeadlineRemaining) })
             : t('pm.reports.kpiNothingPastDeadline')}

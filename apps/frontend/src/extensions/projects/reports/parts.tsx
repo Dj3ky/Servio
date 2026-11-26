@@ -6,7 +6,7 @@ import { employeeAccent, initials } from '../meetings/utils';
 
 // ── KPI tile ──────────────────────────────────────────────────────────────────
 
-export function KpiTile({ label, value, delta, deltaTone = 'neutral', deltaTitle, foot, tone = 'default', children, loading, onClick }: {
+export function KpiTile({ label, value, delta, deltaTone = 'neutral', deltaTitle, foot, tone = 'default', children, loading, onClick, onDeltaClick }: {
   label: string;
   value: string;
   delta?: string | null;
@@ -19,6 +19,8 @@ export function KpiTile({ label, value, delta, deltaTone = 'neutral', deltaTitle
   loading?: boolean;
   /** Makes the whole tile a button, e.g. to open the matching tab */
   onClick?: () => void;
+  /** Makes only the badge a button, for when the badge (not the headline) matches the target */
+  onDeltaClick?: () => void;
 }) {
   const Root = onClick ? 'button' : 'div';
   return (
@@ -32,15 +34,23 @@ export function KpiTile({ label, value, delta, deltaTone = 'neutral', deltaTitle
     >
       <div className="flex w-full items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
-        {delta && (
-          <span title={deltaTitle} className={cn(
-            'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
-            deltaTone === 'up' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-            deltaTone === 'down' && 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
-            deltaTone === 'danger' && 'bg-red-500/10 text-red-700 dark:text-red-300',
-            deltaTone === 'neutral' && 'bg-muted text-muted-foreground',
-          )}>{delta}</span>
-        )}
+        {delta && (() => {
+          const Badge = onDeltaClick && !onClick ? 'button' : 'span';
+          return (
+            <Badge
+              {...(Badge === 'button' ? { type: 'button' as const, onClick: onDeltaClick } : {})}
+              title={deltaTitle}
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
+                deltaTone === 'up' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+                deltaTone === 'down' && 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
+                deltaTone === 'danger' && 'bg-red-500/10 text-red-700 dark:text-red-300',
+                deltaTone === 'neutral' && 'bg-muted text-muted-foreground',
+                Badge === 'button' && 'cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            >{delta}</Badge>
+          );
+        })()}
       </div>
       {loading ? <Skeleton className="h-8 w-3/4" /> : (
         <div className={cn(
