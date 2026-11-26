@@ -6,25 +6,34 @@ import { employeeAccent, initials } from '../meetings/utils';
 
 // ── KPI tile ──────────────────────────────────────────────────────────────────
 
-export function KpiTile({ label, value, delta, deltaTone = 'neutral', foot, tone = 'default', children, loading }: {
+export function KpiTile({ label, value, delta, deltaTone = 'neutral', deltaTitle, foot, tone = 'default', children, loading, onClick }: {
   label: string;
   value: string;
   delta?: string | null;
   deltaTone?: 'up' | 'down' | 'neutral' | 'danger';
+  /** Hover text for the badge, e.g. the projects behind a count */
+  deltaTitle?: string;
   foot?: ReactNode;
   tone?: 'default' | 'primary' | 'success' | 'danger';
   children?: ReactNode;
   loading?: boolean;
+  /** Makes the whole tile a button, e.g. to open the matching tab */
+  onClick?: () => void;
 }) {
+  const Root = onClick ? 'button' : 'div';
   return (
-    <div className={cn(
-      'rounded-xl border bg-card p-4 flex flex-col gap-2.5 min-w-0',
-      tone === 'danger' && 'border-red-500/30 bg-red-500/[0.03]',
-    )}>
-      <div className="flex items-center justify-between gap-2">
+    <Root
+      {...(onClick ? { type: 'button' as const, onClick } : {})}
+      className={cn(
+        'rounded-xl border bg-card p-4 flex flex-col gap-2.5 min-w-0 text-left',
+        tone === 'danger' && 'border-red-500/30 bg-red-500/[0.03]',
+        onClick && 'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      )}
+    >
+      <div className="flex w-full items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
         {delta && (
-          <span className={cn(
+          <span title={deltaTitle} className={cn(
             'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
             deltaTone === 'up' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
             deltaTone === 'down' && 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
@@ -41,9 +50,9 @@ export function KpiTile({ label, value, delta, deltaTone = 'neutral', foot, tone
           tone === 'danger' && 'text-red-600 dark:text-red-400',
         )} title={value}>{value}</div>
       )}
-      <div className="h-7 flex items-end">{children}</div>
-      {foot && <div className="text-xs text-muted-foreground truncate">{foot}</div>}
-    </div>
+      <div className="h-7 w-full flex items-end">{children}</div>
+      {foot && <div className="w-full text-xs text-muted-foreground truncate">{foot}</div>}
+    </Root>
   );
 }
 

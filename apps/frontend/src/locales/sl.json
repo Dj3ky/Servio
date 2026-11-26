@@ -1260,7 +1260,7 @@
       "projectsCount_few": "{{count}} projekti",
       "projectsCount_other": "{{count}} projektov",
       "kpiUnbilledOld": "{{amount}} starejše od 90 dni",
-      "kpiUnbilledNone": "Nič starejšega od 90 dni",
+      "kpiUnbilledNone": "Ni zneskov, starejših od 90 dni",
       "revenueVsPrev": "Izdane fakture, {{year}} v primerjavi z {{prev}}",
       "invoiceCount_one": "{{count}} faktura",
       "invoiceCount_two": "{{count}} fakturi",

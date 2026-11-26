@@ -422,6 +422,8 @@ export default function ProjectReportsPage() {
           loading={loadingSummary}
           deltaTone={pastDeadlineRemaining > 0 ? 'danger' : 'neutral'}
           delta={pastDeadlineRemaining > 0 ? t('pm.reports.overdueCount', { count: overdueRows.length }) : null}
+          deltaTitle={overdueRows.map(p => `${p.projectNumber} · ${p.name}`).join('\n')}
+          onClick={() => setTab('overdue')}
           foot={pastDeadlineRemaining > 0
             ? t('pm.reports.kpiPastDeadline', { amount: eur(pastDeadlineRemaining) })
             : t('pm.reports.kpiNothingPastDeadline')}
@@ -447,6 +449,8 @@ export default function ProjectReportsPage() {
           loading={loadingOutstanding}
           delta={outstandingRows.length > 0 ? t('pm.reports.projectsCount', { count: outstandingRows.length }) : null}
           deltaTone="danger"
+          deltaTitle={outstandingRows.map(p => `${p.projectNumber} · ${p.name}`).join('\n')}
+          onClick={() => { setAgingFilter(null); setTab('outstanding'); }}
           foot={oldOutstanding > 0
             ? t('pm.reports.kpiUnbilledOld', { amount: eur(oldOutstanding) })
             : t('pm.reports.kpiUnbilledNone')}
