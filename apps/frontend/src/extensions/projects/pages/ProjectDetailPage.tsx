@@ -23,6 +23,8 @@ import { ProjectTasksTab } from '../ProjectTasksTab';
 import { ProjectHoursTab } from '../ProjectHoursTab';
 import { ProjectNotesTab, type PmNote } from '../ProjectNotesTab';
 import { useKimaiStatus } from '../kimai';
+import type { LabourCostData } from '../LabourCostPanel';
+import { formatHours } from '../hoursFormat';
 import { NameSuggestionLists } from '../nameSuggestions';
 import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
@@ -303,6 +305,14 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
 
   const { data: kimaiStatus } = useKimaiStatus();
 
+  // Same query (and cache) as the Hours tab's cost panel; only fetched for people allowed to see labour cost
+  const canSeeCost = can('projects', 'labourCost');
+  const { data: labourCost } = useQuery<LabourCostData>({
+    queryKey: ['pm-kimai-cost', id],
+    queryFn: () => api.get(`/pm/kimai/cost/${id}`),
+    enabled: !!id && canSeeCost && !!kimaiStatus?.configured && project?.kimaiProjectId != null,
+  });
+
   const updateProject = useMutation({
     mutationFn: (body: Record<string, string>) => api.patch(`/pm/projects/${id}`, body),
     onSuccess: () => {
@@ -463,7 +473,13 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
   const invoiced = parseFloat(project.invoicedAmount ?? '0');
   const received = parseFloat(project.receivedAmount ?? '0');
   const remaining = contractVal - invoiced;
-  const profit = invoiced - received;
+  const invoiceProfit = invoiced - received;
+  // Real profit subtracts Kimai labour cost; skipped when no entry has a known cost
+  const hasLabourCost = !!labourCost && labourCost.entryCount > 0 && labourCost.unknownEntries < labourCost.entryCount;
+  const labourAmount = hasLabourCost ? Number(labourCost.totalCost) : 0;
+  const labourSeconds = hasLabourCost ? labourCost.byMonth.reduce((sum, m) => sum + m.seconds, 0) : 0;
+  const profit = invoiceProfit - labourAmount;
+  const margin = hasLabourCost && invoiced > 0 ? (profit / invoiced) * 100 : null;
   const invoicedPct = contractVal > 0 ? Math.min(100, (invoiced / contractVal) * 100) : 0;
   const isOverdue = project.status !== 'completed' && isPastDue(project.endDate);
   const issuedInvoices = (invoices ?? []).filter(inv => inv.direction !== 'received');
@@ -543,12 +559,36 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
         <div className={`rounded-lg border p-4 space-y-1 ${profit >= 0
           ? 'border-green-500/30 bg-green-500/10 text-green-800 dark:text-green-300'
           : 'border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300'}`}>
-          <div className="text-sm">{t('pm.fields.profit')}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm">{hasLabourCost ? t('pm.fields.realProfit') : t('pm.fields.profit')}</div>
+            {margin !== null && (
+              <span className="rounded-full bg-background/60 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                {margin.toFixed(0)} %
+              </span>
+            )}
+          </div>
           <div className={`text-2xl font-bold tracking-tight ${profit >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
             {formatCurrency(String(profit))}
           </div>
-          {/* Profit = invoiced − received invoices, so show what was subtracted */}
-          <div className="text-xs">{t('pm.fields.received')}: {formatCurrency(project.receivedAmount)}</div>
+          {hasLabourCost ? (
+            /* Real profit = (invoiced − received invoices) − labour cost, so show both parts */
+            <div className="space-y-0.5 pt-1 text-xs tabular-nums">
+              <div className="flex justify-between gap-2">
+                <span className="opacity-80">{t('pm.fields.invoiceProfit')}</span>
+                <span>{formatCurrency(String(invoiceProfit))}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="opacity-80">{t('pm.fields.labourWithHours', { hours: formatHours(labourSeconds) })}</span>
+                <span>−{formatCurrency(String(labourAmount))}</span>
+              </div>
+              {labourCost.unknownEntries > 0 && (
+                <div className="text-amber-700 dark:text-amber-400">{t('pm.fields.labourIncomplete')}</div>
+              )}
+            </div>
+          ) : (
+            /* Profit = invoiced − received invoices, so show what was subtracted */
+            <div className="text-xs">{t('pm.fields.received')}: {formatCurrency(project.receivedAmount)}</div>
+          )}
         </div>
       </div>
 

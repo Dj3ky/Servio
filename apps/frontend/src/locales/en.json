@@ -842,6 +842,10 @@
       "remaining": "Remaining",
       "received": "Received",
       "profit": "Profit",
+      "realProfit": "Real profit",
+      "invoiceProfit": "Invoiced − received",
+      "labourWithHours": "Labour ({{hours}})",
+      "labourIncomplete": "Some hours have no cost in Kimai",
       "deadline": "Deadline",
       "startDateShort": "Start",
       "completedAt": "Completed on"

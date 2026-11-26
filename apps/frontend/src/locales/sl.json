@@ -852,6 +852,10 @@
       "remaining": "Ostalo",
       "received": "Prejeto",
       "profit": "Dobiček",
+      "realProfit": "Dejanski dobiček",
+      "invoiceProfit": "Fakturirano − prejeto",
+      "labourWithHours": "Delo ({{hours}})",
+      "labourIncomplete": "Nekatere ure v Kimai nimajo stroška",
       "deadline": "Rok",
       "startDateShort": "Začetek",
       "completedAt": "Zaključeno"
