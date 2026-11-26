@@ -30,6 +30,7 @@ import type { PmTask } from '../tasks';
 import { isPastDue } from '../dates';
 import { underlineTabsList, underlineTabsTrigger, tabCountBadge } from '@/components/ui/tab-styles';
 import { ProjectNotesBox } from '../ProjectNotesBox';
+import { ProjectSheetActions } from '../ProjectSheetActions';
 
 const DETAIL_TABS = ['meetings', 'tasks', 'notes', 'phases', 'documents', 'invoicesIssued', 'invoicesReceived', 'hours'] as const;
 
@@ -521,6 +522,7 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
             {isOverdue && <Badge variant="destructive">{t('pm.projects.overdue')}</Badge>}
           </div>
         </div>
+        <ProjectSheetActions project={project} canSend={canManage} />
         {canManage && (
           <Button variant="outline" size="sm" onClick={openEdit}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />{t('pm.projects.edit')}

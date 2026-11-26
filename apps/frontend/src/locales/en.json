@@ -800,6 +800,9 @@
     "rate_limited": "Too many requests.",
     "internal": "Internal server error.",
     "unknown": "Unknown error.",
+    "pm_no_manager": "The project has no assigned manager with an email address.",
+    "smtp_not_configured": "Outgoing email (SMTP) is not set up. Configure it in Settings.",
+    "email_send_failed": "Sending the email failed. Check the SMTP settings.",
     "license_invalid": "License required. Please upload a valid license file in Settings.",
     "invalid_reset_token": "This link is invalid or has expired."
   },
@@ -957,6 +960,18 @@
       "updatedOk": "Note updated",
       "deletedOk": "Note deleted",
       "error": "Error saving note"
+    },
+    "sheet": {
+      "pdf": "PDF",
+      "send": "Send to manager",
+      "sendTitle": "Send project to manager",
+      "recipient": "Recipient",
+      "message": "Message",
+      "defaultMessage": "Hello,\n\na new project {{number}} has been assigned to you. The details are in the attached PDF.\n\nBest regards",
+      "attachmentHint": "A PDF with the project details will be attached to the email.",
+      "sendButton": "Send",
+      "sending": "Sending...",
+      "sentOk": "Sent to {{to}}"
     },
     "documents": {
       "tab": "Documents",

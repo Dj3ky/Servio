@@ -10,6 +10,9 @@ import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
 import { documentUpload } from '../../../middleware/upload';
 import { readCsvRows, escapeCsv } from '../../../utils/csv';
+import { sendMail } from '../../../services/email';
+import { createAuditLog } from '../../../utils/audit';
+import { loadSheetProject, generateProjectSheetPdf, sheetFilename, sheetText, escapeHtml } from '../projectSheet';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -524,6 +527,60 @@ router.delete('/:id/documents/:docId', requireRole('projects', 'manage'), async 
   await fs.unlink(filePath).catch(() => {});
 
   res.json({ success: true });
+});
+
+// --- "New project" sheet (PDF for the project manager) ---
+
+function sheetLang(req: Request): string {
+  return req.query.lang === 'en' || req.body?.lang === 'en' ? 'en' : 'sl';
+}
+
+router.get('/:id/sheet', async (req: Request, res: Response): Promise<void> => {
+  const project = await loadSheetProject(req.params.id);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+
+  const pdf = await generateProjectSheetPdf(project, sheetLang(req));
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${sheetFilename(project)}"`);
+  res.send(pdf);
+});
+
+// Emails the sheet to the project's assigned employee
+router.post('/:id/sheet/send', requireRole('projects', 'manage'), async (req: Request, res: Response): Promise<void> => {
+  const message = typeof req.body?.message === 'string' ? req.body.message.slice(0, 5000) : '';
+  const project = await loadSheetProject(req.params.id);
+  if (!project) { res.status(404).json({ error: 'errors.not_found' }); return; }
+  if (!project.employeeEmail) { res.status(400).json({ error: 'errors.pm_no_manager' }); return; }
+
+  const lang = sheetLang(req);
+  const t = sheetText(lang);
+  const s = await db.query.settings.findFirst();
+  if (!s?.smtpHost || !s.smtpUser || !s.smtpPassEncrypted) { res.status(400).json({ error: 'errors.smtp_not_configured' }); return; }
+
+  const pdf = await generateProjectSheetPdf(project, lang);
+  const body = (message.trim() || t.emailIntro).split(/\r?\n/).map(escapeHtml).join('<br>');
+  try {
+    await sendMail({
+      to: project.employeeEmail,
+      subject: `${s.appName ?? 'Servio'} – ${t.emailSubject}: ${project.projectNumber} ${project.name}`,
+      html: `<p>${body}</p>`,
+      attachments: [{ filename: sheetFilename(project), content: pdf, contentType: 'application/pdf' }],
+    });
+  } catch (err) {
+    console.error('[pm] Failed to send project sheet:', err);
+    res.status(502).json({ error: 'errors.email_send_failed' });
+    return;
+  }
+
+  await createAuditLog({
+    userId: req.auth!.userId,
+    action: 'send_email',
+    entityType: 'pm_project',
+    entityId: project.id,
+    payload: { kind: 'project_sheet', to: project.employeeEmail },
+    req,
+  });
+  res.json({ success: true, to: project.employeeEmail });
 });
 
 // --- Invoices ---

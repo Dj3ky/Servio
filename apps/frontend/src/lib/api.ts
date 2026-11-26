@@ -109,6 +109,19 @@ async function downloadBlob(path: string, filename: string): Promise<void> {
   }
 }
 
+// Authenticated GET of a binary response (e.g. a generated PDF), for showing in-app
+async function getBlob(path: string): Promise<Blob> {
+  const token = useAuthStore.getState().token;
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => undefined);
+    throw new ApiError(res.status, data?.error ?? 'errors.unknown', data?.details);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
@@ -116,4 +129,5 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
   downloadBlob,
+  getBlob,
 };

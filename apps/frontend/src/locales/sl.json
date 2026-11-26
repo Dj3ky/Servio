@@ -810,6 +810,9 @@
     "rate_limited": "Preveč zahtevkov.",
     "internal": "Notranja napaka strežnika.",
     "unknown": "Neznana napaka.",
+    "pm_no_manager": "Projekt nima dodeljenega vodje z e-poštnim naslovom.",
+    "smtp_not_configured": "Odhodna e-pošta (SMTP) ni nastavljena. Nastavite jo v Nastavitvah.",
+    "email_send_failed": "Pošiljanje e-pošte ni uspelo. Preverite nastavitve SMTP.",
     "license_invalid": "Licenca je obvezna. Prosimo naložite veljavno licenčno datoteko v Nastavitvah.",
     "invalid_reset_token": "Povezava ni veljavna ali je potekla."
   },
@@ -967,6 +970,18 @@
       "updatedOk": "Zapisek posodobljen",
       "deletedOk": "Zapisek izbrisan",
       "error": "Napaka pri shranjevanju zapiska"
+    },
+    "sheet": {
+      "pdf": "PDF",
+      "send": "Pošlji vodji",
+      "sendTitle": "Pošlji projekt vodji",
+      "recipient": "Prejemnik",
+      "message": "Sporočilo",
+      "defaultMessage": "Pozdravljeni,\n\ndodeljen vam je bil nov projekt {{number}}. Podatki so v priloženem PDF dokumentu.\n\nLep pozdrav",
+      "attachmentHint": "PDF s podatki projekta bo priložen e-pošti.",
+      "sendButton": "Pošlji",
+      "sending": "Pošiljanje...",
+      "sentOk": "Poslano na {{to}}"
     },
     "documents": {
       "tab": "Dokumenti",
