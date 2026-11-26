@@ -1339,6 +1339,7 @@
       "overdueBy_other": "Zamuda {{count}} dni",
       "finances": "Finance",
       "received": "Plačano",
+      "ofContract": "{{pct}} % pogodbe",
       "recentMeetings": "Zadnji sestanki",
       "noMeetings": "Še ni bil obravnavan na sestanku.",
       "documents_one": "{{count}} dokument",

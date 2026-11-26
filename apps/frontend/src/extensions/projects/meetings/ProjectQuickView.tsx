@@ -2,7 +2,11 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Building2, CalendarRange, Check, ListChecks, Loader2, Maximize2, MessagesSquare, StickyNote, Wallet, X } from 'lucide-react';
+import { Building2, CalendarRange, Check, Clock, ListChecks, Loader2, Maximize2, MessagesSquare, StickyNote, Wallet, X } from 'lucide-react';
+import { useCan } from '@/stores/permissionsStore';
+import { useKimaiStatus } from '../kimai';
+import { formatCost, type LabourCostData } from '../LabourCostPanel';
+import { formatHours } from '../hoursFormat';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { cn, formatDate } from '@/lib/utils';
@@ -22,6 +26,7 @@ interface QuickProject {
   priority: string; status: string; startDate: string | null; endDate: string | null; completedAt: string | null;
   contractValue: string | null; invoicedAmount: string | null; receivedAmount: string | null; notes: string | null;
   employeeId: string | null; employeeName: string | null; customerName: string | null; facilityName: string | null;
+  kimaiProjectId: number | null;
   phases: { id: string; name: string; status: string }[];
   documents: { id: string }[];
 }
@@ -119,6 +124,25 @@ export function ProjectQuickView({ projectId, onClose, closeOnOutsideClick = fal
     enabled: !!projectId,
   });
 
+  // Kimai hours and labour cost: same queries (and cache) as the project's Hours tab.
+  // Cost is its own request, so only people with the labourCost permission receive it.
+  const can = useCan();
+  const { data: kimaiStatus } = useKimaiStatus();
+  const kimaiLinked = !!kimaiStatus?.configured && project?.kimaiProjectId != null;
+  const canSeeCost = can('projects', 'labourCost');
+  const { data: hours } = useQuery<{ totalSeconds: number }>({
+    queryKey: ['pm-kimai-hours', projectId],
+    queryFn: () => api.get(`/pm/kimai/hours/${projectId}`),
+    enabled: !!projectId && kimaiLinked,
+  });
+  const { data: labourCost } = useQuery<LabourCostData>({
+    queryKey: ['pm-kimai-cost', projectId],
+    queryFn: () => api.get(`/pm/kimai/cost/${projectId}`),
+    enabled: !!projectId && kimaiLinked && canSeeCost,
+  });
+  // Skipped when no entry has a known cost, as on the project page
+  const hasLabourCost = !!labourCost && labourCost.entryCount > 0 && labourCost.unknownEntries < labourCost.entryCount;
+
   const openTasks = (tasks ?? []).filter(task => task.status === 'open');
   const recent = (history ?? []).slice(0, 4);
   const contract = Number(project?.contractValue ?? 0);
@@ -208,6 +232,31 @@ export function ProjectQuickView({ projectId, onClose, closeOnOutsideClick = fal
                     <div className="space-y-1">
                       <ProgressBar value={Math.min(invoicedPct, 100)} max={100} />
                       <p className="text-xs text-muted-foreground">{invoicedPct} {t('pm.projects.invoicedPct')}</p>
+                    </div>
+                  )}
+                  {kimaiLinked && hours && (
+                    <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t('pm.kimai.hours')}</span>
+                          <span className="font-semibold tabular-nums">{formatHours(hours.totalSeconds)}</span>
+                        </span>
+                        {hasLabourCost && (
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">{t('pm.kimai.labourCost')}</span>
+                            <span className="font-semibold tabular-nums">{formatCost(labourCost.totalCost)}</span>
+                            {contract > 0 && (
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                ({t('pm.quickView.ofContract', { pct: Math.round((Number(labourCost.totalCost) / contract) * 100) })})
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {hasLabourCost && labourCost.unknownEntries > 0 && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">{t('pm.fields.labourIncomplete')}</p>
+                      )}
                     </div>
                   )}
                 </Section>

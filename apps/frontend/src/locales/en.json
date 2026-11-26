@@ -1295,6 +1295,7 @@
       "overdueBy_other": "{{count}} days overdue",
       "finances": "Finances",
       "received": "Received",
+      "ofContract": "{{pct}} % of contract",
       "recentMeetings": "Recent meetings",
       "noMeetings": "Not discussed at a meeting yet.",
       "documents_one": "{{count}} document",
