@@ -132,8 +132,8 @@ export default function ProjectReportsPage() {
     const index = year * 12 + (invMonth - 1) + delta;
     setPeriod(Math.floor(index / 12), (index % 12) + 1);
   }
-  // From the monthly revenue chart, which counts issued invoices only
-  const openMonthInvoices = (m: number) => setParamMap({ tab: 'invoices', month: String(m), dir: 'issued' });
+  // From the monthly revenue chart: the whole month, both directions (the Issued box already shows the bar's total)
+  const openMonthInvoices = (m: number) => setParamMap({ tab: 'invoices', month: String(m), dir: null });
   const setInvDir = (d: 'issued' | 'received' | null) => setParam('dir', d);
   const [invSearch, setInvSearch] = useState('');
 
