@@ -598,7 +598,6 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
       <div className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-lg bg-muted/50 px-4 py-3 text-sm">
         <span><span className="text-muted-foreground">{t('pm.fields.employee')} </span><span className="font-medium">{project.employeeName ?? '—'}</span></span>
         <span><span className="text-muted-foreground">{t('pm.fields.customer')} </span><span className="font-medium">{project.customerName ?? '—'}</span></span>
-        <span><span className="text-muted-foreground">{t('pm.fields.facility')} </span><span className="font-medium">{project.facilityName ?? '—'}</span></span>
         <span className="hidden sm:inline h-4 w-px bg-border" aria-hidden="true" />
         <span><span className="text-muted-foreground">{t('pm.fields.orderDate')} </span>{project.orderDate ? formatDate(project.orderDate) : '—'}</span>
         <span><span className="text-muted-foreground">{t('pm.fields.startDateShort')} </span>{project.startDate ? formatDate(project.startDate) : '—'}</span>
@@ -816,11 +815,7 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
                 <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
                 <Input list="pm-edit-customers" autoComplete="off" value={editForm.customerName ?? ''} onChange={e => setEditForm(f => ({ ...f, customerName: e.target.value }))} />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
-                <Input list="pm-edit-facilities" autoComplete="off" value={editForm.facilityName ?? ''} onChange={e => setEditForm(f => ({ ...f, facilityName: e.target.value }))} />
-              </div>
-              <NameSuggestionLists id="pm-edit" customerName={editForm.customerName ?? ''} enabled={editDialogOpen} />
+              <NameSuggestionLists id="pm-edit" enabled={editDialogOpen} />
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
                 <Select value={editForm.priority ?? 'medium'} onValueChange={v => setEditForm(f => ({ ...f, priority: v }))}>

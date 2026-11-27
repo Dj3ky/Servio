@@ -13,17 +13,6 @@ export const pmCustomers = pgTable('pm_customers', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const pmFacilities = pgTable('pm_facilities', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  pmCustomerId: uuid('pm_customer_id').references(() => pmCustomers.id, { onDelete: 'restrict' }),
-  name: text('name').notNull(),
-  address: text('address'),
-  notes: text('notes'),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
 export const pmProjects = pgTable('pm_projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectNumber: text('project_number').notNull(),
@@ -167,7 +156,6 @@ export const pmKimaiTimesheets = pgTable('pm_kimai_timesheets', {
 });
 
 export type DbPmCustomer =typeof pmCustomers.$inferSelect;
-export type DbPmFacility = typeof pmFacilities.$inferSelect;
 export type DbPmProject = typeof pmProjects.$inferSelect;
 export type DbPmProjectPhase = typeof pmProjectPhases.$inferSelect;
 export type DbPmWeeklyMeeting = typeof pmWeeklyMeetings.$inferSelect;

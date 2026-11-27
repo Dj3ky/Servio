@@ -187,10 +187,10 @@ export function ProjectQuickView({ projectId, onClose, closeOnOutsideClick = fal
             </DialogPrimitive.Title>
             <DialogPrimitive.Description asChild>
               <div className="space-y-2">
-                {(project?.customerName || project?.facilityName) && (
+                {project?.customerName && (
                   <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
                     <Building2 className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>{[project.customerName, project.facilityName].filter(Boolean).join(' · ')}</span>
+                    <span>{project.customerName}</span>
                   </p>
                 )}
                 {project && (

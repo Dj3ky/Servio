@@ -808,11 +808,7 @@ export default function ProjectsPage() {
                 <label className="text-sm font-medium">{t('pm.fields.customer')}</label>
                 <Input list="pm-new-customers" autoComplete="off" placeholder={t('pm.fields.customer')} value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">{t('pm.fields.facility')}</label>
-                <Input list="pm-new-facilities" autoComplete="off" placeholder={t('pm.fields.facility')} value={form.facilityName} onChange={e => setForm(f => ({ ...f, facilityName: e.target.value }))} />
-              </div>
-              <NameSuggestionLists id="pm-new" customerName={form.customerName} enabled={dialogOpen} />
+              <NameSuggestionLists id="pm-new" enabled={dialogOpen} />
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('pm.fields.priority')}</label>
                 <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>

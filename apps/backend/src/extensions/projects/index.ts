@@ -8,7 +8,6 @@ import { requireRole } from '../../middleware/role';
 import { isExtensionLicensed } from '../../middleware/license';
 import { updateExtensionConfigSchema } from '@servio/shared';
 import pmCustomersRoutes from './routes/pm-customers';
-import pmFacilitiesRoutes from './routes/pm-facilities';
 import pmProjectsRoutes from './routes/pm-projects';
 import pmMeetingsRoutes from './routes/pm-meetings';
 import pmReportsRoutes from './routes/pm-reports';
@@ -31,18 +30,6 @@ async function ensurePmTables() {
         email TEXT,
         phone TEXT,
         contact_name TEXT,
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS pm_facilities (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        pm_customer_id UUID REFERENCES pm_customers(id) ON DELETE RESTRICT,
-        name TEXT NOT NULL,
-        address TEXT,
-        notes TEXT,
         is_active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -286,6 +273,7 @@ router.delete('/extension-data', requireAuth, requireRole('settings', 'manage'),
   await db.execute(sql`DROP TABLE IF EXISTS pm_project_phases CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_weekly_meetings CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_projects CASCADE`);
+  // No longer created, but older installs may still have it
   await db.execute(sql`DROP TABLE IF EXISTS pm_facilities CASCADE`);
   await db.execute(sql`DROP TABLE IF EXISTS pm_customers CASCADE`);
 
@@ -309,7 +297,6 @@ router.get('/employees', requireAuth, async (_req: Request, res: Response): Prom
 
 // All data routes — gated behind requireExtension
 router.use('/customers', requireExtension, pmCustomersRoutes);
-router.use('/facilities', requireExtension, pmFacilitiesRoutes);
 router.use('/projects', requireExtension, pmProjectsRoutes);
 router.use('/meetings', requireExtension, pmMeetingsRoutes);
 router.use('/reports', requireExtension, pmReportsRoutes);

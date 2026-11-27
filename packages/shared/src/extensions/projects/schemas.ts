@@ -11,15 +11,6 @@ export const createPmCustomerSchema = z.object({
 
 export const updatePmCustomerSchema = createPmCustomerSchema.partial();
 
-// PM Facilities
-export const createPmFacilitySchema = z.object({
-  pmCustomerId: z.string().uuid().optional().nullable(),
-  name: z.string().min(1),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export const updatePmFacilitySchema = createPmFacilitySchema.partial();
 
 // PM Projects
 export const createPmProjectSchema = z.object({
@@ -161,8 +152,6 @@ export function kimaiSafeName(value: string): string {
 
 export type CreatePmCustomer = z.infer<typeof createPmCustomerSchema>;
 export type UpdatePmCustomer = z.infer<typeof updatePmCustomerSchema>;
-export type CreatePmFacility = z.infer<typeof createPmFacilitySchema>;
-export type UpdatePmFacility = z.infer<typeof updatePmFacilitySchema>;
 export type CreatePmProject = z.infer<typeof createPmProjectSchema>;
 export type UpdatePmProject = z.infer<typeof updatePmProjectSchema>;
 export type CreatePmPhase = z.infer<typeof createPmPhaseSchema>;
