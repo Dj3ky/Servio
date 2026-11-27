@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { eq, ne, sql, and, desc, type SQL } from 'drizzle-orm';
+import { eq, ne, or, sql, and, desc, type SQL } from 'drizzle-orm';
 import { db } from '../../../db';
-import { pmProjects, pmWeeklyMeetings, pmMeetingEntries, pmProjectInvoices } from '../schema';
+import { pmProjects, pmWeeklyMeetings, pmMeetingEntries, pmProjectInvoices, pmKimaiTimesheets } from '../schema';
 import { users } from '../../../db/schema/users';
 import { requireRole } from '../../../middleware/role';
+import { getPermissions } from '../../../services/permissionsService';
 
 const router = Router();
 router.use(requireRole('projects', 'access'));
@@ -305,6 +306,68 @@ router.get('/completions', async (req: Request, res: Response): Promise<void> =>
   });
 
   res.json(filled);
+});
+
+// Printable yearly report: every open project plus the projects completed in the year, with
+// Kimai hours, labour cost and received invoices for the real profit. Labour cost only reaches
+// people with the labourCost permission; without it `labourCost` is null on every row.
+router.get('/yearly-projects', async (req: Request, res: Response): Promise<void> => {
+  const year = parseYear(req);
+  const perms = getPermissions() as Record<string, Record<string, string[]>>;
+  const canSeeCost = (perms.projects?.labourCost ?? []).includes(req.auth!.role);
+
+  const hours = db.select({
+    projectId: pmKimaiTimesheets.projectId,
+    seconds: sql<number>`coalesce(sum(${pmKimaiTimesheets.durationSeconds}), 0)::int`.as('seconds'),
+    cost: sql<string>`coalesce(sum(${pmKimaiTimesheets.internalCost}), 0)`.as('cost'),
+    entryCount: sql<number>`count(*)::int`.as('entry_count'),
+    unknownEntries: sql<number>`(count(*) filter (where ${pmKimaiTimesheets.internalCost} is null))::int`.as('unknown_entries'),
+  }).from(pmKimaiTimesheets).groupBy(pmKimaiTimesheets.projectId).as('hours');
+
+  const rows = await db.select({
+    id: pmProjects.id,
+    projectNumber: pmProjects.projectNumber,
+    name: pmProjects.name,
+    status: pmProjects.status,
+    endDate: pmProjects.endDate,
+    completedAt: pmProjects.completedAt,
+    contractValue: pmProjects.contractValue,
+    invoicedAmount: pmProjects.invoicedAmount,
+    receivedAmount: pmProjects.receivedAmount,
+    employeeId: pmProjects.employeeId,
+    employeeName: users.name,
+    customerName: pmProjects.customerName,
+    seconds: hours.seconds,
+    cost: hours.cost,
+    entryCount: hours.entryCount,
+    unknownEntries: hours.unknownEntries,
+  })
+    .from(pmProjects)
+    .leftJoin(users, eq(pmProjects.employeeId, users.id))
+    .leftJoin(hours, eq(hours.projectId, pmProjects.id))
+    .where(and(
+      or(
+        ne(pmProjects.status, 'completed'),
+        sql`extract(year from ${pmProjects.completedAt}) = ${year}`,
+      ),
+      customerFilter(req),
+    ))
+    .orderBy(sql`${pmProjects.completedAt} desc nulls last`, pmProjects.sortIndex);
+
+  res.json({
+    canSeeCost,
+    projects: rows.map(({ cost, entryCount, unknownEntries, seconds, ...p }) => {
+      const entries = Number(entryCount ?? 0);
+      // Same rule as the project page: no cost when no entry has a known one
+      const hasCost = canSeeCost && entries > 0 && Number(unknownEntries ?? 0) < entries;
+      return {
+        ...p,
+        seconds: Number(seconds ?? 0),
+        labourCost: hasCost ? parseFloat(cost ?? '0') : null,
+        labourCostPartial: hasCost && Number(unknownEntries ?? 0) > 0,
+      };
+    }),
+  });
 });
 
 // Completed projects with uninvoiced balance
