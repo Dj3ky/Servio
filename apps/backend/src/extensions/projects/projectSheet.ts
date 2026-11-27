@@ -13,7 +13,7 @@ import { pmProjects } from './schema';
 const i18n = {
   sl: {
     title: 'Nov projekt',
-    projectNumber: 'Številka projekta',
+    projectNumber: 'Delovni nalog',
     name: 'Naziv projekta',
     customer: 'Naročnik',
     manager: 'Vodja projekta',
@@ -27,7 +27,7 @@ const i18n = {
   },
   en: {
     title: 'New project',
-    projectNumber: 'Project number',
+    projectNumber: 'Work order',
     name: 'Project name',
     customer: 'Customer',
     manager: 'Project manager',
