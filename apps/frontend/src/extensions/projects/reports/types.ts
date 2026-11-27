@@ -39,5 +39,10 @@ export interface OutstandingProject {
   contractValue: string | null; invoicedAmount: string; completedAt: string | null;
 }
 
+export interface InvoiceRow {
+  id: string; direction: 'issued' | 'received'; invoiceDate: string; amount: number; notes: string | null;
+  projectId: string; projectNumber: string; projectName: string; customerName: string | null;
+}
+
 export type PipelineBucket = 'overdue' | 'thisMonth' | 'nextMonth' | 'next3Months' | 'later' | 'none';
 export interface PipelineRow { bucket: PipelineBucket; count: number; remaining: number }

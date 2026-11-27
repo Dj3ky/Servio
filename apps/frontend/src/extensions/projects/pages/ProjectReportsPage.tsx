@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle, BarChart3, Building2, ChevronDown, ChevronRight, Clock, Download, PieChart as PieChartIcon,
-  Printer, ReceiptText, Users, X,
+  AlertCircle, BarChart3, Building2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, FileText,
+  PieChart as PieChartIcon, Printer, ReceiptText, Search, Users, X,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart,
@@ -30,10 +30,10 @@ import {
 } from '../reports/parts';
 import { printProjectReport } from '../reports/printReport';
 import type {
-  CompletionsRow, CustomerRow, OutstandingProject, OverdueProject, PipelineRow, RevenueTrendRow, RevenueYearRow, SummaryData, WorkloadGroup,
+  CompletionsRow, CustomerRow, InvoiceRow, OutstandingProject, OverdueProject, PipelineRow, RevenueTrendRow, RevenueYearRow, SummaryData, WorkloadGroup,
 } from '../reports/types';
 
-const TABS = ['revenue', 'outstanding', 'overdue', 'workload', 'customers', 'status'] as const;
+const TABS = ['revenue', 'invoices', 'outstanding', 'overdue', 'workload', 'customers', 'status'] as const;
 type Tab = typeof TABS[number];
 
 const currentYear = new Date().getFullYear();
@@ -102,17 +102,40 @@ export default function ProjectReportsPage() {
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'revenue';
   const year = Number(params.get('year')) || currentYear;
   const customer = params.get('customer') ?? '';
+  // Invoices tab: month 1–12 or 0 for the whole year (default: this month in the current year,
+  // the whole year otherwise), and an optional issued / received filter
+  const monthParam = params.get('month');
+  const invMonth = monthParam !== null
+    ? Math.min(Math.max(Math.trunc(Number(monthParam)) || 0, 0), 12)
+    : (year === currentYear ? new Date().getMonth() + 1 : 0);
+  const dirParam = params.get('dir');
+  const invDir = dirParam === 'issued' || dirParam === 'received' ? dirParam : null;
 
-  function setParam(key: string, value: string | null) {
+  function setParamMap(values: Record<string, string | null>) {
     setParams(prev => {
       const next = new URLSearchParams(prev);
-      if (value) next.set(key, value); else next.delete(key);
+      for (const [key, value] of Object.entries(values)) {
+        if (value) next.set(key, value); else next.delete(key);
+      }
       return next;
     }, { replace: true });
   }
+  const setParam = (key: string, value: string | null) => setParamMap({ [key]: value });
   const setTab = (v: string) => setParam('tab', v === 'revenue' ? null : v);
   const setYear = (v: number) => setParam('year', v === currentYear ? null : String(v));
   const setCustomer = (v: string) => setParam('customer', v || null);
+
+  // The month is always written to the URL, so changing the year does not jump back to the default month
+  const setPeriod = (y: number, m: number) => setParamMap({ year: y === currentYear ? null : String(y), month: String(m) });
+  function stepPeriod(delta: number) {
+    if (invMonth === 0) { setPeriod(year + delta, 0); return; }
+    const index = year * 12 + (invMonth - 1) + delta;
+    setPeriod(Math.floor(index / 12), (index % 12) + 1);
+  }
+  // From the monthly revenue chart, which counts issued invoices only
+  const openMonthInvoices = (m: number) => setParamMap({ tab: 'invoices', month: String(m), dir: 'issued' });
+  const setInvDir = (d: 'issued' | 'received' | null) => setParam('dir', d);
+  const [invSearch, setInvSearch] = useState('');
 
   const [quickId, setQuickId] = useState<string | null>(null);
   const [expandedManagers, setExpandedManagers] = useState<Set<string>>(new Set());
@@ -177,6 +200,12 @@ export default function ProjectReportsPage() {
   const { data: pipeline, isLoading: loadingPipeline } = useQuery<PipelineRow[]>({
     queryKey: ['pm-report', 'pipeline', customer],
     queryFn: () => api.get(withCustomer('/pm/reports/pipeline')),
+  });
+  // Always both directions, so the totals show issued and received side by side
+  const { data: invoices, isLoading: loadingInvoices } = useQuery<InvoiceRow[]>({
+    queryKey: ['pm-report', 'invoices', year, invMonth, customer],
+    queryFn: () => api.get(withCustomer(`/pm/reports/invoices?year=${year}${invMonth ? `&month=${invMonth}` : ''}`)),
+    enabled: tab === 'invoices',
   });
   // Not filtered: it is the list of customers to choose from
   const { data: byCustomer, isLoading: loadingByCustomer } = useQuery<CustomerRow[]>({
@@ -262,6 +291,28 @@ export default function ProjectReportsPage() {
 
   const customerMax = Math.max(...(byCustomer ?? []).map(c => num(c.contractValue)), 0) || 1;
 
+  const invoiceTotals = (rows: InvoiceRow[]) => {
+    const issued = rows.filter(i => i.direction === 'issued');
+    const received = rows.filter(i => i.direction === 'received');
+    return {
+      issued: issued.reduce((s, i) => s + i.amount, 0), issuedCount: issued.length,
+      received: received.reduce((s, i) => s + i.amount, 0), receivedCount: received.length,
+    };
+  };
+  const invAll = invoiceTotals(invoices ?? []);
+  const visibleInvoices = useMemo(() => {
+    const q = invSearch.trim().toLowerCase();
+    return (invoices ?? []).filter(i =>
+      (!invDir || i.direction === invDir)
+      && (!q || [i.projectName, i.projectNumber, i.customerName, i.notes].some(v => v?.toLowerCase().includes(q))));
+  }, [invoices, invDir, invSearch]);
+  const invVisible = invoiceTotals(visibleInvoices);
+  const periodLabel = (() => {
+    if (invMonth === 0) return `${t('pm.reports.wholeYear')} ${year}`;
+    const s = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(new Date(year, invMonth - 1, 1));
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
   // ── Sorting ─────────────────────────────────────────────────────────────────
 
   const outSort = useSort(visibleOutstanding, {
@@ -276,6 +327,10 @@ export default function ProjectReportsPage() {
     name: r => r.customerName ?? '', active: r => r.activeCount, completed: r => r.completedCount,
     value: r => num(r.contractValue), remaining: r => num(r.remainingActive), unbilled: r => num(r.unbilledCompleted),
   }, 'value');
+  const invSort = useSort(visibleInvoices, {
+    date: r => r.invoiceDate, project: r => r.projectName, customer: r => r.customerName ?? '',
+    notes: r => r.notes ?? '', amount: r => r.amount,
+  }, 'date', 'asc');
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -300,6 +355,13 @@ export default function ProjectReportsPage() {
         for (const y of yearRows) {
           rows.push([y.year, csvMoney(y.revenue), y.invoiceCount, y.projectCount, y.change === null ? '' : y.change.toFixed(1).replace('.', ',')]);
         }
+        break;
+      case 'invoices':
+        header = [r('colDate'), r('colDirection'), r('colNumber'), r('colName'), r('colCustomer'), r('colNotes'), r('colAmount')];
+        rows = invSort.sorted.map(i => [
+          csvDate(i.invoiceDate), r(i.direction === 'issued' ? 'dirIssued' : 'dirReceived'),
+          i.projectNumber, i.projectName, i.customerName, i.notes, csvMoney(i.amount),
+        ]);
         break;
       case 'outstanding':
         header = [r('colNumber'), r('colName'), r('colCustomer'), r('colEmployee'), r('colCompletedAt'), r('colDaysSince'), r('colValue'), r('colInvoiced'), r('colOutstanding')];
@@ -326,7 +388,8 @@ export default function ProjectReportsPage() {
         break;
     }
     const suffix = customer ? `-${customer.replace(/[^\p{L}\p{N}]+/gu, '_')}` : '';
-    downloadCsv(`${t('pm.reports.csvFilename')}-${tab}-${year}${suffix}.csv`, header, rows);
+    const period = tab === 'invoices' && invMonth ? `${year}-${String(invMonth).padStart(2, '0')}` : String(year);
+    downloadCsv(`${t('pm.reports.csvFilename')}-${tab}-${period}${suffix}.csv`, header, rows);
   }
 
   function print() {
@@ -483,6 +546,7 @@ export default function ProjectReportsPage() {
           <TabsList className="h-auto w-full min-w-max justify-start gap-1 rounded-none border-b bg-transparent p-0">
             {([
               { value: 'revenue', label: t('pm.reports.tabRevenue'), icon: BarChart3 },
+              { value: 'invoices', label: t('pm.reports.tabInvoices'), icon: FileText },
               { value: 'outstanding', label: t('pm.reports.tabOutstanding'), icon: ReceiptText, count: loadingOutstanding ? null : outstandingRows.length },
               { value: 'overdue', label: t('pm.reports.tabOverdue'), icon: Clock, count: loadingOverdue ? null : overdueRows.length },
               { value: 'workload', label: t('pm.reports.tabWorkload'), icon: Users },
@@ -513,7 +577,7 @@ export default function ProjectReportsPage() {
             <Panel
               className="lg:col-span-2"
               title={t('pm.reports.monthlyRevenue')}
-              note={t('pm.reports.revenueVsPrev', { year, prev: year - 1 })}
+              note={`${t('pm.reports.revenueVsPrev', { year, prev: year - 1 })} ${t('pm.reports.chartClickHint')}`}
               aside={<Legend items={[
                 { label: String(year), swatch: 'bg-primary' },
                 { label: String(year - 1), swatch: 'bg-orange-500' },
@@ -521,7 +585,12 @@ export default function ProjectReportsPage() {
             >
               {loadingRevenue ? <Skeleton className="h-[240px] w-full" /> : (
                 <ResponsiveContainer width="100%" height={240}>
-                  <ComposedChart data={revenueChart} margin={{ top: 8, right: 4, bottom: 0, left: -12 }}>
+                  {/* Click anywhere in a month's column (small bars are hard to hit) to list its invoices */}
+                  <ComposedChart data={revenueChart} margin={{ top: 8, right: 4, bottom: 0, left: -12 }} className="cursor-pointer"
+                    onClick={(state: any) => {
+                      const m = state?.activePayload?.[0]?.payload?.month;
+                      if (m) openMonthInvoices(Number(m));
+                    }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={eurShort} />
@@ -680,6 +749,130 @@ export default function ProjectReportsPage() {
               </div>
             )}
           </Panel>
+        </TabsContent>
+
+        {/* ── Invoices — every issued and received invoice in a month or year ── */}
+        <TabsContent value="invoices" className="mt-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => stepPeriod(-1)} title={t('pm.reports.prevPeriod')} aria-label={t('pm.reports.prevPeriod')}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Select value={String(invMonth)} onValueChange={v => setPeriod(year, Number(v))}>
+              <SelectTrigger className="w-[190px]" aria-label={t('pm.reports.colMonth')}>
+                <span className="font-medium">{periodLabel}</span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">{t('pm.reports.wholeYear')} {year}</SelectItem>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                  const s = new Intl.DateTimeFormat(lang, { month: 'long' }).format(new Date(2000, m - 1, 1));
+                  return <SelectItem key={m} value={String(m)}>{s.charAt(0).toUpperCase() + s.slice(1)} {year}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" onClick={() => stepPeriod(1)} title={t('pm.reports.nextPeriod')} aria-label={t('pm.reports.nextPeriod')}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            {!(year === currentYear && invMonth === new Date().getMonth() + 1) && (
+              <Button variant="ghost" onClick={() => setPeriod(currentYear, new Date().getMonth() + 1)}>{t('pm.reports.currentMonth')}</Button>
+            )}
+            <div className="relative ml-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input className="w-[300px] max-w-full pl-9" placeholder={t('pm.reports.invSearch')}
+                value={invSearch} onChange={e => setInvSearch(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Totals; issued and received also work as a filter */}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+            {([
+              { key: 'issued', label: t('pm.reports.invIssued'), amount: invAll.issued, count: invAll.issuedCount, bar: 'bg-primary' },
+              { key: 'received', label: t('pm.reports.invReceived'), amount: invAll.received, count: invAll.receivedCount, bar: 'bg-orange-400' },
+            ] as const).map(c => {
+              const on = invDir === c.key;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setInvDir(on ? null : c.key)}
+                  aria-pressed={on}
+                  className={cn(
+                    'relative overflow-hidden rounded-xl border bg-card px-4 pt-3 pb-4 text-left transition-colors hover:bg-muted/40',
+                    on && 'ring-2 ring-foreground',
+                  )}
+                >
+                  <div className="text-xs font-semibold text-muted-foreground">{c.label}</div>
+                  <div className="text-xl font-bold font-mono tabular-nums">{loadingInvoices ? '…' : eur(c.amount, 2)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t('pm.reports.invoiceCount', { count: c.count })} · {on ? t('pm.reports.agingFiltered') : t('pm.reports.agingClickToFilter')}
+                  </div>
+                  <span className={cn('absolute inset-x-0 bottom-0 h-1', c.bar)} />
+                </button>
+              );
+            })}
+            <div className="rounded-xl border bg-card px-4 pt-3 pb-4">
+              <div className="text-xs font-semibold text-muted-foreground">{t('pm.reports.invDifference')}</div>
+              <div className={cn('text-xl font-bold font-mono tabular-nums',
+                invAll.issued - invAll.received < 0 && 'text-red-600 dark:text-red-400')}>
+                {loadingInvoices ? '…' : eur(invAll.issued - invAll.received, 2)}
+              </div>
+              <div className="text-xs text-muted-foreground">{periodLabel}</div>
+            </div>
+          </div>
+
+          {loadingInvoices && <TableSkeleton />}
+          {!loadingInvoices && (invoices ?? []).length === 0 && <EmptyState>{t('pm.reports.noInvoices')}</EmptyState>}
+          {!loadingInvoices && (invoices ?? []).length > 0 && visibleInvoices.length === 0 && <EmptyState>{t('pm.reports.noInvoicesMatch')}</EmptyState>}
+          {visibleInvoices.length > 0 && (
+            <div className="rounded-xl border overflow-x-auto">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-muted-foreground">
+                    <SortTh label={t('pm.reports.colDate')} sortKey="date" sort={invSort.sort} onSort={invSort.toggle} />
+                    <th className="text-left px-4 py-2.5 font-medium">{t('pm.reports.colDirection')}</th>
+                    <SortTh label={t('pm.reports.colWorkOrder')} sortKey="project" sort={invSort.sort} onSort={invSort.toggle} />
+                    <SortTh label={t('pm.reports.colCustomer')} sortKey="customer" sort={invSort.sort} onSort={invSort.toggle} />
+                    <SortTh label={t('pm.reports.colNotes')} sortKey="notes" sort={invSort.sort} onSort={invSort.toggle} />
+                    <SortTh label={t('pm.reports.colAmount')} sortKey="amount" sort={invSort.sort} onSort={invSort.toggle} align="right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {invSort.sorted.map(i => (
+                    <tr key={i.id} data-quick-view-trigger className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setQuickId(i.projectId)}>
+                      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{formatDate(i.invoiceDate)}</td>
+                      <td className="px-4 py-3">
+                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                          i.direction === 'issued' ? 'bg-primary/10 text-primary' : 'bg-orange-500/10 text-orange-700 dark:text-orange-300')}>
+                          {t(i.direction === 'issued' ? 'pm.reports.dirIssued' : 'pm.reports.dirReceived')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3"><ProjectCell id={i.projectId} name={i.projectName} number={i.projectNumber} onOpen={setQuickId} /></td>
+                      <td className="px-4 py-3 text-muted-foreground">{i.customerName ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground max-w-[280px] truncate" title={i.notes ?? undefined}>{i.notes || '—'}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold whitespace-nowrap">{eur(i.amount, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  {invVisible.issuedCount > 0 && (
+                    <tr className="border-t bg-muted/50">
+                      <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
+                        {t('pm.reports.invTotalIssued')} <span className="font-normal text-muted-foreground">({invVisible.issuedCount})</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold">{eur(invVisible.issued, 2)}</td>
+                    </tr>
+                  )}
+                  {invVisible.receivedCount > 0 && (
+                    <tr className="border-t bg-muted/50">
+                      <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
+                        {t('pm.reports.invTotalReceived')} <span className="font-normal text-muted-foreground">({invVisible.receivedCount})</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-orange-700 dark:text-orange-300">{eur(invVisible.received, 2)}</td>
+                    </tr>
+                  )}
+                </tfoot>
+              </table>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── Outstanding — completed but not fully invoiced ──────────────── */}

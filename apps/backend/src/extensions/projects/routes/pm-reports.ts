@@ -255,6 +255,37 @@ router.get('/revenue-by-year', async (req: Request, res: Response): Promise<void
   })));
 });
 
+// Every invoice (issued and received) in a year, or in one month of it with ?month=1–12.
+// Optional ?direction=issued|received. The page filters and sorts the rows itself.
+router.get('/invoices', async (req: Request, res: Response): Promise<void> => {
+  const year = parseYear(req);
+  const month = parseInt(String(req.query.month ?? ''), 10);
+  const direction = req.query.direction === 'issued' || req.query.direction === 'received' ? req.query.direction : null;
+
+  const rows = await db.select({
+    id: pmProjectInvoices.id,
+    direction: pmProjectInvoices.direction,
+    invoiceDate: pmProjectInvoices.invoiceDate,
+    amount: pmProjectInvoices.amount,
+    notes: pmProjectInvoices.notes,
+    projectId: pmProjects.id,
+    projectNumber: pmProjects.projectNumber,
+    projectName: pmProjects.name,
+    customerName: pmProjects.customerName,
+  })
+    .from(pmProjectInvoices)
+    .innerJoin(pmProjects, eq(pmProjectInvoices.projectId, pmProjects.id))
+    .where(and(
+      sql`extract(year from ${pmProjectInvoices.invoiceDate}::date) = ${year}`,
+      month >= 1 && month <= 12 ? sql`extract(month from ${pmProjectInvoices.invoiceDate}::date) = ${month}` : undefined,
+      direction ? eq(pmProjectInvoices.direction, direction) : undefined,
+      customerFilter(req),
+    ))
+    .orderBy(pmProjectInvoices.invoiceDate, pmProjects.projectNumber);
+
+  res.json(rows.map(r => ({ ...r, amount: parseFloat(r.amount) })));
+});
+
 // Remaining value of open projects, grouped by when their deadline falls
 router.get('/pipeline', async (req: Request, res: Response): Promise<void> => {
   const bucket = sql<string>`case
