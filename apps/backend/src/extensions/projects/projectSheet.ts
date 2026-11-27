@@ -6,8 +6,9 @@ import { db } from '../../db';
 import { users } from '../../db/schema/users';
 import { pmProjects } from './schema';
 
-// "New project" sheet: one A4 page with the company logo, the project's base data and an empty
-// lined notes box, sent to the project's manager (the assigned employee).
+// "New project" sheet: one A4 page with the company logo, the project's base data and a lined
+// notes box holding the project's notes (free lines below them for handwriting),
+// sent to the project's manager (the assigned employee).
 
 const i18n = {
   sl: {
@@ -15,18 +16,12 @@ const i18n = {
     projectNumber: 'Številka projekta',
     name: 'Naziv projekta',
     customer: 'Naročnik',
-    facility: 'Objekt',
     manager: 'Vodja projekta',
     orderDate: 'Datum naročila',
     startDate: 'Začetek',
     endDate: 'Rok zaključka',
-    priority: 'Prioriteta',
-    status: 'Status',
-    value: 'Vrednost pogodbe (brez DDV)',
     notes: 'Opombe',
     generated: 'Ustvarjeno',
-    priorities: { high: 'Visoka', medium: 'Srednja', low: 'Nizka' } as Record<string, string>,
-    statuses: { active: 'Aktiven', on_hold: 'Na čakanju', completed: 'Zaključen' } as Record<string, string>,
     emailSubject: 'Nov projekt',
     emailIntro: 'Dodeljen vam je bil nov projekt. Podatki so v priloženem PDF dokumentu.',
   },
@@ -35,18 +30,12 @@ const i18n = {
     projectNumber: 'Project number',
     name: 'Project name',
     customer: 'Customer',
-    facility: 'Facility',
     manager: 'Project manager',
     orderDate: 'Order date',
     startDate: 'Start',
     endDate: 'Deadline',
-    priority: 'Priority',
-    status: 'Status',
-    value: 'Contract value (excl. VAT)',
     notes: 'Notes',
     generated: 'Generated',
-    priorities: { high: 'High', medium: 'Medium', low: 'Low' } as Record<string, string>,
-    statuses: { active: 'Active', on_hold: 'On hold', completed: 'Completed' } as Record<string, string>,
     emailSubject: 'New project',
     emailIntro: 'A new project has been assigned to you. The details are in the attached PDF.',
   },
@@ -67,26 +56,16 @@ function formatDate(v: string | null): string {
   return `${Number(d)}. ${Number(m)}. ${y}`;
 }
 
-function formatMoney(v: string | null): string {
-  if (v == null || v === '') return '—';
-  const n = Number(v);
-  if (Number.isNaN(n)) return '—';
-  return new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR' }).format(n);
-}
-
 export async function loadSheetProject(id: string) {
   const [project] = await db.select({
     id: pmProjects.id,
     projectNumber: pmProjects.projectNumber,
     name: pmProjects.name,
     orderDate: pmProjects.orderDate,
-    priority: pmProjects.priority,
-    status: pmProjects.status,
     startDate: pmProjects.startDate,
     endDate: pmProjects.endDate,
-    contractValue: pmProjects.contractValue,
     customerName: pmProjects.customerName,
-    facilityName: pmProjects.facilityName,
+    notes: pmProjects.notes,
     employeeName: users.name,
     employeeEmail: users.email,
   })
@@ -128,14 +107,10 @@ export async function generateProjectSheetPdf(project: SheetProject, lang: strin
     [t.projectNumber, project.projectNumber],
     [t.name, project.name],
     [t.customer, project.customerName || '—'],
-    [t.facility, project.facilityName || '—'],
     [t.manager, project.employeeName || '—'],
     [t.orderDate, formatDate(project.orderDate)],
     [t.startDate, formatDate(project.startDate)],
     [t.endDate, formatDate(project.endDate)],
-    [t.priority, t.priorities[project.priority] ?? project.priority],
-    [t.status, t.statuses[project.status] ?? project.status],
-    [t.value, formatMoney(project.contractValue)],
   ];
 
   const now = new Date();
@@ -167,7 +142,8 @@ export async function generateProjectSheetPdf(project: SheetProject, lang: strin
   .notes .label { font-weight: bold; font-size: 13px; margin-bottom: 6px; }
   .notes .box { flex: 1; border: 1px solid #94a3b8; border-radius: 4px;
                 background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #cbd5e1 27px, #cbd5e1 28px);
-                background-origin: content-box; padding: 4px 10px; }
+                background-origin: content-box; padding: 4px 10px;
+                font-size: 13px; line-height: 28px; white-space: pre-wrap; overflow-wrap: anywhere; }
   footer { margin-top: 10px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
 </style>
 </head>
@@ -189,7 +165,7 @@ export async function generateProjectSheetPdf(project: SheetProject, lang: strin
 
   <div class="notes">
     <div class="label">${escapeHtml(t.notes)}</div>
-    <div class="box"></div>
+    <div class="box">${escapeHtml(project.notes?.trim() ?? '')}</div>
   </div>
 
   <footer>
