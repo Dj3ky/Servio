@@ -29,7 +29,9 @@ export const createPmProjectSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-export const updatePmProjectSchema = createPmProjectSchema.partial();
+export const updatePmProjectSchema = createPmProjectSchema.partial().extend({
+  billingClosed: z.boolean().optional(),
+});
 
 // PM Project Phases
 export const createPmPhaseSchema = z.object({

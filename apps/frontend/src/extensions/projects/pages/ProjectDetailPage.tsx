@@ -50,7 +50,7 @@ interface Project {
   contractValue: string | null; invoicedAmount: string; receivedAmount: string; notes: string | null;
   employeeId: string | null; employeeName: string | null;
   customerName: string | null; facilityName: string | null;
-  completedAt: string | null;
+  completedAt: string | null; billingClosed: boolean;
   kimaiProjectId: number | null; kimaiProjectName: string | null;
   phases: Phase[]; documents: Document[];
 }
@@ -350,6 +350,17 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
     onError: () => toast.error(t('pm.projects.saveError')),
   });
 
+  const setBillingClosed = useMutation({
+    mutationFn: (billingClosed: boolean) => api.patch(`/pm/projects/${id}`, { billingClosed }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pm-project', id] });
+      qc.invalidateQueries({ queryKey: ['pm-projects'] });
+      qc.invalidateQueries({ queryKey: ['pm-report'] });
+      toast.success(t('pm.fields.billingSaved'));
+    },
+    onError: () => toast.error(t('pm.projects.saveError')),
+  });
+
   function openEdit() {
     if (!project) return;
     setEditForm({
@@ -473,7 +484,11 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
   const contractVal = parseFloat(project.contractValue ?? '0');
   const invoiced = parseFloat(project.invoicedAmount ?? '0');
   const received = parseFloat(project.receivedAmount ?? '0');
-  const remaining = contractVal - invoiced;
+  // Closed billing: what is left will never be invoiced, so nothing remains
+  const billingClosed = project.status === 'completed' && project.billingClosed;
+  const underContract = contractVal - invoiced;
+  const remaining = billingClosed ? 0 : underContract;
+  const canCloseBilling = canManage && project.status === 'completed' && !billingClosed && underContract > 0;
   const invoiceProfit = invoiced - received;
   // Real profit subtracts Kimai labour cost; skipped when no entry has a known cost
   const hasLabourCost = !!labourCost && labourCost.entryCount > 0 && labourCost.unknownEntries < labourCost.entryCount;
@@ -557,6 +572,38 @@ export function ProjectDetailView({ projectId: id, embedded = false, onDeleted }
         <div className="rounded-lg border p-4 space-y-1">
           <div className="text-sm text-muted-foreground">{t('pm.fields.remaining')}</div>
           <div className="text-2xl font-bold tracking-tight">{formatCurrency(String(remaining))}</div>
+          {billingClosed && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-xs">
+              <span className="inline-flex items-center gap-1 font-medium text-green-700 dark:text-green-400">
+                <Check className="h-3 w-3" />{t('pm.fields.billingClosed')}
+              </span>
+              {underContract > 0 && (
+                <span className="text-muted-foreground">{t('pm.fields.underContract', { amount: formatCurrency(String(underContract)) })}</span>
+              )}
+              {canManage && (
+                <button
+                  type="button"
+                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                  onClick={() => setBillingClosed.mutate(false)}
+                  disabled={setBillingClosed.isPending}
+                >
+                  {t('pm.fields.reopenBilling')}
+                </button>
+              )}
+            </div>
+          )}
+          {canCloseBilling && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 h-7 text-xs"
+              title={t('pm.fields.closeBillingHint')}
+              onClick={() => setBillingClosed.mutate(true)}
+              disabled={setBillingClosed.isPending}
+            >
+              <Check className="h-3 w-3 mr-1" />{t('pm.fields.closeBilling')}
+            </Button>
+          )}
         </div>
         <div className={`rounded-lg border p-4 space-y-1 ${profit >= 0
           ? 'border-green-500/30 bg-green-500/10 text-green-800 dark:text-green-300'

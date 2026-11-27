@@ -851,7 +851,13 @@
       "labourIncomplete": "Some hours have no cost in Kimai",
       "deadline": "Deadline",
       "startDateShort": "Start",
-      "completedAt": "Completed on"
+      "completedAt": "Completed on",
+      "closeBilling": "Close billing",
+      "closeBillingHint": "Nothing more will be invoiced. The project leaves the Outstanding report and counts at its invoiced amount.",
+      "billingClosed": "Billing closed",
+      "underContract": "{{amount}} under contract",
+      "reopenBilling": "Reopen",
+      "billingSaved": "Billing updated"
     },
     "projects": {
       "title": "Projects",

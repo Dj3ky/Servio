@@ -30,6 +30,8 @@ export const pmProjects = pgTable('pm_projects', {
   receivedAmount: numeric('received_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   notes: text('notes'),
   completedAt: timestamp('completed_at'),
+  // Completed and billed for less than the contract: no longer outstanding, and the reports count the invoiced amount as its value
+  billingClosed: boolean('billing_closed').notNull().default(false),
   // Manual order, set with the arrows on the Projects page; new projects go last
   sortIndex: serial('sort_index').notNull(),
   // Linked Kimai project; the name is a copy so the link still shows when Kimai is down

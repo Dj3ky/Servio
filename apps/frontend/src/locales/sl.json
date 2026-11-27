@@ -861,7 +861,13 @@
       "labourIncomplete": "Nekatere ure v Kimai nimajo stroška",
       "deadline": "Rok",
       "startDateShort": "Začetek",
-      "completedAt": "Zaključeno"
+      "completedAt": "Zaključeno",
+      "closeBilling": "Zaključi fakturiranje",
+      "closeBillingHint": "Več ne bo fakturirano. Projekt izgine iz poročila Nefakturirano in se šteje po fakturiranem znesku.",
+      "billingClosed": "Fakturiranje zaključeno",
+      "underContract": "{{amount}} pod pogodbeno vrednostjo",
+      "reopenBilling": "Odpri",
+      "billingSaved": "Fakturiranje posodobljeno"
     },
     "projects": {
       "title": "Projekti",

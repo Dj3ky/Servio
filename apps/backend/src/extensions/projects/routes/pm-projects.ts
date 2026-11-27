@@ -90,6 +90,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     invoicedAmount: pmProjects.invoicedAmount,
     notes: pmProjects.notes,
     completedAt: pmProjects.completedAt,
+    billingClosed: pmProjects.billingClosed,
     createdAt: pmProjects.createdAt,
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
@@ -357,6 +358,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     receivedAmount: pmProjects.receivedAmount,
     notes: pmProjects.notes,
     completedAt: pmProjects.completedAt,
+    billingClosed: pmProjects.billingClosed,
     createdAt: pmProjects.createdAt,
     updatedAt: pmProjects.updatedAt,
     employeeId: pmProjects.employeeId,
@@ -425,8 +427,9 @@ router.patch('/:id', requireRole('projects', 'manage'), async (req: Request, res
   if (!parsed.success) { res.status(400).json({ error: 'errors.validation', details: parsed.error.flatten().fieldErrors }); return; }
 
   const { invoicedAmount, ...rest } = parsed.data;
+  // Reopening a project also reopens its billing
   const completedAtUpdate = 'status' in parsed.data
-    ? { completedAt: parsed.data.status === 'completed' ? new Date() : null }
+    ? parsed.data.status === 'completed' ? { completedAt: new Date() } : { completedAt: null, billingClosed: false }
     : {};
   const [updated] = await db.update(pmProjects).set({
     ...rest,

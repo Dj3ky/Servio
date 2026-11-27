@@ -14,6 +14,10 @@ router.use(requireRole('projects', 'access'));
 const requireReports = requireRole('projects', 'reports');
 router.use((req, res, next) => (req.path.startsWith('/project/') ? next() : requireReports(req, res, next)));
 
+// What a project is really worth: a completed project with closed billing is worth what was invoiced,
+// so it leaves nothing outstanding; every other project is worth its contract value.
+const projectValue = sql<string>`(case when ${pmProjects.status} = 'completed' and ${pmProjects.billingClosed} then ${pmProjects.invoicedAmount} else ${pmProjects.contractValue} end)`;
+
 // Optional ?customer= filter shared by all reports. Customer names are free text,
 // so they match ignoring case and surrounding spaces ("Petrol " = "PETROL").
 function customerFilter(req: Request): SQL | undefined {
@@ -97,14 +101,14 @@ router.get('/by-customer', async (_req: Request, res: Response): Promise<void> =
     variants: sql<number>`count(distinct trim(${pmProjects.customerName}))::int`,
     activeCount: sql<number>`(count(*) filter (where ${pmProjects.status} <> 'completed'))::int`,
     completedCount: sql<number>`(count(*) filter (where ${pmProjects.status} = 'completed'))::int`,
-    contractValue: sql<string>`coalesce(sum(${pmProjects.contractValue}), 0)`,
+    contractValue: sql<string>`coalesce(sum(${projectValue}), 0)`,
     invoiced: sql<string>`coalesce(sum(${pmProjects.invoicedAmount}), 0)`,
     remainingActive: sql<string>`coalesce(sum(${pmProjects.contractValue} - ${pmProjects.invoicedAmount}) filter (where ${pmProjects.status} <> 'completed'), 0)`,
-    unbilledCompleted: sql<string>`coalesce(sum(greatest(${pmProjects.contractValue} - ${pmProjects.invoicedAmount}, 0)) filter (where ${pmProjects.status} = 'completed'), 0)`,
+    unbilledCompleted: sql<string>`coalesce(sum(greatest(${projectValue} - ${pmProjects.invoicedAmount}, 0)) filter (where ${pmProjects.status} = 'completed'), 0)`,
   })
     .from(pmProjects)
     .groupBy(key)
-    .orderBy(desc(sql`coalesce(sum(${pmProjects.contractValue}), 0)`));
+    .orderBy(desc(sql`coalesce(sum(${projectValue}), 0)`));
 
   res.json(rows);
 });
@@ -362,7 +366,8 @@ router.get('/yearly-projects', async (req: Request, res: Response): Promise<void
     status: pmProjects.status,
     endDate: pmProjects.endDate,
     completedAt: pmProjects.completedAt,
-    contractValue: pmProjects.contractValue,
+    contractValue: projectValue,
+    billingClosed: pmProjects.billingClosed,
     invoicedAmount: pmProjects.invoicedAmount,
     receivedAmount: pmProjects.receivedAmount,
     employeeId: pmProjects.employeeId,
@@ -401,7 +406,7 @@ router.get('/yearly-projects', async (req: Request, res: Response): Promise<void
   });
 });
 
-// Completed projects with uninvoiced balance
+// Completed projects with uninvoiced balance; closed billing means nothing more will be invoiced
 router.get('/outstanding', async (req: Request, res: Response): Promise<void> => {
   const projects = await db.select({
     id: pmProjects.id,
@@ -418,6 +423,7 @@ router.get('/outstanding', async (req: Request, res: Response): Promise<void> =>
     .leftJoin(users, eq(pmProjects.employeeId, users.id))
     .where(and(
       eq(pmProjects.status, 'completed'),
+      eq(pmProjects.billingClosed, false),
       sql`${pmProjects.contractValue} is not null`,
       sql`${pmProjects.contractValue} > ${pmProjects.invoicedAmount}`,
       customerFilter(req),

@@ -203,6 +203,8 @@ async function ensurePmTables() {
       )
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS pm_project_notes_project_idx ON pm_project_notes(project_id)`);
+    // From migration 0026
+    await db.execute(sql`ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS billing_closed BOOLEAN NOT NULL DEFAULT false`);
     console.log('[pm-extension] Tables ensured.');
   } catch (err) {
     console.error('[pm-extension] Failed to ensure tables:', err);
